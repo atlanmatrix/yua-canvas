@@ -55,9 +55,9 @@ test("plain text pastes as a title-free 80-character block with persistent borde
   expect(size.width).toBeLessThanOrEqual(648);
   expect(size.height).toBeGreaterThan(48);
   const edge = await card.getByTestId("card-resize-e").boundingBox();
-  await page.mouse.move(edge!.x + 4, edge!.y + edge!.height / 2);
+  await page.mouse.move(edge!.x + 4, edge!.y + edge!.height / 10);
   await page.mouse.down();
-  await page.mouse.move(edge!.x - 116, edge!.y + edge!.height / 2, {
+  await page.mouse.move(edge!.x - 116, edge!.y + edge!.height / 10, {
     steps: 10,
   });
   await page.mouse.up();
@@ -126,7 +126,7 @@ test("pasted images retain aspect ratio without chrome and all new copies avoid 
     expect(await noOverlap(page)).toBe(true);
   }
 });
-test("partially outside blocks expand a group; wholly outside leave and collision drags are blocked", async ({
+test("partially outside blocks expand a group; wholly outside leave and collision drags push neighbours away", async ({
   page,
 }) => {
   await page.goto("/");
@@ -142,25 +142,23 @@ test("partially outside blocks expand a group; wholly outside leave and collisio
     color: "#fffdf5",
     group,
   });
-  await page
-    .getByTestId("import")
-    .setInputFiles({
-      name: "board.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(
-        JSON.stringify({
-          version: 1,
-          groups: [
-            {
-              id: "g",
-              name: "容器",
-              bounds: { x: 80, y: 60, width: 220, height: 160 },
-            },
-          ],
-          cards: [make("甲", 100, "g"), make("乙", 650), make("丙", 900)],
-        }),
-      ),
-    });
+  await page.getByTestId("import").setInputFiles({
+    name: "board.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(
+      JSON.stringify({
+        version: 1,
+        groups: [
+          {
+            id: "g",
+            name: "容器",
+            bounds: { x: 80, y: 60, width: 220, height: 160 },
+          },
+        ],
+        cards: [make("甲", 100, "g"), make("乙", 650), make("丙", 900)],
+      }),
+    ),
+  });
   await page.getByRole("button", { name: "确认替换" }).click();
   const a = page.getByTestId("card").filter({ hasText: "甲" });
   await expect(a).toHaveCount(1);
@@ -181,7 +179,12 @@ test("partially outside blocks expand a group; wholly outside leave and collisio
     x: parseFloat((el as HTMLElement).style.left),
     w: parseFloat((el as HTMLElement).style.width),
   }));
-  expect(ar.x + ar.w).toBeLessThanOrEqual(650.01);
+  expect(ar.x).toBeCloseTo(650, 0);
+  const neighbour = await page
+    .getByTestId("card")
+    .filter({ hasText: "乙" })
+    .evaluate((el) => parseFloat((el as HTMLElement).style.left));
+  expect(neighbour).toBeGreaterThanOrEqual(ar.x + ar.w);
   await page.keyboard.press("ControlOrMeta+z");
   await expect(a).toHaveAttribute("data-group-name", "");
   await page.keyboard.press("ControlOrMeta+z");

@@ -7,6 +7,7 @@ export class FileClipboardUnsupported extends Error {
 }
 export const isTextFile = (card: Card) =>
   card.mime?.startsWith("text/") ||
+  /(?:^|\.)env(?:\.[^/]+)*$/i.test(card.title) ||
   /\.(txt|md|markdown|mdown|csv|json|xml|yaml|yml|log|js|ts|tsx|jsx|css|html|svg)$/i.test(
     card.title,
   );

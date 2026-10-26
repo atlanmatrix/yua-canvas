@@ -1,3 +1,4 @@
+import { validEndpoint, type Connection } from "./connections";
 import { cardRect } from "./geometry";
 export type Card = {
   id: string;
@@ -121,7 +122,12 @@ export function initializeGroups(board: Board): Board {
     ),
   };
 }
-export type Board = { version: 1; cards: Card[]; groups: Group[] };
+export type Board = {
+  version: 1;
+  cards: Card[];
+  groups: Group[];
+  connections?: Connection[];
+};
 export const emptyBoard: Board = { version: 1, cards: [], groups: [] };
 const database = new Promise<IDBDatabase>((resolve, reject) => {
   const request = indexedDB.open("yua-canvas", 1);
@@ -283,5 +289,27 @@ export async function importBoard(raw: string): Promise<Board> {
       };
     }),
   );
-  return initializeGroups({ version: 1, cards, groups });
+  if (data.connections !== undefined && !Array.isArray(data.connections))
+    throw new Error("连线数据无效");
+  const connectionIds = new Set<string>();
+  const connections: Connection[] = (data.connections || []).map(
+    (c: Connection) => {
+      if (
+        !c ||
+        typeof c.id !== "string" ||
+        connectionIds.has(c.id) ||
+        !validEndpoint(c.from, cards) ||
+        !validEndpoint(c.to, cards) ||
+        c.from.card === c.to.card
+      )
+        throw new Error("连线数据无效");
+      connectionIds.add(c.id);
+      return {
+        id: c.id,
+        from: { card: c.from.card, side: c.from.side, task: c.from.task },
+        to: { card: c.to.card, side: c.to.side, task: c.to.task },
+      };
+    },
+  );
+  return initializeGroups({ version: 1, cards, groups, connections });
 }

@@ -204,3 +204,51 @@ export function fragmentOffset(cards: Card[], others: Card[], offset: number) {
   }
   return { x: dx, y: offset };
 }
+
+// Moving cards are anchors; sweep other cards out along the drag direction.
+// The directional order lets a displaced neighbour push the next neighbour too.
+export function pushCards(
+  board: Board,
+  movingIds: string[],
+  delta: { x: number; y: number },
+): Board {
+  const fixed = new Set(movingIds),
+    horizontal = Math.abs(delta.x) >= Math.abs(delta.y),
+    sign = (horizontal ? delta.x : delta.y) < 0 ? -1 : 1;
+  const anchors = board.cards.filter((c) => fixed.has(c.id));
+  const others = board.cards
+    .filter((c) => !fixed.has(c.id))
+    .sort(
+      (a, b) =>
+        sign * ((horizontal ? a.x : a.y) - (horizontal ? b.x : b.y)) ||
+        a.id.localeCompare(b.id),
+    );
+  const placed = [...anchors],
+    updated = new Map<string, Card>();
+  for (const card of others) {
+    let next = card;
+    for (let pass = 0; pass <= placed.length; pass++) {
+      const hits = placed.filter((p) => overlaps(cardRect(next), cardRect(p)));
+      if (!hits.length) break;
+      if (horizontal)
+        next = {
+          ...next,
+          x:
+            sign > 0
+              ? Math.max(...hits.map((c) => c.x + cardRect(c).width)) + 16
+              : Math.min(...hits.map((c) => c.x)) - cardRect(next).width - 16,
+        };
+      else
+        next = {
+          ...next,
+          y:
+            sign > 0
+              ? Math.max(...hits.map((c) => c.y + cardRect(c).height)) + 16
+              : Math.min(...hits.map((c) => c.y)) - cardRect(next).height - 16,
+        };
+    }
+    placed.push(next);
+    updated.set(next.id, next);
+  }
+  return { ...board, cards: board.cards.map((c) => updated.get(c.id) || c) };
+}

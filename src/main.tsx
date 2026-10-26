@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ListTodo,
@@ -61,9 +61,11 @@ import {
   textSize,
   TEXT_MAX_WIDTH,
   canPlace,
+  pushCards,
   settleGroups,
 } from "./geometry";
 import { cardDownload } from "./downloads";
+import { type Endpoint, type Side, endpointPoint, curve } from "./connections";
 import "./style.css";
 const uid = () => crypto.randomUUID();
 const colors = ["#ffffff"];
@@ -208,6 +210,14 @@ function GroupNameEditor({
 }
 function App() {
   const { board, setBoard, reset, begin, end, undo, redo } = useBoardHistory();
+  const [linkDraft, setLinkDraft] = useState<{
+      from: Endpoint;
+      point: { x: number; y: number };
+    } | null>(null),
+    [selectedConnection, setSelectedConnection] = useState<string>(),
+    [taskOffsets, setTaskOffsets] = useState<
+      Record<string, { y: number; visible: boolean }>
+    >({});
   const [selectedGroup, setSelectedGroup] = useState<string>(),
     [editingGroup, setEditingGroup] = useState<string>(),
     [menu, setMenu] = useState<{
@@ -267,7 +277,8 @@ function App() {
     pendingUpload = useRef<{ x: number; y: number } | undefined>(undefined),
     suppressToolbarClick = useRef(false),
     gesture = useRef<{
-      kind: "pan" | "move" | "select" | "resize" | "create";
+      kind: "pan" | "move" | "select" | "resize" | "create" | "link";
+      from?: Endpoint;
       createKind?: Card["kind"];
       button?: number;
       context?: { id: string; kind: "card" | "group" };
@@ -285,9 +296,46 @@ function App() {
       startX: number;
       startY: number;
       moved: boolean;
+      lastX?: number;
+      lastY?: number;
     } | null>(null),
     space = useRef(false),
     loaded = useRef(false);
+  useLayoutEffect(() => {
+    const el = surface.current;
+    if (!el) return;
+    const measure = () => {
+      const next: Record<string, { y: number; visible: boolean }> = {};
+      el.querySelectorAll<HTMLElement>(".card-todo").forEach((card) => {
+        const box = card.getBoundingClientRect(),
+          list = card.querySelector(".todo-list")!.getBoundingClientRect();
+        card.querySelectorAll<HTMLElement>("[data-task-id]").forEach((row) => {
+          const r = row.getBoundingClientRect(),
+            center = (r.top + r.bottom) / 2;
+          next[`${card.dataset.cardId}:${row.dataset.taskId}`] = {
+            y: Math.max(
+              8,
+              Math.min(box.height / view.z - 8, (center - box.top) / view.z),
+            ),
+            visible: center >= list.top && center <= list.bottom,
+          };
+        });
+      });
+      setTaskOffsets((old) =>
+        JSON.stringify(old) === JSON.stringify(next) ? old : next,
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    el.querySelectorAll(".card-todo,.todo-list,[data-task-id]").forEach((row) =>
+      observer.observe(row),
+    );
+    el.addEventListener("scroll", measure, true);
+    return () => {
+      observer.disconnect();
+      el.removeEventListener("scroll", measure, true);
+    };
+  }, [board.cards, view.z]);
   const notify = (message: string) => {
     setCopyFiles([]);
     setToast(message);
@@ -367,6 +415,14 @@ function App() {
   const updateCards = (fn: (cards: Card[]) => Card[]) =>
     setBoard((b) => ({ ...b, cards: fn(b.cards) }));
   const removeSelected = () => {
+    if (selectedConnection) {
+      setBoard((b) => ({
+        ...b,
+        connections: b.connections?.filter((c) => c.id !== selectedConnection),
+      }));
+      setSelectedConnection(undefined);
+      return;
+    }
     if (selectedGroup) {
       const family = groupTreeIds(board.groups, selectedGroup);
       setBoard((b) => ({
@@ -724,6 +780,7 @@ function App() {
       tool === "hand" || space.current || e.button === 1 || modifierPan;
     let ids = selection;
     const family = groupId ? groupTreeIds(board.groups, groupId) : undefined;
+    if (!pan) setSelectedConnection(undefined);
     if (groupId && !pan) {
       ids = board.cards
         .filter((c) => c.group && family!.has(c.group))
@@ -820,6 +877,31 @@ function App() {
     };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
+  const startConnection = (e: React.PointerEvent, from: Endpoint) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    setSelectedConnection(undefined);
+    setSelection([]);
+    setSelectedGroup(undefined);
+    setLinkDraft({
+      from,
+      point: endpointPoint(from, board.cards, taskOffsets),
+    });
+    gesture.current = {
+      kind: "link",
+      from,
+      x: e.clientX,
+      y: e.clientY,
+      view,
+      cards: board.cards,
+      ids: [],
+      startX: 0,
+      startY: 0,
+      moved: false,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
   const startToolbarDrag = (e: React.PointerEvent, kind: Card["kind"]) => {
     if (e.button !== 0 || !ready) return;
     suppressToolbarClick.current = false;
@@ -846,7 +928,24 @@ function App() {
     if (!g) return;
     const dx = e.clientX - g.x,
       dy = e.clientY - g.y;
+    const delta = {
+      x: e.clientX - (g.lastX ?? g.x),
+      y: e.clientY - (g.lastY ?? g.y),
+    };
+    g.lastX = e.clientX;
+    g.lastY = e.clientY;
     if (Math.abs(dx) + Math.abs(dy) > 4) g.moved = true;
+    if (g.kind === "link" && g.from) {
+      const r = surface.current!.getBoundingClientRect();
+      setLinkDraft({
+        from: g.from,
+        point: {
+          x: (e.clientX - r.left - view.x) / view.z,
+          y: (e.clientY - r.top - view.y) / view.z,
+        },
+      });
+      return;
+    }
     if (g.kind === "create" && g.moved) {
       suppressToolbarClick.current = true;
       setCreatePreview({ kind: g.createKind!, x: e.clientX, y: e.clientY });
@@ -962,7 +1061,7 @@ function App() {
                 })
               : b.groups,
         };
-        return canPlace(proposed.cards) ? proposed : b;
+        return pushCards(proposed, g.ids, delta);
       });
     if (g.kind === "select") {
       const x = Math.min(g.startX, g.startX + dx / g.view.z),
@@ -991,6 +1090,62 @@ function App() {
     gesture.current = null;
     setMarquee(null);
     setCreatePreview(null);
+    if (g?.kind === "link" && g.from) {
+      setLinkDraft(null);
+      if (e.type !== "pointercancel") {
+        const hit = document.elementFromPoint(e.clientX, e.clientY),
+          port = hit?.closest<HTMLElement>("[data-port-card]"),
+          cardNode = hit?.closest<HTMLElement>("[data-card-id]");
+        let to: Endpoint | undefined;
+        if (port)
+          to = {
+            card: port.dataset.portCard!,
+            side: port.dataset.portSide as Side,
+            task: port.dataset.portTask || undefined,
+          };
+        else if (cardNode) {
+          const target = board.cards.find(
+            (c) => c.id === cardNode.dataset.cardId,
+          )!;
+          const r = cardNode.getBoundingClientRect(),
+            distances: [Side, number][] = [
+              ["w", Math.abs(e.clientX - r.left)],
+              ["e", Math.abs(e.clientX - r.right)],
+              ["n", Math.abs(e.clientY - r.top)],
+              ["s", Math.abs(e.clientY - r.bottom)],
+            ];
+          to = {
+            card: target.id,
+            side: distances.sort((a, b) => a[1] - b[1])[0][0],
+          };
+        }
+        if (to && to.card !== g.from.card) {
+          const from = g.from,
+            target = to;
+          setBoard((b) => {
+            const existing = (b.connections || []).some(
+              (c) =>
+                c.from.card === from.card &&
+                c.from.side === from.side &&
+                c.from.task === from.task &&
+                c.to.card === target.card &&
+                c.to.side === target.side &&
+                c.to.task === target.task,
+            );
+            return existing
+              ? b
+              : {
+                  ...b,
+                  connections: [
+                    ...(b.connections || []),
+                    { id: uid(), from, to: target },
+                  ],
+                };
+          });
+        }
+      }
+      return;
+    }
     if (
       g?.kind === "pan" &&
       g.button === 2 &&
@@ -1155,6 +1310,9 @@ function App() {
       const key = e.key.toLowerCase(),
         mod = e.ctrlKey || e.metaKey;
       if (key === "escape") {
+        if (gesture.current?.kind === "link") gesture.current = null;
+        setLinkDraft(null);
+        setSelectedConnection(undefined);
         if (gesture.current?.kind === "create") {
           gesture.current = null;
           suppressToolbarClick.current = true;
@@ -1205,6 +1363,7 @@ function App() {
           document.querySelector<HTMLInputElement>(".search input")?.focus();
         } else if (key === "a") {
           e.preventDefault();
+          setSelectedConnection(undefined);
           setSelection(visible.map((c) => c.id));
           setSelectedGroup(undefined);
         } else if (key === "g") {
@@ -1327,7 +1486,7 @@ function App() {
   );
   return (
     <div
-      className="app"
+      className={"app " + (linkDraft ? "connecting" : "")}
       onPointerMove={pointerMove}
       onPointerUp={pointerUp}
       onPointerCancel={pointerUp}
@@ -1528,6 +1687,62 @@ function App() {
               transform: `translate(${view.x}px,${view.y}px) scale(${view.z})`,
             }}
           >
+            <svg className="connection-layer" aria-label="画布连线">
+              {(board.connections || [])
+                .filter(
+                  (c) =>
+                    visible.some((card) => card.id === c.from.card) &&
+                    visible.some((card) => card.id === c.to.card),
+                )
+                .map((c) => {
+                  const d = curve(
+                    endpointPoint(c.from, board.cards, taskOffsets),
+                    endpointPoint(c.to, board.cards, taskOffsets),
+                    c.from.side,
+                    c.to.side,
+                  );
+                  return (
+                    <g key={c.id} data-connection-id={c.id}>
+                      <path
+                        className={
+                          "connection-path " +
+                          (selectedConnection === c.id ? "selected" : "")
+                        }
+                        d={d}
+                      />
+                      <path
+                        className="connection-hit"
+                        d={d}
+                        role="button"
+                        aria-label="选择连线"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={() => {
+                          setSelectedConnection(c.id);
+                          setSelection([]);
+                          setSelectedGroup(undefined);
+                        }}
+                      />
+                    </g>
+                  );
+                })}
+              {linkDraft && (
+                <path
+                  className="connection-path draft"
+                  d={curve(
+                    endpointPoint(linkDraft.from, board.cards, taskOffsets),
+                    linkDraft.point,
+                    linkDraft.from.side,
+                    linkDraft.from.side === "e"
+                      ? "w"
+                      : linkDraft.from.side === "w"
+                        ? "e"
+                        : linkDraft.from.side === "n"
+                          ? "s"
+                          : "n",
+                  )}
+                />
+              )}
+            </svg>
             {[...board.groups]
               .sort(
                 (a, b) =>
@@ -1717,6 +1932,7 @@ function App() {
                     {(c.tasks || []).map((task) => (
                       <label
                         key={task.id}
+                        data-task-id={task.id}
                         className={task.done ? "completed" : ""}
                       >
                         <input
@@ -1750,7 +1966,7 @@ function App() {
                   <>
                     <Attachment card={c} />
                     <div className="attachment-title">
-                      <FileText size={24} />
+                      <FileText size={16} />
                       <span>{c.title}</span>
                     </div>
                   </>
@@ -1772,6 +1988,58 @@ function App() {
                         )}
                       </span>
                     </footer>
+                  )}
+                {(c.kind === "todo" ? ["n", "s"] : ["n", "e", "s", "w"]).map(
+                  (value) => {
+                    const side = value as Side;
+                    return (
+                      <button
+                        key={side}
+                        className={`connection-port port-${side}`}
+                        aria-label={`连接 ${c.title || c.text.slice(0, 20) || "任务"} ${side}`}
+                        data-port-card={c.id}
+                        data-port-side={side}
+                        onPointerDown={(e) =>
+                          startConnection(e, { card: c.id, side })
+                        }
+                        onDoubleClick={(e) => e.stopPropagation()}
+                      >
+                        <Plus size={12} />
+                      </button>
+                    );
+                  },
+                )}
+                {c.kind === "todo" &&
+                  (c.tasks || []).flatMap((task, index) =>
+                    ["w", "e"].map((value) => {
+                      const side = value as Side,
+                        offset = taskOffsets[`${c.id}:${task.id}`];
+                      return (
+                        <button
+                          key={`${task.id}:${side}`}
+                          className={`connection-port task-port port-${side}`}
+                          style={{
+                            top: (offset?.y ?? 54 + index * 32) - 1,
+                            visibility:
+                              offset && !offset.visible ? "hidden" : undefined,
+                          }}
+                          aria-label={`连接任务 ${task.text} ${side}`}
+                          data-port-card={c.id}
+                          data-port-side={side}
+                          data-port-task={task.id}
+                          onPointerDown={(e) =>
+                            startConnection(e, {
+                              card: c.id,
+                              task: task.id,
+                              side,
+                            })
+                          }
+                          onDoubleClick={(e) => e.stopPropagation()}
+                        >
+                          <Plus size={12} />
+                        </button>
+                      );
+                    }),
                   )}
                 <button
                   className="card-download"

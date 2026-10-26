@@ -461,9 +461,9 @@ test("group title drags every member at current zoom, including filtered cards",
   await page.getByRole("button", { name: "清除搜索" }).click();
   cards = await positions();
   expect(cards.map((c) => [c.x, c.y])).toEqual([
-    [105, 50],
-    [405, 50],
-    [0, 300],
+    [130, 60],
+    [430, 60],
+    [686, 300],
   ]);
   await expect(
     page.locator('.save-indicator[data-state="已保存至本地"]'),

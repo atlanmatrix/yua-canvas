@@ -1,3 +1,4 @@
+import { pruneConnections } from "./connections";
 import { layoutBoard } from "./geometry";
 import { useRef, useState } from "react";
 import { emptyBoard, type Board } from "./storage";
@@ -13,7 +14,9 @@ export function useBoardHistory() {
   };
   const setBoard = (action: Board | ((b: Board) => Board)) => {
     const previous = current.current,
-      raw = typeof action === "function" ? action(previous) : action,
+      raw = pruneConnections(
+        typeof action === "function" ? action(previous) : action,
+      ),
       next = transaction.current ? raw : layoutBoard(raw, previous);
     if (next === previous) return;
     if (!transaction.current) push(previous);
@@ -33,7 +36,7 @@ export function useBoardHistory() {
     if (start && start !== current.current) push(start);
   };
   const reset = (raw: Board) => {
-    const b = layoutBoard(raw);
+    const b = pruneConnections(layoutBoard(raw));
     past.current = [];
     future.current = [];
     transaction.current = null;

@@ -1,3 +1,4 @@
+import type { Connection } from "./connections";
 import { fragmentOffset, cardRect } from "./geometry";
 import {
   type Board,
@@ -7,14 +8,25 @@ import {
   attachParents,
   containingGroup,
 } from "./storage";
-export type Fragment = { cards: Card[]; groups: Group[] };
+export type Fragment = {
+  cards: Card[];
+  groups: Group[];
+  connections?: Connection[];
+};
 export function selectedFragment(
   board: Board,
   selection: string[],
   group?: string,
 ): Fragment {
   const family = group ? groupTreeIds(board.groups, group) : new Set<string>();
+  const cards = board.cards.filter(
+    (c) => selection.includes(c.id) || (c.group && family.has(c.group)),
+  );
+  const cardIds = new Set(cards.map((c) => c.id));
   return {
+    connections: board.connections?.filter(
+      (c) => cardIds.has(c.from.card) && cardIds.has(c.to.card),
+    ),
     cards: board.cards.filter(
       (c) => selection.includes(c.id) || (c.group && family.has(c.group)),
     ),
@@ -48,9 +60,17 @@ export function duplicateFragment(
       ? { ...g.bounds, x: g.bounds.x + delta.x, y: g.bounds.y + delta.y }
       : undefined,
   }));
+  const cardIds = new Map(
+    fragment.cards.map((c) => [c.id, crypto.randomUUID()]),
+  );
+  const taskIds = new Map(
+    fragment.cards.flatMap((c) =>
+      (c.tasks || []).map((t) => [`${c.id}:${t.id}`, crypto.randomUUID()]),
+    ),
+  );
   const cards = fragment.cards.map((c) => ({
     ...c,
-    id: crypto.randomUUID(),
+    id: cardIds.get(c.id)!,
     x: c.x + delta.x,
     y: c.y + delta.y,
     group:
@@ -60,13 +80,33 @@ export function duplicateFragment(
             { ...c, x: c.x + delta.x, y: c.y + delta.y },
             board.groups,
           ),
-    tasks: c.tasks?.map((t) => ({ ...t, id: crypto.randomUUID() })),
+    tasks: c.tasks?.map((t) => ({ ...t, id: taskIds.get(`${c.id}:${t.id}`)! })),
   }));
   return {
     board: {
       ...board,
       cards: [...board.cards, ...cards],
       groups: attachParents([...board.groups, ...groups]),
+      connections: [
+        ...(board.connections || []),
+        ...(fragment.connections || []).map((c) => ({
+          id: crypto.randomUUID(),
+          from: {
+            ...c.from,
+            card: cardIds.get(c.from.card)!,
+            task: c.from.task
+              ? taskIds.get(`${c.from.card}:${c.from.task}`)
+              : undefined,
+          },
+          to: {
+            ...c.to,
+            card: cardIds.get(c.to.card)!,
+            task: c.to.task
+              ? taskIds.get(`${c.to.card}:${c.to.task}`)
+              : undefined,
+          },
+        })),
+      ],
     },
     cards: cards.map((c): string => c.id),
     group: groups.find((g) => !g.parent)?.id,

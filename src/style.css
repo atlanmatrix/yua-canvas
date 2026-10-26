@@ -317,8 +317,12 @@ main {
   pointer-events: none;
 }
 .attachment-title {
-  padding: 9px 14px;
-  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: 16px;
+  line-height: 22px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -905,9 +909,9 @@ main {
 .resize-sw {
   width: 12px;
   height: 12px;
-  border: 1px solid var(--accent-border);
-  border-radius: 3px;
-  background: #f2f5fa;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 .resize-ne {
   right: -5px;
@@ -1151,13 +1155,15 @@ main {
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  gap: 10px;
-  padding: 14px 16px 16px;
-  font-size: 22px;
-  line-height: 28px;
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: 16px;
+  line-height: 22px;
   color: #202124;
 }
 .attachment-title svg {
+  width: 16px;
+  height: 16px;
   color: #1685ff;
 }
 .attachment-title span {
@@ -1190,4 +1196,116 @@ main {
     opacity: 1;
     pointer-events: auto;
   }
+}
+
+.group-boundary::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 35px;
+  border-radius: 11px 11px 0 0;
+  background: var(--accent-soft);
+  pointer-events: none;
+}
+.group-boundary .group-title,
+.group-boundary .group-fit,
+.group-boundary .group-fit:hover {
+  background: transparent;
+}
+.group-boundary .group-fit:hover {
+  color: var(--accent);
+}
+.card {
+  overflow: visible;
+}
+.connection-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 0;
+}
+.connection-path {
+  fill: none;
+  stroke: #60a5fa;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.connection-path.selected {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+.connection-path.draft {
+  stroke-dasharray: 5 4;
+}
+.connection-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  vector-effect: non-scaling-stroke;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.connection-port {
+  position: absolute;
+  z-index: 6;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--accent-border);
+  border-radius: 50%;
+  background: white;
+  color: var(--accent);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+  touch-action: none;
+}
+.card:hover .connection-port,
+.card:focus-within .connection-port,
+.connecting .connection-port {
+  opacity: 1;
+  pointer-events: auto;
+}
+.port-n {
+  left: 50%;
+  top: 0;
+}
+.port-s {
+  left: 50%;
+  top: 100%;
+}
+.port-w {
+  left: 0;
+  top: 50%;
+}
+.port-e {
+  left: 100%;
+  top: 50%;
+}
+.connection-port:hover {
+  background: var(--accent);
+  color: white;
+}
+.todo-list {
+  position: relative;
+}
+.port-n {
+  top: -1px;
+}
+.port-s {
+  top: calc(100% + 1px);
+}
+.port-w {
+  left: -1px;
+}
+.port-e {
+  left: calc(100% + 1px);
+}
+.connecting .canvas {
+  cursor: crosshair;
 }
