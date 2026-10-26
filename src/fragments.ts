@@ -70,6 +70,13 @@ export function duplicateFragment(
               { ...c, x: c.x + delta.x, y: c.y + delta.y },
               board.groups,
             ),
+    canvas: c.canvas
+      ? {
+          ...c.canvas,
+          id: crypto.randomUUID(),
+          ...selectedFragmentDeep(c.canvas),
+        }
+      : undefined,
     tasks: c.tasks?.map((t) => ({ ...t, id: taskIds.get(`${c.id}:${t.id}`)! })),
   }));
   return {
@@ -101,5 +108,23 @@ export function duplicateFragment(
     },
     cards: cards.map((c): string => c.id),
     group: groups.find((g) => !g.parent)?.id,
+  };
+}
+
+function selectedFragmentDeep(board: Board): Fragment {
+  const result = duplicateFragment(
+    { ...board, cards: [], groups: [], connections: [] },
+    {
+      cards: board.cards,
+      groups: board.groups,
+      connections: board.connections,
+    },
+    0,
+    true,
+  );
+  return {
+    cards: result.board.cards,
+    groups: result.board.groups,
+    connections: result.board.connections,
   };
 }

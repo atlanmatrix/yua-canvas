@@ -1550,3 +1550,94 @@ main {
 .context-menu button.danger:hover {
   background: #fff1f2;
 }
+
+.canvas-card-preview {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+.canvas-card-preview button {
+  color: var(--accent);
+  padding: 18px;
+  border-radius: var(--element-radius);
+}
+.canvas-card-preview button:hover {
+  background: var(--accent-soft);
+}
+.card-canvas {
+  border: 1px solid #e4e4e7;
+  border-radius: var(--element-radius);
+}
+.card-canvas .group-name-editor {
+  position: static;
+  font-size: 16px;
+  min-width: 0;
+  width: 100%;
+  height: 28px;
+  padding: 0;
+}
+.canvas-navigation {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+.canvas-navigation span {
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  color: var(--ink);
+}
+.file-edit-controls {
+  display: flex;
+  gap: 5px;
+  padding-bottom: 12px;
+}
+.file-edit-controls button {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #8791a5;
+  border-radius: 5px;
+}
+.file-edit-controls button.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.file-content-editor {
+  display: block;
+  width: 100%;
+  min-height: 330px;
+  height: 50dvh;
+  padding: 14px;
+  border: 1px solid #d0d6e3;
+  border-radius: 6px;
+  color: var(--ink);
+  background: white;
+  font: 13px/1.7 monospace;
+  resize: vertical;
+  tab-size: 4;
+}
+.file-edit-footer > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+@media (max-width: 700px) {
+  .canvas-navigation {
+    gap: 4px;
+  }
+  .canvas-navigation span {
+    max-width: 70px;
+  }
+  .file-content-editor {
+    min-height: 230px;
+  }
+}
+
+.file-content-editor {
+  text-align: left;
+}

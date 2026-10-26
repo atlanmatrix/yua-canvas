@@ -2,6 +2,9 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ListTodo,
+  PanelsTopLeft,
+  ArrowLeft,
+  Pencil,
   Plus,
   Search,
   ArrowUpRight,
@@ -41,6 +44,7 @@ import {
   emptyBoard,
   readBoard,
   readView,
+  readNavigation,
   exportBoard,
   importBoard,
 } from "./storage";
@@ -48,6 +52,7 @@ import { Markdown } from "./Markdown";
 import { NoteText, linkTarget } from "./NoteText";
 import { TextEditor } from "./TextEditor";
 import { TodoEditor } from "./TodoEditor";
+import { TextFileEditor } from "./TextFileEditor";
 import {
   CanvasContextMenu,
   ColorPalette,
@@ -62,7 +67,7 @@ import {
   FileClipboardUnsupported,
   isTextFile,
 } from "./clipboard";
-import { useBoardHistory } from "./history";
+import { useCanvasWorkspace, newBoard, canvasCard } from "./workspace";
 import {
   selectedFragment,
   duplicateFragment,
@@ -170,8 +175,10 @@ function GroupNameEditor({
   name,
   onSave,
   onCancel,
+  label = "分组名称",
 }: {
   name: string;
+  label?: string;
   onSave: (name: string) => void;
   onCancel: () => void;
 }) {
@@ -186,7 +193,7 @@ function GroupNameEditor({
   return (
     <input
       className="group-name-editor"
-      aria-label="分组名称"
+      aria-label={label}
       autoFocus
       maxLength={200}
       value={value}
@@ -208,8 +215,23 @@ function GroupNameEditor({
   );
 }
 function App() {
-  const { board, setBoard, reset, begin, end, undo, redo, cancel } =
-    useBoardHistory();
+  const workspace = useCanvasWorkspace();
+  const {
+    board,
+    root,
+    path,
+    names,
+    navigation,
+    view,
+    setView,
+    setBoard,
+    restore,
+    begin,
+    end,
+    undo,
+    redo,
+    cancel,
+  } = workspace;
   const [dragCursor, setDragCursor] = useState(false);
   const [linkModifier, setLinkModifier] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState(false);
@@ -228,7 +250,7 @@ function App() {
       x: number;
       y: number;
       id: string;
-      kind: "card" | "group";
+      kind: "card" | "group" | "canvas";
     } | null>(null);
   const internalCopy = useRef<{
     token: string;
@@ -238,13 +260,13 @@ function App() {
   const [ready, setReady] = useState(false),
     [saveStatus, setSaveStatus] = useState("正在读取"),
     [selection, setSelection] = useState<string[]>([]),
-    [view, setView] = useState({ x: 65, y: 55, z: 1 }),
     [tool, setTool] = useState<"select" | "hand">("select"),
     [query, setQuery] = useState(""),
     [searchOpen, setSearchOpen] = useState(false),
     [filter, setFilter] = useState("all"),
     [sidebar, setSidebar] = useState(false),
     [detail, setDetail] = useState<string>(),
+    [renamingCanvas, setRenamingCanvas] = useState<string>(),
     [editingCard, setEditingCard] = useState<string>(),
     [editingTask, setEditingTask] = useState<string>(),
     [groupDialog, setGroupDialog] = useState<{
@@ -290,7 +312,7 @@ function App() {
       button?: number;
       link?: string;
       toggleCard?: string;
-      context?: { id: string; kind: "card" | "group" };
+      context?: { id: string; kind: "card" | "group" | "canvas" };
       groupId?: string;
       groupIds?: Set<string>;
       groups?: Group[];
@@ -307,6 +329,8 @@ function App() {
       moved: boolean;
     } | null>(null),
     space = useRef(false);
+  const activeCanvasKey = useRef(board.id || "");
+  activeCanvasKey.current = board.id || "";
   const { viewport, projection } = useMinimapGeometry(board, view, surface);
   const cancelGesture = () => {
     const g = gesture.current;
@@ -365,10 +389,9 @@ function App() {
     return () => clearTimeout(t);
   }, [toast, copyFiles.length]);
   useEffect(() => {
-    Promise.all([readBoard(), readView()])
-      .then(([b, savedView]) => {
-        if (b) reset(b);
-        if (savedView) setView(savedView);
+    Promise.all([readBoard(), readView(), readNavigation()])
+      .then(([b, savedView, savedNavigation]) => {
+        restore(b || emptyBoard, savedView, savedNavigation);
         setReady(true);
         setSaveStatus("已保存至本地");
       })
@@ -377,7 +400,7 @@ function App() {
         notify("无法读取浏览器存储，请检查浏览器设置后刷新。");
       });
   }, []);
-  useAutosave(board, view, ready, setSaveStatus);
+  useAutosave(root, view, ready, setSaveStatus, navigation);
   useEffect(() => {
     if (searchOpen) searchInput.current?.focus();
   }, [searchOpen]);
@@ -475,6 +498,7 @@ function App() {
   ) => {
     if (!nodes.length) throw Error("浏览器未提供目录内容，请使用导入目录");
     const p = point || center();
+    const destination = board.id || "";
     try {
       const incoming = nodes.flatMap((node) =>
         node.kind === "file" ? [node.file] : [],
@@ -540,6 +564,7 @@ function App() {
         },
         { preserveLayout: fragments.some((fragment) => fragment.hasMetadata) },
       );
+      if (activeCanvasKey.current !== destination) return;
       setSelection(directoryGroup ? [] : added);
       setSelectedGroup(directoryGroup);
       if ((archives.length || directories.length) && imported)
@@ -738,8 +763,46 @@ function App() {
       cards.map((card) => (card.id === id ? { ...card, tasks } : card)),
     );
   };
+  const clearCanvasUI = () => {
+    if (editSession.current) finishEditing(editSession.current.id);
+    cancelGesture();
+    setSelection([]);
+    setSelectedGroup(undefined);
+    setSelectedConnection(undefined);
+    setMenu(null);
+    setDetail(undefined);
+    setFilter("all");
+    setQuery("");
+    setSearchOpen(false);
+    setEditingGroup(undefined);
+    setRenamingCanvas(undefined);
+    setGroupDialog(null);
+    setConfirmImport(null);
+    setToast("");
+  };
+  const navigateCanvas = (next: string[]) => {
+    clearCanvasUI();
+    workspace.navigate(next);
+  };
+  const addCanvas = (point = center()) => {
+    const card = canvasCard(newBoard(), "子画布", point);
+    setBoard((b) => ({
+      ...b,
+      cards: [...b.cards, { ...card, group: containingGroup(card, b.groups) }],
+    }));
+    setSelection([card.id]);
+    setSelectedGroup(undefined);
+    setFilter("all");
+    setQuery("");
+    setMenu(null);
+  };
+  const createParentCanvas = () => {
+    clearCanvasUI();
+    workspace.wrapParent();
+  };
   const openCard = (card: Card, task?: string) => {
-    if (card.kind === "text" || card.kind === "todo")
+    if (card.kind === "canvas") navigateCanvas([...path, card.id]);
+    else if (card.kind === "text" || card.kind === "todo")
       editCard(card, false, task);
     else setDetail(card.id);
   };
@@ -819,6 +882,7 @@ function App() {
         (filter === "image" && c.kind === "image") ||
         (filter === "file" && c.kind === "file") ||
         (filter === "todo" && c.kind === "todo") ||
+        (filter === "canvas" && c.kind === "canvas") ||
         (c.group && groupTreeIds(board.groups, filter).has(c.group))) &&
         (!query ||
           (
@@ -896,7 +960,9 @@ function App() {
         ? { id: cardTarget.getAttribute("data-card-id")!, kind: "card" }
         : groupTarget
           ? { id: groupTarget.getAttribute("data-group-id")!, kind: "group" }
-          : undefined,
+          : e.button === 2
+            ? { id: "", kind: "canvas" }
+            : undefined,
       x: e.clientX,
       y: e.clientY,
       view,
@@ -1308,7 +1374,9 @@ function App() {
         setSelection([]);
       } else {
         setSelectedGroup(undefined);
-        if (!selection.includes(g.context.id)) setSelection([g.context.id]);
+        if (g.context.kind === "canvas") setSelection([]);
+        else if (!selection.includes(g.context.id))
+          setSelection([g.context.id]);
       }
       setMenu({ ...g.context, x: e.clientX, y: e.clientY });
     }
@@ -1328,7 +1396,8 @@ function App() {
           x: (e.clientX - r.left - view.x) / view.z - 120,
           y: (e.clientY - r.top - view.y) / view.z - 125,
         };
-        if (g.createKind === "text") addText(point);
+        if (g.createKind === "canvas") addCanvas(point);
+        else if (g.createKind === "text") addText(point);
         else if (g.createKind === "todo") addTodo(point);
         else {
           pendingUpload.current = point;
@@ -1369,7 +1438,16 @@ function App() {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
-  const downloadCard = (card: Card) => {
+  const downloadCard = async (card: Card) => {
+    if (card.kind === "canvas" && card.canvas) {
+      download(
+        new Blob([await exportBoard(card.canvas)], {
+          type: "application/json",
+        }),
+        `${card.title || "子画布"}.canvas.json`,
+      );
+      return;
+    }
     const file = cardDownload(card);
     download(file.blob, file.name);
   };
@@ -1491,7 +1569,9 @@ function App() {
       return;
     }
     try {
-      setConfirmImport(await importBoard(await file.text()));
+      const destination = board.id || "";
+      const imported = await importBoard(await file.text());
+      if (activeCanvasKey.current === destination) setConfirmImport(imported);
     } catch (e) {
       notify(e instanceof Error ? e.message : "导入失败");
     }
@@ -1515,6 +1595,7 @@ function App() {
         setSearchOpen(false);
         setMenu(null);
         setEditingGroup(undefined);
+        setRenamingCanvas(undefined);
         setGroupDialog(null);
         setDetail(undefined);
         setConfirmImport(null);
@@ -1724,6 +1805,7 @@ function App() {
             { id: "all", name: "全部内容", icon: Layers },
             { id: "text", name: "文本", icon: Type },
             { id: "todo", name: "任务", icon: ListTodo },
+            { id: "canvas", name: "子画布", icon: PanelsTopLeft },
             { id: "image", name: "图片", icon: ImagePlus },
             { id: "file", name: "文件", icon: FileText },
           ].map(({ id, name, icon: Icon }) => (
@@ -1851,6 +1933,19 @@ function App() {
               </button>
             )}
           </div>
+          {path.length > 0 && (
+            <nav className="canvas-navigation" aria-label="画布路径">
+              <button
+                className="floating-button"
+                aria-label="返回父画布"
+                title="返回父画布"
+                onClick={() => navigateCanvas(path.slice(0, -1))}
+              >
+                <ArrowLeft size={18} />
+              </button>
+              <span title={names.join(" / ")}>{names.at(-1)}</span>
+            </nav>
+          )}
           <div className="floating-actions">
             {(selection.length > 1 || selectedGroup) && (
               <button
@@ -1922,6 +2017,10 @@ function App() {
             }
           }}
           onPointerDown={(e) => pointerDown(e)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setMenu({ kind: "canvas", id: "", x: e.clientX, y: e.clientY });
+          }}
           onWheel={(e) => {
             const rightPan =
               gesture.current?.kind === "pan" && gesture.current.button === 2
@@ -2237,6 +2336,7 @@ function App() {
               >
                 {c.kind !== "text" &&
                   c.kind !== "image" &&
+                  c.kind !== "canvas" &&
                   !(c.kind === "file" && isTextFile(c)) && (
                     <div className="card-top">
                       <span>
@@ -2249,7 +2349,44 @@ function App() {
                       </span>
                     </div>
                   )}
-                {c.kind === "text" ? (
+                {c.kind === "canvas" ? (
+                  <>
+                    <div className="canvas-card-preview">
+                      <button
+                        aria-label={`进入子画布 ${c.title}`}
+                        title="进入子画布"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onDoubleClick={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigateCanvas([...path, c.id]);
+                        }}
+                      >
+                        <PanelsTopLeft size={36} />
+                      </button>
+                    </div>
+                    <div className="attachment-title">
+                      <PanelsTopLeft size={16} />
+                      {renamingCanvas === c.id ? (
+                        <GroupNameEditor
+                          name={c.title}
+                          label="画布名称"
+                          onCancel={() => setRenamingCanvas(undefined)}
+                          onSave={(title) => {
+                            updateCards((cards) =>
+                              cards.map((card) =>
+                                card.id === c.id ? { ...card, title } : card,
+                              ),
+                            );
+                            setRenamingCanvas(undefined);
+                          }}
+                        />
+                      ) : (
+                        <span>{c.title || "子画布"}</span>
+                      )}
+                    </div>
+                  </>
+                ) : c.kind === "text" ? (
                   editingCard === c.id ? (
                     <TextEditor
                       text={c.text}
@@ -2548,6 +2685,15 @@ function App() {
             >
               <FolderUp size={20} />
             </button>
+            <button
+              title="创建子画布"
+              aria-label="创建子画布"
+              disabled={!ready}
+              onPointerDown={(e) => startToolbarDrag(e, "canvas")}
+              onClick={() => toolbarClick(() => addCanvas())}
+            >
+              <PanelsTopLeft size={20} />
+            </button>
           </div>
         </div>
         <div className="zoom-controls">
@@ -2624,109 +2770,151 @@ function App() {
       />
       {menu && (
         <CanvasContextMenu x={menu.x} y={menu.y}>
-          {menuCard && (
-            <MenuSection label="内容操作">
-              {menuCard.kind === "text" && (
-                <>
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      const href = linkTarget(menuCard.text);
-                      setMenu(null);
-                      if (href)
-                        window.open(href, "_blank", "noopener,noreferrer");
-                      else openCard(menuCard);
-                    }}
-                  >
-                    <ArrowUpRight size={14} />
-                    打开
-                  </button>
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      setMenu(null);
-                      void copySelected([menuCard.id]);
-                    }}
-                  >
-                    <Copy size={14} />
-                    复制
-                  </button>
-                </>
-              )}
+          {menu.kind === "canvas" ? (
+            <MenuSection label="画布操作">
+              <button role="menuitem" onClick={createParentCanvas}>
+                <FolderUp size={14} />
+                创建父画布
+              </button>
               <button
                 role="menuitem"
                 onClick={() => {
-                  setMenu(null);
-                  downloadCard(menuCard);
+                  const r = surface.current!.getBoundingClientRect();
+                  addCanvas({
+                    x: (menu.x - r.left - view.x) / view.z,
+                    y: (menu.y - r.top - view.y) / view.z,
+                  });
                 }}
               >
-                <Download size={14} />
-                下载
+                <PanelsTopLeft size={14} />
+                创建子画布
               </button>
             </MenuSection>
-          )}
-          <MenuSection label="分组操作">
-            {menu.kind === "card" ? (
-              <>
-                <button
-                  role="menuitem"
-                  onClick={() => {
-                    setMenu(null);
-                    setGroupDialog({ name: "" });
-                  }}
-                >
-                  <Folder size={14} />
-                  创建分组
-                </button>
-                {board.cards.some(
-                  (card) => menuCardIds.includes(card.id) && card.group,
-                ) && (
+          ) : (
+            <>
+              {menuCard && (
+                <MenuSection label="内容操作">
+                  {(menuCard.kind === "text" || menuCard.kind === "canvas") && (
+                    <>
+                      <button
+                        role="menuitem"
+                        onClick={() => {
+                          const href =
+                            menuCard.kind === "text"
+                              ? linkTarget(menuCard.text)
+                              : undefined;
+                          setMenu(null);
+                          if (href)
+                            window.open(href, "_blank", "noopener,noreferrer");
+                          else openCard(menuCard);
+                        }}
+                      >
+                        <ArrowUpRight size={14} />
+                        打开
+                      </button>
+                      <button
+                        role="menuitem"
+                        onClick={() => {
+                          setMenu(null);
+                          void copySelected([menuCard.id]);
+                        }}
+                      >
+                        <Copy size={14} />
+                        复制
+                      </button>
+                    </>
+                  )}
+                  {menuCard.kind === "canvas" && (
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setMenu(null);
+                        setRenamingCanvas(menuCard.id);
+                      }}
+                    >
+                      <Pencil size={14} />
+                      重命名
+                    </button>
+                  )}
                   <button
                     role="menuitem"
                     onClick={() => {
                       setMenu(null);
-                      updateCards((cards) =>
-                        cards.map((card) =>
-                          menuCardIds.includes(card.id)
-                            ? { ...card, group: undefined }
-                            : card,
-                        ),
-                      );
+                      void downloadCard(menuCard);
                     }}
                   >
+                    <Download size={14} />
+                    下载
+                  </button>
+                </MenuSection>
+              )}
+              <MenuSection label="分组操作">
+                {menu.kind === "card" ? (
+                  <>
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setMenu(null);
+                        setGroupDialog({ name: "" });
+                      }}
+                    >
+                      <Folder size={14} />
+                      创建分组
+                    </button>
+                    {board.cards.some(
+                      (card) => menuCardIds.includes(card.id) && card.group,
+                    ) && (
+                      <button
+                        role="menuitem"
+                        onClick={() => {
+                          setMenu(null);
+                          updateCards((cards) =>
+                            cards.map((card) =>
+                              menuCardIds.includes(card.id)
+                                ? { ...card, group: undefined }
+                                : card,
+                            ),
+                          );
+                        }}
+                      >
+                        <Unlink size={14} />
+                        移出分组
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <button
+                    role="menuitem"
+                    onClick={() => dissolveGroup(menu.id)}
+                  >
                     <Unlink size={14} />
-                    移出分组
+                    解散分组
                   </button>
                 )}
-              </>
-            ) : (
-              <button role="menuitem" onClick={() => dissolveGroup(menu.id)}>
-                <Unlink size={14} />
-                解散分组
-              </button>
-            )}
-          </MenuSection>
-          <MenuSection label="外观">
-            <ColorPalette
-              value={menuCard?.color || menuGroup?.color}
-              onChange={changeBackground}
-            />
-          </MenuSection>
-          <MenuSection label="删除操作">
-            <button
-              className="danger"
-              role="menuitem"
-              onClick={() =>
-                deleteItems(
-                  menuCardIds,
-                  menu.kind === "group" ? menu.id : undefined,
-                )
-              }
-            >
-              <Trash2 size={14} />
-              删除
-            </button>
-          </MenuSection>
+              </MenuSection>
+              <MenuSection label="外观">
+                <ColorPalette
+                  value={menuCard?.color || menuGroup?.color}
+                  onChange={changeBackground}
+                />
+              </MenuSection>
+              <MenuSection label="删除操作">
+                <button
+                  className="danger"
+                  role="menuitem"
+                  onClick={() =>
+                    deleteItems(
+                      menuCardIds,
+                      menu.kind === "group" ? menu.id : undefined,
+                    )
+                  }
+                >
+                  <Trash2 size={14} />
+                  删除
+                </button>
+              </MenuSection>
+            </>
+          )}
         </CanvasContextMenu>
       )}
       {groupDialog && (
@@ -2843,19 +3031,39 @@ function App() {
                 <X size={20} />
               </button>
             </div>
-            <div className="detail-content">
-              <Attachment card={current} large />
-            </div>
-            <div className="modal-bottom">
-              <small>{current.mime || "文件"}</small>
-              <button
-                className="primary"
-                onClick={() => download(current.blob!, current.title)}
-              >
-                <Download size={15} />
-                下载原文件
-              </button>
-            </div>
+            {current.kind === "file" && isTextFile(current) ? (
+              <TextFileEditor
+                key={current.id}
+                card={current}
+                preview={<Attachment card={current} large />}
+                onDownload={() => download(current.blob!, current.title)}
+                onSave={(blob) =>
+                  updateCards((cards) =>
+                    cards.map((card) =>
+                      card.id === current.id
+                        ? { ...card, blob, mime: blob.type }
+                        : card,
+                    ),
+                  )
+                }
+              />
+            ) : (
+              <>
+                <div className="detail-content">
+                  <Attachment card={current} large />
+                </div>
+                <div className="modal-bottom">
+                  <small>{current.mime || "文件"}</small>
+                  <button
+                    className="primary"
+                    onClick={() => download(current.blob!, current.title)}
+                  >
+                    <Download size={15} />
+                    下载原文件
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -2905,7 +3113,9 @@ function App() {
             height: 250 * view.z,
           }}
         >
-          {createPreview.kind === "text" ? (
+          {createPreview.kind === "canvas" ? (
+            <PanelsTopLeft />
+          ) : createPreview.kind === "text" ? (
             <Type />
           ) : createPreview.kind === "todo" ? (
             <ListTodo />

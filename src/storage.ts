@@ -2,7 +2,7 @@ import { validEndpoint, type Connection } from "./connections";
 import { cardRect } from "./geometry";
 export type Card = {
   id: string;
-  kind: "text" | "image" | "file" | "todo";
+  kind: "text" | "image" | "file" | "todo" | "canvas";
   title: string;
   text: string;
   x: number;
@@ -16,6 +16,7 @@ export type Card = {
   mime?: string;
   group?: string;
   tasks?: Task[];
+  canvas?: Board;
 };
 export type Task = { id: string; text: string; done: boolean };
 export type Rect = { x: number; y: number; width: number; height: number };
@@ -113,6 +114,11 @@ export function containingGroup(
 export function initializeGroups(board: Board): Board {
   return {
     ...board,
+    cards: board.cards.map((card) =>
+      card.kind === "canvas" && card.canvas
+        ? { ...card, canvas: initializeGroups(card.canvas) }
+        : card,
+    ),
     groups: attachParents(
       board.groups.map((g) =>
         g.bounds
@@ -126,8 +132,10 @@ export function initializeGroups(board: Board): Board {
   };
 }
 export type View = { x: number; y: number; z: number };
+export type Navigation = { path: string[]; views: Record<string, View> };
 export type Board = {
   version: 1;
+  id?: string;
   cards: Card[];
   groups: Group[];
   connections?: Connection[];
@@ -168,42 +176,85 @@ export async function readView(): Promise<View | undefined> {
     request.onerror = () => reject(request.error);
   });
 }
-export async function saveBoard(board: Board, view?: View) {
+export async function saveBoard(
+  board: Board,
+  view?: View,
+  navigation?: Navigation,
+) {
   const db = await database;
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction("boards", "readwrite");
     tx.objectStore("boards").put(board, "main");
     if (view) tx.objectStore("boards").put(view, "view");
+    if (navigation) tx.objectStore("boards").put(navigation, "navigation");
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
-export async function exportBoard(board: Board) {
-  return JSON.stringify(
-    {
-      ...board,
-      cards: await Promise.all(
-        board.cards.map(async (card) => ({
-          ...card,
-          blob: card.blob
-            ? await new Promise<string>((resolve, reject) => {
-                const r = new FileReader();
-                r.onload = () => resolve(r.result as string);
-                r.onerror = () => reject(r.error);
-                r.readAsDataURL(card.blob!);
-              })
-            : undefined,
-        })),
-      ),
-    },
-    null,
-    2,
+export function validView(view: any): view is View {
+  return (
+    !!view &&
+    [view.x, view.y, view.z].every(Number.isFinite) &&
+    Math.abs(view.x) <= 1e9 &&
+    Math.abs(view.y) <= 1e9 &&
+    view.z >= 0.2 &&
+    view.z <= 3
   );
+}
+export async function readNavigation(): Promise<Navigation | undefined> {
+  const db = await database;
+  return new Promise((resolve, reject) => {
+    const r = db.transaction("boards").objectStore("boards").get("navigation");
+    r.onsuccess = () => {
+      const n = r.result;
+      if (
+        !n ||
+        !Array.isArray(n.path) ||
+        !n.path.every((id: unknown) => typeof id === "string") ||
+        !n.views ||
+        typeof n.views !== "object"
+      )
+        return resolve(undefined);
+      const views: Record<string, View> = Object.create(null);
+      for (const [key, view] of Object.entries(n.views))
+        if (validView(view)) views[key] = { x: view.x, y: view.y, z: view.z };
+      resolve({ path: n.path, views });
+    };
+    r.onerror = () => reject(r.error);
+  });
+}
+async function serializeBoard(board: Board): Promise<object> {
+  return {
+    ...board,
+    cards: await Promise.all(
+      board.cards.map(async (card) => ({
+        ...card,
+        canvas:
+          card.kind === "canvas" && card.canvas
+            ? await serializeBoard(card.canvas)
+            : undefined,
+        blob: card.blob
+          ? await new Promise<string>((resolve, reject) => {
+              const r = new FileReader();
+              r.onload = () => resolve(r.result as string);
+              r.onerror = () => reject(r.error);
+              r.readAsDataURL(card.blob!);
+            })
+          : undefined,
+      })),
+    ),
+  };
+}
+export async function exportBoard(board: Board) {
+  return JSON.stringify(await serializeBoard(board), null, 2);
 }
 export async function importBoard(
   raw: string,
   attachment?: (path: string, mime: string) => Blob | undefined,
+  depth = 0,
+  boardIds = new Set<string>(),
 ): Promise<Board> {
+  if (depth > 128) throw Error("画布嵌套过深");
   const data = JSON.parse(raw);
   if (
     data.version !== 1 ||
@@ -211,6 +262,17 @@ export async function importBoard(
     !Array.isArray(data.groups)
   )
     throw new Error("不是有效的 Yua 画布文件");
+  if (
+    data.id !== undefined &&
+    (typeof data.id !== "string" ||
+      !data.id ||
+      data.id.length > 200 ||
+      boardIds.has(data.id))
+  )
+    throw Error("画布标识无效");
+  const boardId: string | undefined =
+    data.id || (depth ? crypto.randomUUID() : undefined);
+  if (boardId) boardIds.add(boardId);
   const ids = new Set<string>();
   const groups: Group[] = data.groups.map((g: Group) => {
     if (typeof g.id !== "string" || typeof g.name !== "string" || ids.has(g.id))
@@ -252,7 +314,9 @@ export async function importBoard(
       if (
         typeof c.id !== "string" ||
         ids.has(c.id) ||
-        !["text", "image", "file", "todo"].includes(c.kind as string) ||
+        !["text", "image", "file", "todo", "canvas"].includes(
+          c.kind as string,
+        ) ||
         typeof c.title !== "string" ||
         typeof c.text !== "string" ||
         !Number.isFinite(c.x) ||
@@ -315,7 +379,19 @@ export async function importBoard(
           return { id: t.id, text: t.text, done: t.done };
         });
       }
+      if (c.kind === "canvas" && (!c.canvas || typeof c.canvas !== "object"))
+        throw Error("子画布数据无效");
+      const canvas =
+        c.kind === "canvas"
+          ? await importBoard(
+              JSON.stringify(c.canvas),
+              attachment,
+              depth + 1,
+              boardIds,
+            )
+          : undefined;
       return {
+        canvas,
         tasks,
         textMode: c.textMode as Card["textMode"],
         textAutoHeight: c.textAutoHeight as boolean | undefined,
@@ -365,5 +441,11 @@ export async function importBoard(
       };
     },
   );
-  return initializeGroups({ version: 1, cards, groups, connections });
+  return initializeGroups({
+    version: 1,
+    id: boardId,
+    cards,
+    groups,
+    connections,
+  });
 }

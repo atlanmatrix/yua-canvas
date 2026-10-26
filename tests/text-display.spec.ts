@@ -230,17 +230,17 @@ test("width resizing recalculates automatic height without vertical resize handl
   ).toBe(true);
 });
 
-test("toolbar has only the four requested actions and empty search collapses only after focus leaves", async ({
+test("toolbar includes child canvas creation and empty search collapses only after focus leaves", async ({
   page,
 }) => {
   await ready(page);
   const tools = page.locator(".toolbar > button");
-  await expect(tools).toHaveCount(4);
+  await expect(tools).toHaveCount(5);
   expect(
     await tools.evaluateAll((els) =>
       els.map((el) => el.getAttribute("aria-label")),
     ),
-  ).toEqual(["添加任务", "上传图片", "上传文件", "导入目录"]);
+  ).toEqual(["添加任务", "上传图片", "上传文件", "导入目录", "创建子画布"]);
   await page.getByRole("button", { name: "展开搜索" }).click();
   const input = page.getByRole("textbox", { name: "搜索画布" });
   await expect(input).toBeFocused();
