@@ -190,3 +190,76 @@ test("toolbar attachment drops keep the drop position through file selection", a
     expect(p.y).toBeCloseTo(100, 0);
   }
 });
+
+for (const modifier of ["Control", "Meta"]) {
+  test(`${modifier} + left drag pans from canvas, cards and group controls without edits`, async ({
+    page,
+  }) => {
+    await setup(page);
+    const card = page.getByTestId("card").filter({ hasText: "移动卡片" });
+    await card.click();
+    await expect(page.locator(".card.selected")).toHaveCount(1);
+    const geometry = () =>
+      page
+        .locator(".card,.group-boundary")
+        .evaluateAll((els) =>
+          els.map((el) => (el as HTMLElement).style.cssText),
+        );
+    const original = await geometry();
+    const transform = () =>
+      page.locator(".world").evaluate((el) => {
+        const m = new DOMMatrix(getComputedStyle(el).transform);
+        return { x: m.e, y: m.f, z: m.a };
+      });
+    const sources = [
+      () => point(page, 600, 550),
+      async () => {
+        const b = await card.boundingBox();
+        return { x: b!.x + 80, y: b!.y + 70 };
+      },
+      async () => {
+        const b = await page
+          .getByRole("button", { name: "拖动分组 内组" })
+          .boundingBox();
+        return { x: b!.x + b!.width - 20, y: b!.y + b!.height / 2 };
+      },
+      async () => {
+        const b = await page
+          .locator(".group-boundary")
+          .first()
+          .getByTestId("resize-se")
+          .boundingBox();
+        return { x: b!.x + 6, y: b!.y + 6 };
+      },
+    ];
+    for (const [index, source] of sources.entries()) {
+      const start = await source(),
+        before = await transform();
+      await page.keyboard.down(modifier);
+      await page.mouse.move(start.x, start.y);
+      await page.mouse.down({ button: "left" });
+      await page.mouse.move(start.x + 12, start.y + 9, { steps: 5 });
+      await page.mouse.up();
+      await page.keyboard.up(modifier);
+      const after = await transform();
+      expect(after.x - before.x, `pan source ${index}`).toBeCloseTo(12, 0);
+      expect(after.y - before.y).toBeCloseTo(9, 0);
+      expect(after.z).toBe(before.z);
+      expect(await geometry()).toEqual(original);
+      await expect(page.locator(".card.selected")).toHaveCount(1);
+      await expect(page.locator(".marquee")).toHaveCount(0);
+    }
+    // Release the modifier: the next drag must move the card normally again.
+    const before = await card.evaluate((el) =>
+      parseFloat((el as HTMLElement).style.left),
+    );
+    const b = await card.boundingBox();
+    await page.mouse.move(b!.x + 80, b!.y + 70);
+    await page.mouse.down();
+    await page.mouse.move(b!.x + 110, b!.y + 70, { steps: 5 });
+    await page.mouse.up();
+    expect(
+      await card.evaluate((el) => parseFloat((el as HTMLElement).style.left)),
+    ).toBeGreaterThan(before);
+  });
+}

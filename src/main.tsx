@@ -483,14 +483,17 @@ function App() {
     groupId?: string,
   ) => {
     if (e.button !== 0 && e.button !== 1) return;
+    const modifierPan = e.button === 0 && (e.ctrlKey || e.metaKey);
     if (
       (e.target as HTMLElement).closest("button,input,textarea,label") &&
-      !groupId
+      !groupId &&
+      !modifierPan
     )
       return;
-    if (e.button === 1) e.preventDefault();
+    if (e.button === 1 || modifierPan) e.preventDefault();
     const r = surface.current!.getBoundingClientRect();
-    const pan = tool === "hand" || space.current || e.button === 1;
+    const pan =
+      tool === "hand" || space.current || e.button === 1 || modifierPan;
     let ids = selection;
     if (groupId && !pan) {
       ids = board.cards.filter((c) => c.group === groupId).map((c) => c.id);
@@ -1032,6 +1035,13 @@ function App() {
             backgroundPosition: `${view.x}px ${view.y}px`,
             backgroundSize: `${24 * view.z}px ${24 * view.z}px`,
           }}
+          onPointerDownCapture={(e) => {
+            if (e.button === 0 && (e.ctrlKey || e.metaKey)) {
+              e.stopPropagation();
+              e.preventDefault();
+              pointerDown(e);
+            }
+          }}
           onPointerDown={(e) => pointerDown(e)}
           onWheel={(e) => {
             if (e.ctrlKey || e.metaKey) {
@@ -1053,7 +1063,8 @@ function App() {
               setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
           }}
           onDoubleClick={(e) => {
-            if (e.target === surface.current) addNote();
+            if (e.target === surface.current && !e.ctrlKey && !e.metaKey)
+              addNote();
           }}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
@@ -1137,7 +1148,7 @@ function App() {
                 }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
-                  openCard(c);
+                  if (!e.ctrlKey && !e.metaKey) openCard(c);
                 }}
               >
                 <div className="card-top">
@@ -1295,7 +1306,7 @@ function App() {
               <MousePointer2 size={19} />
             </button>
             <button
-              title="移动画布 (H / 空格)"
+              title="移动画布 (H / 空格 / Ctrl/⌘ + 拖动)"
               aria-label="移动画布"
               className={tool === "hand" ? "chosen" : ""}
               onClick={() => setTool("hand")}
