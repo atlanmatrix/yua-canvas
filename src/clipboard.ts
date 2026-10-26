@@ -5,7 +5,7 @@ export class FileClipboardUnsupported extends Error {
     super("浏览器不支持复制系统文件，请下载原文件");
   }
 }
-const isTextFile = (card: Card) =>
+export const isTextFile = (card: Card) =>
   card.mime?.startsWith("text/") ||
   /\.(txt|md|markdown|mdown|csv|json|xml|yaml|yml|log|js|ts|tsx|jsx|css|html|svg)$/i.test(
     card.title,

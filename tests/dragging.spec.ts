@@ -185,7 +185,10 @@ test("toolbar attachment drops keep the drop position through file selection", a
     });
     const card = page.locator(`.card[aria-label="${name}"]`);
     await expect(card).toHaveCount(1);
-    await expect(membership(card)).toHaveAttribute("data-group-name", "内组");
+    await expect(membership(card)).toHaveAttribute(
+      "data-group-name",
+      name === "file.txt" ? "外组" : "内组",
+    );
     const p = await card.evaluate((el) => ({
       x: parseFloat((el as HTMLElement).style.left),
       y: parseFloat((el as HTMLElement).style.top),

@@ -48,6 +48,7 @@ import {
   clipboardCopy,
   canvasClipboard,
   FileClipboardUnsupported,
+  isTextFile,
 } from "./clipboard";
 import { useBoardHistory } from "./history";
 import {
@@ -62,6 +63,7 @@ import {
   canPlace,
   settleGroups,
 } from "./geometry";
+import { cardDownload } from "./downloads";
 import "./style.css";
 const uid = () => crypto.randomUUID();
 const colors = ["#ffffff"];
@@ -69,25 +71,31 @@ function Attachment({ card, large = false }: { card: Card; large?: boolean }) {
   const [url, setUrl] = useState(""),
     [fileText, setFileText] = useState("");
   useEffect(() => {
-    if (
-      large &&
-      card.blob &&
-      (card.mime?.startsWith("text/") ||
-        /\.(txt|md|markdown|mdown|json|csv|log|xml|yaml|yml)$/i.test(
-          card.title,
-        ))
-    ) {
-      let active = true;
-      card.blob
-        .slice(0, 1024 * 1024)
-        .text()
-        .then((t) => {
-          if (active) setFileText(t);
+    if (!card.blob || !isTextFile(card)) return;
+    let active = true;
+    const limit = large ? 1024 * 1024 : 64 * 1024;
+    card.blob
+      .slice(0, limit)
+      .arrayBuffer()
+      .then((buffer) => {
+        const bytes = new Uint8Array(buffer);
+        const encoding =
+          bytes[0] === 255 && bytes[1] === 254
+            ? "utf-16le"
+            : bytes[0] === 254 && bytes[1] === 255
+              ? "utf-16be"
+              : "utf-8";
+        const text = new TextDecoder(encoding).decode(bytes, {
+          stream: card.blob!.size > limit,
         });
-      return () => {
-        active = false;
-      };
-    }
+        if (active) setFileText(text);
+      })
+      .catch(() => {
+        if (active) setFileText("");
+      });
+    return () => {
+      active = false;
+    };
   }, [large, card.blob, card.mime, card.title]);
   useEffect(() => {
     if (!card.blob) return;
@@ -95,6 +103,15 @@ function Attachment({ card, large = false }: { card: Card; large?: boolean }) {
     setUrl(u);
     return () => URL.revokeObjectURL(u);
   }, [card.blob]);
+  if (!large && card.kind === "file" && isTextFile(card))
+    return (
+      <pre
+        className="file-content-thumbnail"
+        aria-label={`${card.title} 内容预览`}
+      >
+        {fileText}
+      </pre>
+    );
   if (
     large &&
     (/\.(md|markdown|mdown)$/i.test(card.title) ||
@@ -252,6 +269,8 @@ function App() {
     gesture = useRef<{
       kind: "pan" | "move" | "select" | "resize" | "create";
       createKind?: Card["kind"];
+      button?: number;
+      context?: { id: string; kind: "card" | "group" };
       groupId?: string;
       groupIds?: Set<string>;
       groups?: Group[];
@@ -392,7 +411,9 @@ function App() {
     const p = point || center();
     const next: Card[] = await Promise.all(
       Array.from(files).map(async (f, i) => {
-        let size = { width: 240, height: 250 };
+        let size = isTextFile({ title: f.name, mime: f.type } as Card)
+          ? { width: 320, height: 240 }
+          : { width: 240, height: 250 };
         if (f.type.startsWith("image/")) {
           const url = URL.createObjectURL(f);
           try {
@@ -688,8 +709,9 @@ function App() {
     id?: string,
     groupId?: string,
   ) => {
-    if (e.button !== 0 && e.button !== 1) return;
-    const modifierPan = e.button === 0 && (e.ctrlKey || e.metaKey);
+    if (e.button !== 0 && e.button !== 1 && e.button !== 2) return;
+    const modifierPan =
+      e.button === 2 || (e.button === 0 && (e.ctrlKey || e.metaKey));
     if (
       (e.target as HTMLElement).closest("button,input,textarea,label") &&
       !groupId &&
@@ -722,8 +744,17 @@ function App() {
     }
     const x = (e.clientX - r.left - view.x) / view.z,
       y = (e.clientY - r.top - view.y) / view.z;
+    const target = e.target as Element,
+      cardTarget = target.closest("[data-card-id]"),
+      groupTarget = target.closest(".group-title")?.closest("[data-group-id]");
     gesture.current = {
       kind: pan ? "pan" : id || groupId ? "move" : "select",
+      button: e.button,
+      context: cardTarget
+        ? { id: cardTarget.getAttribute("data-card-id")!, kind: "card" }
+        : groupTarget
+          ? { id: groupTarget.getAttribute("data-group-id")!, kind: "group" }
+          : undefined,
       x: e.clientX,
       y: e.clientY,
       view,
@@ -820,7 +851,7 @@ function App() {
       suppressToolbarClick.current = true;
       setCreatePreview({ kind: g.createKind!, x: e.clientX, y: e.clientY });
     }
-    if (g.kind === "pan")
+    if (g.kind === "pan" && (g.button !== 2 || g.moved))
       setView({ ...g.view, x: g.view.x + dx, y: g.view.y + dy });
     if (g.kind === "resize" && g.cardId && g.bounds) {
       const original = g.cards.find((c) => c.id === g.cardId)!;
@@ -960,6 +991,22 @@ function App() {
     gesture.current = null;
     setMarquee(null);
     setCreatePreview(null);
+    if (
+      g?.kind === "pan" &&
+      g.button === 2 &&
+      !g.moved &&
+      e.type !== "pointercancel" &&
+      g.context
+    ) {
+      if (g.context.kind === "group") {
+        setSelectedGroup(g.context.id);
+        setSelection([]);
+      } else {
+        setSelectedGroup(undefined);
+        if (!selection.includes(g.context.id)) setSelection([g.context.id]);
+      }
+      setMenu({ ...g.context, x: e.clientX, y: e.clientY });
+    }
     if (g?.kind === "create" && g.moved && e.type !== "pointercancel") {
       const r = surface.current!.getBoundingClientRect();
       const hit = document.elementFromPoint(e.clientX, e.clientY);
@@ -1425,10 +1472,20 @@ function App() {
             backgroundSize: `${24 * view.z}px ${24 * view.z}px`,
           }}
           onPointerDownCapture={(e) => {
-            if (e.button === 0 && (e.ctrlKey || e.metaKey)) {
+            if (
+              e.button === 2 ||
+              (e.button === 0 && (e.ctrlKey || e.metaKey))
+            ) {
+              if (e.button === 2) setMenu(null);
               e.stopPropagation();
               e.preventDefault();
               pointerDown(e);
+            }
+          }}
+          onContextMenuCapture={(e) => {
+            if (e.button === 2) {
+              e.preventDefault();
+              e.stopPropagation();
             }
           }}
           onPointerDown={(e) => pointerDown(e)}
@@ -1587,6 +1644,7 @@ function App() {
               <article
                 key={c.id}
                 data-testid="card"
+                data-card-id={c.id}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -1602,6 +1660,9 @@ function App() {
                 className={
                   "card card-" +
                   c.kind +
+                  (c.kind === "file" && isTextFile(c)
+                    ? " text-file-card"
+                    : "") +
                   " " +
                   (selection.includes(c.id) ? "selected" : "")
                 }
@@ -1627,18 +1688,20 @@ function App() {
                   if (!e.ctrlKey && !e.metaKey) openCard(c);
                 }}
               >
-                {c.kind !== "text" && c.kind !== "image" && (
-                  <div className="card-top">
-                    <span>
-                      {c.kind === "todo" ? (
-                        <ListTodo size={13} />
-                      ) : (
-                        <FileText size={13} />
-                      )}{" "}
-                      {c.kind === "todo" ? "TODO" : "FILE"}
-                    </span>
-                  </div>
-                )}
+                {c.kind !== "text" &&
+                  c.kind !== "image" &&
+                  !(c.kind === "file" && isTextFile(c)) && (
+                    <div className="card-top">
+                      <span>
+                        {c.kind === "todo" ? (
+                          <ListTodo size={13} />
+                        ) : (
+                          <FileText size={13} />
+                        )}{" "}
+                        {c.kind === "todo" ? "TODO" : "FILE"}
+                      </span>
+                    </div>
+                  )}
                 {c.kind === "text" ? (
                   <div className="note-body">
                     <p>{c.text}</p>
@@ -1686,25 +1749,46 @@ function App() {
                 ) : (
                   <>
                     <Attachment card={c} />
-                    <div className="attachment-title">{c.title}</div>
+                    <div className="attachment-title">
+                      <FileText size={24} />
+                      <span>{c.title}</span>
+                    </div>
                   </>
                 )}
-                {c.kind !== "text" && c.kind !== "image" && (
-                  <footer>
-                    <span>
-                      {c.group
-                        ? board.groups.find((g) => g.id === c.group)?.name
-                        : ""}
-                    </span>
-                    <span>
-                      {selection.includes(c.id) ? (
-                        <Check size={13} />
-                      ) : (
-                        <MoreHorizontal size={16} />
-                      )}
-                    </span>
-                  </footer>
-                )}
+                {c.kind !== "text" &&
+                  c.kind !== "image" &&
+                  !(c.kind === "file" && isTextFile(c)) && (
+                    <footer>
+                      <span>
+                        {c.group
+                          ? board.groups.find((g) => g.id === c.group)?.name
+                          : ""}
+                      </span>
+                      <span>
+                        {selection.includes(c.id) ? (
+                          <Check size={13} />
+                        ) : (
+                          <MoreHorizontal size={16} />
+                        )}
+                      </span>
+                    </footer>
+                  )}
+                <button
+                  className="card-download"
+                  aria-label={`下载 ${c.title || (c.kind === "todo" ? "任务" : "文本")}`}
+                  title="下载"
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                  }}
+                  onDoubleClick={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const file = cardDownload(c);
+                    download(file.blob, file.name);
+                  }}
+                >
+                  <Download size={17} />
+                </button>
                 {selection.includes(c.id) &&
                   ["n", "s", "e", "w", "ne", "nw", "se", "sw"].map((edge) => (
                     <div
