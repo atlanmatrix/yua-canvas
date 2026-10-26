@@ -1,3 +1,4 @@
+import { cardRect } from "./geometry";
 export type Card = {
   id: string;
   kind: "text" | "image" | "file" | "todo";
@@ -6,6 +7,8 @@ export type Card = {
   x: number;
   y: number;
   color: string;
+  width?: number;
+  height?: number;
   blob?: Blob;
   mime?: string;
   group?: string;
@@ -20,10 +23,7 @@ export type Group = {
   parent?: string;
 };
 export function groupBounds(cards: Card[], frames: Rect[] = []): Rect {
-  const rects = [
-    ...cards.map((c) => ({ x: c.x, y: c.y, width: 240, height: 250 })),
-    ...frames,
-  ];
+  const rects = [...cards.map(cardRect), ...frames];
   if (!rects.length) return { x: 0, y: 0, width: 300, height: 300 };
   const x = Math.min(...rects.map((r) => r.x)) - 20,
     y = Math.min(...rects.map((r) => r.y)) - 45;
@@ -89,7 +89,7 @@ export function groupDepth(groups: Group[], id: string): number {
 }
 // A card belongs to the smallest frame that fully contains its bounds.
 export function containingGroup(
-  card: Pick<Card, "x" | "y">,
+  card: Pick<Card, "x" | "y" | "width" | "height">,
   groups: Group[],
 ): string | undefined {
   return groups
@@ -98,8 +98,8 @@ export function containingGroup(
         g.bounds &&
         card.x >= g.bounds.x &&
         card.y >= g.bounds.y &&
-        card.x + 240 <= g.bounds.x + g.bounds.width &&
-        card.y + 250 <= g.bounds.y + g.bounds.height,
+        card.x + cardRect(card).width <= g.bounds.x + g.bounds.width &&
+        card.y + cardRect(card).height <= g.bounds.y + g.bounds.height,
     )
     .sort(
       (a, b) =>
@@ -222,6 +222,17 @@ export async function importBoard(raw: string): Promise<Board> {
       )
         throw new Error("卡片数据无效");
       ids.add(c.id);
+      if (
+        (c.width !== undefined &&
+          (!Number.isFinite(c.width) ||
+            (c.width as number) <= 0 ||
+            (c.width as number) > 1e7)) ||
+        (c.height !== undefined &&
+          (!Number.isFinite(c.height) ||
+            (c.height as number) <= 0 ||
+            (c.height as number) > 1e7))
+      )
+        throw new Error("元素尺寸无效");
       let blob: Blob | undefined;
       if (c.blob !== undefined) {
         if (typeof c.blob !== "string" || !/^data:[^,]*;base64,/.test(c.blob))
@@ -251,6 +262,8 @@ export async function importBoard(raw: string): Promise<Board> {
       }
       return {
         tasks,
+        width: c.width as number | undefined,
+        height: c.height as number | undefined,
         id: c.id,
         kind: c.kind as Card["kind"],
         title: c.title,

@@ -1,13 +1,11 @@
 import { test, expect, type Page } from "@playwright/test";
 async function load(page: Page, groups: unknown[], cards: unknown[]) {
   await page.goto("/");
-  await page
-    .getByTestId("import")
-    .setInputFiles({
-      name: "nested.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify({ version: 1, groups, cards })),
-    });
+  await page.getByTestId("import").setInputFiles({
+    name: "nested.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify({ version: 1, groups, cards })),
+  });
   await page.getByRole("button", { name: "确认替换" }).click();
   await expect(page.locator(".group-boundary")).toHaveCount(groups.length);
 }
@@ -48,7 +46,7 @@ async function backup(page: Page) {
   for await (const c of stream!) chunks.push(c);
   return Buffer.concat(chunks);
 }
-test("nested groups detach and reattach, with descendants following parent drags", async ({
+test("partially overlapping child groups retain parent and descendants follow drags", async ({
   page,
 }) => {
   await load(
@@ -76,18 +74,16 @@ test("nested groups detach and reattach, with descendants following parent drags
   await expect(frame(page, "g")).toHaveAttribute("data-parent", "c");
   const z = (await world(page)).z;
   const positions = () =>
-    page
-      .locator(".group-boundary,.card")
-      .evaluateAll((els) =>
-        els.map((el) => ({
-          id: el.getAttribute("data-group-id") || el.textContent,
-          x: parseFloat((el as HTMLElement).style.left),
-          y: parseFloat((el as HTMLElement).style.top),
-        })),
-      );
+    page.locator(".group-boundary,.card").evaluateAll((els) =>
+      els.map((el) => ({
+        id: el.getAttribute("data-group-id") || el.textContent,
+        x: parseFloat((el as HTMLElement).style.left),
+        y: parseFloat((el as HTMLElement).style.top),
+      })),
+    );
   const before = await positions();
   await dragTitle(page, "子组", 300 * z, 0);
-  await expect(frame(page, "c")).toHaveAttribute("data-parent", "");
+  await expect(frame(page, "c")).toHaveAttribute("data-parent", "p");
   await expect(frame(page, "g")).toHaveAttribute("data-parent", "c");
   let after = await positions();
   expect(
@@ -125,13 +121,11 @@ test("nested groups detach and reattach, with descendants following parent drags
       (g: { id: string }) => g.id === "g",
     ).parent,
   ).toBe("c");
-  await page
-    .getByTestId("import")
-    .setInputFiles({
-      name: "restore.json",
-      mimeType: "application/json",
-      buffer: bytes,
-    });
+  await page.getByTestId("import").setInputFiles({
+    name: "restore.json",
+    mimeType: "application/json",
+    buffer: bytes,
+  });
   await page.getByRole("button", { name: "确认替换" }).click();
   await expect(frame(page, "g")).toHaveAttribute("data-parent", "c");
 });

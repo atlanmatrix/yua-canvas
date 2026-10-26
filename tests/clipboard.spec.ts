@@ -77,6 +77,7 @@ test("selected JPEG is copied as a decoded PNG and can paste as an image", async
     mimeType: "image/jpeg",
     buffer: Buffer.from(bytes),
   });
+  await expect(page.locator('.card[aria-label="photo.jpg"]')).toBeVisible();
   await page.keyboard.press("ControlOrMeta+c");
   await expect(page.getByRole("status")).toContainText("已复制图片");
   const image = await page.evaluate(async () => {
@@ -109,6 +110,7 @@ test("text attachments copy file contents and binary attachments offer the origi
     mimeType: "text/markdown",
     buffer: Buffer.from("# 文件内容\n\n正文"),
   });
+  await expect(page.locator('.card[aria-label="readme.md"]')).toBeVisible();
   await page.keyboard.press("ControlOrMeta+c");
   await expect(page.getByRole("status")).toContainText("已复制文件文本");
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
@@ -119,6 +121,7 @@ test("text attachments copy file contents and binary attachments offer the origi
     mimeType: "application/octet-stream",
     buffer: Buffer.from([0, 1, 2, 255]),
   });
+  await expect(page.locator('.card[aria-label="original.bin"]')).toBeVisible();
   await page.keyboard.press("ControlOrMeta+c");
   await expect(page.getByRole("status")).toContainText(
     "已复制，可在画布中粘贴；系统文件请下载原文件",

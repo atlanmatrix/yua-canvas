@@ -55,6 +55,13 @@ import {
   duplicateFragment,
   type Fragment,
 } from "./fragments";
+import {
+  cardRect,
+  textSize,
+  TEXT_MAX_WIDTH,
+  canPlace,
+  settleGroups,
+} from "./geometry";
 import "./style.css";
 const uid = () => crypto.randomUUID();
 const colors = ["#fffdf5", "#eaf0e8", "#f4e8e2", "#e8edf4", "#ede8f4"];
@@ -250,6 +257,7 @@ function App() {
       groups?: Group[];
       bounds?: Rect;
       edge?: string;
+      cardId?: string;
       x: number;
       y: number;
       view: typeof view;
@@ -382,17 +390,44 @@ function App() {
   ) => {
     if (!files?.length) return;
     const p = point || center();
-    const next: Card[] = Array.from(files).map((f, i) => ({
-      id: uid(),
-      kind: f.type.startsWith("image/") ? "image" : "file",
-      title: f.name,
-      text: "",
-      x: p.x + (i % 4) * 270,
-      y: p.y + Math.floor(i / 4) * 290,
-      color: colors[0],
-      blob: f,
-      mime: f.type,
-    }));
+    const next: Card[] = await Promise.all(
+      Array.from(files).map(async (f, i) => {
+        let size = { width: 240, height: 250 };
+        if (f.type.startsWith("image/")) {
+          const url = URL.createObjectURL(f);
+          try {
+            const img = new Image();
+            img.src = url;
+            await img.decode();
+            const scale = Math.min(
+              480 / img.naturalWidth,
+              720 / img.naturalHeight,
+              Math.max(1, 80 / Math.max(img.naturalWidth, img.naturalHeight)),
+            );
+            size = {
+              width: img.naturalWidth * scale,
+              height: img.naturalHeight * scale,
+            };
+          } catch {
+            notify(`无法读取图片 ${f.name}`);
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+        }
+        return {
+          id: uid(),
+          kind: f.type.startsWith("image/") ? "image" : "file",
+          title: f.name,
+          text: "",
+          x: p.x + (i % 4) * 270,
+          y: p.y + Math.floor(i / 4) * 290,
+          color: colors[0],
+          blob: f,
+          mime: f.type,
+          ...size,
+        } as Card;
+      }),
+    );
     setBoard((b) => ({
       ...b,
       cards: [
@@ -432,6 +467,13 @@ function App() {
         );
         internalCopy.current.offset += 30;
         setBoard(result.board);
+        if (result.group) {
+          const family = groupTreeIds(result.board.groups, result.group);
+          fit(
+            result.board.cards.filter((c) => result.cards.includes(c.id)),
+            result.board.groups.filter((g) => family.has(g.id)),
+          );
+        }
         setSelection(result.group ? [] : result.cards);
         setSelectedGroup(result.group);
         notify("已粘贴");
@@ -444,9 +486,32 @@ function App() {
             .filter((item) => item.kind === "file")
             .map((item) => item.getAsFile())
             .filter((file): file is File => file !== null);
-      if (!files.length) return;
+      if (files.length) {
+        event.preventDefault();
+        void addFiles(files);
+        return;
+      }
+      const text = clipboard.getData("text/plain");
+      if (!text.trim()) return;
       event.preventDefault();
-      void addFiles(files);
+      const id = uid();
+      setBoard((b) => ({
+        ...b,
+        cards: [
+          ...b.cards,
+          {
+            id,
+            kind: "text",
+            title: "",
+            text,
+            color: colors[0],
+            ...center(),
+            ...textSize(text),
+          },
+        ],
+      }));
+      setSelection([id]);
+      setSelectedGroup(undefined);
     };
     window.addEventListener("paste", paste);
     return () => window.removeEventListener("paste", paste);
@@ -522,6 +587,7 @@ function App() {
             ? {
                 ...c,
                 text: n.text,
+                height: Math.max(c.height || 48, textSize(n.text).height),
                 color: n.color,
               }
             : c,
@@ -540,6 +606,7 @@ function App() {
             text: n.text,
             color: n.color,
             ...(n.point || center()),
+            ...textSize(n.text),
           },
         ];
         const card = next[next.length - 1];
@@ -571,10 +638,7 @@ function App() {
             grouped.some((c) => groupTreeIds(groups, g.id).has(c.group!))),
       )
       .map((g) => g.bounds!);
-    const rects = [
-      ...cards.map((c) => ({ x: c.x, y: c.y, width: 240, height: 250 })),
-      ...frames,
-    ];
+    const rects = [...cards.map(cardRect), ...frames];
     if (!rects.length) {
       setView({ x: 65, y: 55, z: 1 });
       return;
@@ -704,6 +768,27 @@ function App() {
     };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
+  const resizeCard = (e: React.PointerEvent, c: Card, edge: string) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    begin();
+    gesture.current = {
+      kind: "resize",
+      cardId: c.id,
+      bounds: cardRect(c),
+      edge,
+      x: e.clientX,
+      y: e.clientY,
+      view,
+      cards: board.cards,
+      ids: [c.id],
+      startX: 0,
+      startY: 0,
+      moved: false,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
   const startToolbarDrag = (e: React.PointerEvent, kind: Card["kind"]) => {
     if (e.button !== 0 || !ready) return;
     suppressToolbarClick.current = false;
@@ -737,7 +822,49 @@ function App() {
     }
     if (g.kind === "pan")
       setView({ ...g.view, x: g.view.x + dx, y: g.view.y + dy });
-    if (g.kind === "resize" && g.bounds) {
+    if (g.kind === "resize" && g.cardId && g.bounds) {
+      const original = g.cards.find((c) => c.id === g.cardId)!;
+      const b = g.bounds,
+        edge = g.edge!;
+      let width = Math.max(
+        64,
+        Math.min(
+          original.kind === "text" ? TEXT_MAX_WIDTH : 8000,
+          b.width +
+            (edge.includes("e")
+              ? dx / g.view.z
+              : edge.includes("w")
+                ? -dx / g.view.z
+                : 0),
+        ),
+      );
+      let height = Math.max(
+        32,
+        b.height +
+          (edge.includes("s")
+            ? dy / g.view.z
+            : edge.includes("n")
+              ? -dy / g.view.z
+              : 0),
+      );
+      if (original.kind === "image") {
+        const ratio = b.width / b.height;
+        if (edge === "n" || edge === "s") width = height * ratio;
+        else height = width / ratio;
+      }
+      const next = {
+        ...original,
+        width,
+        height,
+        x: edge.includes("w") ? b.x + b.width - width : b.x,
+        y: edge.includes("n") ? b.y + b.height - height : b.y,
+      };
+      setBoard((b) => {
+        const cards = b.cards.map((c) => (c.id === next.id ? next : c));
+        return canPlace(cards) ? { ...b, cards } : b;
+      });
+    }
+    if (g.kind === "resize" && g.bounds && !g.cardId) {
       const b = g.bounds,
         edge = g.edge!;
       const width = Math.max(
@@ -772,37 +899,40 @@ function App() {
       }));
     }
     if (g.kind === "move" && g.moved)
-      setBoard((b) => ({
-        ...b,
-        cards: b.cards.map((c) => {
-          const original = g.cards.find((a) => a.id === c.id);
-          return g.ids.includes(c.id) && original
-            ? {
-                ...c,
-                x: original.x + dx / g.view.z,
-                y: original.y + dy / g.view.z,
-              }
-            : c;
-        }),
-        groups:
-          g.groupId && g.groupIds
-            ? b.groups.map((group) => {
-                const original = g.groups?.find(
-                  (item) => item.id === group.id,
-                )?.bounds;
-                return g.groupIds!.has(group.id) && original
-                  ? {
-                      ...group,
-                      bounds: {
-                        ...original,
-                        x: original.x + dx / g.view.z,
-                        y: original.y + dy / g.view.z,
-                      },
-                    }
-                  : group;
-              })
-            : b.groups,
-      }));
+      setBoard((b) => {
+        const proposed: Board = {
+          ...b,
+          cards: b.cards.map((c) => {
+            const original = g.cards.find((a) => a.id === c.id);
+            return g.ids.includes(c.id) && original
+              ? {
+                  ...c,
+                  x: original.x + dx / g.view.z,
+                  y: original.y + dy / g.view.z,
+                }
+              : c;
+          }),
+          groups:
+            g.groupId && g.groupIds
+              ? b.groups.map((group) => {
+                  const original = g.groups?.find(
+                    (item) => item.id === group.id,
+                  )?.bounds;
+                  return g.groupIds!.has(group.id) && original
+                    ? {
+                        ...group,
+                        bounds: {
+                          ...original,
+                          x: original.x + dx / g.view.z,
+                          y: original.y + dy / g.view.z,
+                        },
+                      }
+                    : group;
+                })
+              : b.groups,
+        };
+        return canPlace(proposed.cards) ? proposed : b;
+      });
     if (g.kind === "select") {
       const x = Math.min(g.startX, g.startX + dx / g.view.z),
         y = Math.min(g.startY, g.startY + dy / g.view.z),
@@ -815,7 +945,10 @@ function App() {
           ...visible
             .filter(
               (c) =>
-                c.x < x + w && c.x + 240 > x && c.y < y + h && c.y + 250 > y,
+                c.x < x + w &&
+                c.x + cardRect(c).width > x &&
+                c.y < y + h &&
+                c.y + cardRect(c).height > y,
             )
             .map((c) => c.id),
         ]),
@@ -851,17 +984,14 @@ function App() {
         }
       }
     }
-    if (g?.groupId && g.moved && (g.kind === "move" || g.kind === "resize"))
-      setBoard((b) => ({ ...b, groups: attachParents(b.groups) }));
-    if (g?.kind === "move" && g.moved && !g.groupId) {
-      setBoard((b) => ({
-        ...b,
-        cards: b.cards.map((c) =>
-          g.ids.includes(c.id)
-            ? { ...c, group: containingGroup(c, b.groups) }
-            : c,
+    if (g?.moved && (g.kind === "move" || g.kind === "resize")) {
+      setBoard((b) =>
+        settleGroups(
+          b,
+          g.groupId ? [] : g.ids,
+          g.groupIds ? [...g.groupIds] : [],
         ),
-      }));
+      );
     }
     end();
   };
@@ -894,6 +1024,7 @@ function App() {
     const fragment = selectedFragment(board, selection, selectedGroup);
     if (!fragment.cards.length && !fragment.groups.length) return;
     const token = uid();
+    notify("正在复制…");
     internalCopy.current = { token, fragment, offset: 30 };
     try {
       if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined")
@@ -1455,9 +1586,24 @@ function App() {
                   });
                 }}
                 className={
-                  "card " + (selection.includes(c.id) ? "selected" : "")
+                  "card card-" +
+                  c.kind +
+                  " " +
+                  (selection.includes(c.id) ? "selected" : "")
                 }
-                style={{ left: c.x, top: c.y, background: c.color }}
+                aria-label={
+                  c.kind === "text" ? c.text.slice(0, 80) : c.title || "任务"
+                }
+                data-group-name={
+                  board.groups.find((g) => g.id === c.group)?.name || ""
+                }
+                style={{
+                  left: c.x,
+                  top: c.y,
+                  width: cardRect(c).width,
+                  height: cardRect(c).height,
+                  background: c.kind === "image" ? "transparent" : c.color,
+                }}
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   pointerDown(e, c.id);
@@ -1467,26 +1613,18 @@ function App() {
                   if (!e.ctrlKey && !e.metaKey) openCard(c);
                 }}
               >
-                <div className="card-top">
-                  <span>
-                    {c.kind === "text" ? (
-                      <StickyNote size={13} />
-                    ) : c.kind === "todo" ? (
-                      <ListTodo size={13} />
-                    ) : c.kind === "image" ? (
-                      <ImagePlus size={13} />
-                    ) : (
-                      <FileText size={13} />
-                    )}{" "}
-                    {c.kind === "text"
-                      ? "NOTE"
-                      : c.kind === "todo"
-                        ? "TODO"
-                        : c.kind === "image"
-                          ? "IMAGE"
-                          : "FILE"}
-                  </span>
-                </div>
+                {c.kind !== "text" && c.kind !== "image" && (
+                  <div className="card-top">
+                    <span>
+                      {c.kind === "todo" ? (
+                        <ListTodo size={13} />
+                      ) : (
+                        <FileText size={13} />
+                      )}{" "}
+                      {c.kind === "todo" ? "TODO" : "FILE"}
+                    </span>
+                  </div>
+                )}
                 {c.kind === "text" ? (
                   <div className="note-body">
                     <p>{c.text}</p>
@@ -1529,26 +1667,39 @@ function App() {
                       </label>
                     ))}
                   </div>
+                ) : c.kind === "image" ? (
+                  <Attachment card={c} />
                 ) : (
                   <>
                     <Attachment card={c} />
                     <div className="attachment-title">{c.title}</div>
                   </>
                 )}
-                <footer>
-                  <span>
-                    {c.group
-                      ? board.groups.find((g) => g.id === c.group)?.name
-                      : ""}
-                  </span>
-                  <span>
-                    {selection.includes(c.id) ? (
-                      <Check size={13} />
-                    ) : (
-                      <MoreHorizontal size={16} />
-                    )}
-                  </span>
-                </footer>
+                {c.kind !== "text" && c.kind !== "image" && (
+                  <footer>
+                    <span>
+                      {c.group
+                        ? board.groups.find((g) => g.id === c.group)?.name
+                        : ""}
+                    </span>
+                    <span>
+                      {selection.includes(c.id) ? (
+                        <Check size={13} />
+                      ) : (
+                        <MoreHorizontal size={16} />
+                      )}
+                    </span>
+                  </footer>
+                )}
+                {selection.includes(c.id) &&
+                  ["n", "s", "e", "w", "ne", "nw", "se", "sw"].map((edge) => (
+                    <div
+                      key={edge}
+                      className={`card-resize resize-handle resize-${edge}`}
+                      data-testid={`card-resize-${edge}`}
+                      onPointerDown={(e) => resizeCard(e, c, edge)}
+                    />
+                  ))}
               </article>
             ))}
             {marquee && (

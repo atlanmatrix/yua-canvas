@@ -1,3 +1,4 @@
+import { layoutBoard } from "./geometry";
 import { useRef, useState } from "react";
 import { emptyBoard, type Board } from "./storage";
 export function useBoardHistory() {
@@ -12,7 +13,8 @@ export function useBoardHistory() {
   };
   const setBoard = (action: Board | ((b: Board) => Board)) => {
     const previous = current.current,
-      next = typeof action === "function" ? action(previous) : action;
+      raw = typeof action === "function" ? action(previous) : action,
+      next = transaction.current ? raw : layoutBoard(raw, previous);
     if (next === previous) return;
     if (!transaction.current) push(previous);
     current.current = next;
@@ -22,11 +24,16 @@ export function useBoardHistory() {
     if (!transaction.current) transaction.current = current.current;
   };
   const end = () => {
+    if (transaction.current) {
+      current.current = layoutBoard(current.current, transaction.current);
+      setState(current.current);
+    }
     const start = transaction.current;
     transaction.current = null;
     if (start && start !== current.current) push(start);
   };
-  const reset = (b: Board) => {
+  const reset = (raw: Board) => {
+    const b = layoutBoard(raw);
     past.current = [];
     future.current = [];
     transaction.current = null;

@@ -106,9 +106,16 @@ test("moving cards, searching, zooming and rejecting invalid imports", async ({
   await expect(page.getByTestId("card")).toHaveCount(2);
   const card = page.getByTestId("card").first();
   const before = await card.boundingBox();
-  await page.mouse.move(before!.x + 80, before!.y + 70);
+  await page.mouse.move(
+    before!.x + before!.width / 2,
+    before!.y + before!.height / 2,
+  );
   await page.mouse.down();
-  await page.mouse.move(before!.x + 180, before!.y + 110, { steps: 6 });
+  await page.mouse.move(
+    before!.x + before!.width / 2 + 100,
+    before!.y + before!.height / 2 + 40,
+    { steps: 6 },
+  );
   await page.mouse.up();
   const after = await card.boundingBox();
   expect(after!.x - before!.x).toBeCloseTo(100, 0);
@@ -258,12 +265,11 @@ test("pasted files support batches, preserve editable fields and ignore modal pa
     );
   });
   await expect(page.getByTestId("card")).toHaveCount(2);
-  await page.evaluate(() =>
-    navigator.clipboard.writeText("普通文字不应变成附件"),
-  );
+  await page.evaluate(() => navigator.clipboard.writeText("粘贴成为文本块"));
   await page.locator(".canvas").click({ position: { x: 20, y: 20 } });
   await page.keyboard.press("ControlOrMeta+v");
-  await expect(page.getByTestId("card")).toHaveCount(2);
+  await expect(page.getByTestId("card")).toHaveCount(3);
+  await expect(page.getByText("粘贴成为文本块", { exact: true })).toBeVisible();
 });
 
 test("full-height canvas and keyboard editing shortcuts", async ({ page }) => {
@@ -361,7 +367,7 @@ test("Markdown files open only on double-click and render safe GFM", async ({
     ),
   });
   await page.getByRole("button", { name: "适应所有内容" }).click();
-  const image = page.getByTestId("card").filter({ hasText: "pixel.png" });
+  const image = page.locator('.card[aria-label="pixel.png"]');
   await image.click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await image.dblclick();
@@ -455,8 +461,8 @@ test("group title drags every member at current zoom, including filtered cards",
   await page.getByRole("button", { name: "清除搜索" }).click();
   cards = await positions();
   expect(cards.map((c) => [c.x, c.y])).toEqual([
-    [130, 60],
-    [430, 60],
+    [105, 50],
+    [405, 50],
     [0, 300],
   ]);
   await expect(
@@ -524,7 +530,7 @@ test("legacy notes open directly as content-only editors and preserve stored dat
   );
 });
 
-test("group bounds stay fixed as cards move and resize independently with persistence", async ({
+test("group expands for intersecting cards and resizes independently with persistence", async ({
   page,
 }) => {
   await page.goto("/");
@@ -583,7 +589,7 @@ test("group bounds stay fixed as cards move and resize independently with persis
   expect(initial).toEqual({ x: 80, y: 60, w: 600, h: 310 });
   await page.getByTestId("card").filter({ hasText: "固定一" }).click();
   for (let i = 0; i < 15; i++) await page.keyboard.press("Shift+ArrowDown");
-  expect(await rect()).toEqual(initial);
+  expect(await rect()).toEqual({ ...initial, h: 460 });
   const positions = () =>
     page.getByTestId("card").evaluateAll((els) =>
       els.map((el) => ({
@@ -597,14 +603,14 @@ test("group bounds stay fixed as cards move and resize independently with persis
   await page.mouse.down();
   await page.mouse.move(handle!.x + 66, handle!.y + 36, { steps: 6 });
   await page.mouse.up();
-  expect(await rect()).toEqual({ x: 80, y: 60, w: 660, h: 340 });
+  expect(await rect()).toEqual({ x: 80, y: 60, w: 660, h: 490 });
   expect(await positions()).toEqual(before);
   await expect(
     page.locator('.save-indicator[data-state="已保存至本地"]'),
   ).toBeVisible();
   await page.reload();
   await expect(frame).toHaveCount(1);
-  expect(await rect()).toEqual({ x: 80, y: 60, w: 660, h: 340 });
+  expect(await rect()).toEqual({ x: 80, y: 60, w: 660, h: 490 });
   const downloadEvent = page.waitForEvent("download");
   await page.getByRole("button", { name: "导出画布" }).click();
   const download = await downloadEvent;
@@ -616,7 +622,7 @@ test("group bounds stay fixed as cards move and resize independently with persis
     x: 80,
     y: 60,
     width: 660,
-    height: 340,
+    height: 490,
   });
   await page.getByTestId("import").setInputFiles({
     name: "roundtrip.json",
@@ -624,7 +630,7 @@ test("group bounds stay fixed as cards move and resize independently with persis
     buffer: backup,
   });
   await page.getByRole("button", { name: "确认替换" }).click();
-  expect(await rect()).toEqual({ x: 80, y: 60, w: 660, h: 340 });
+  expect(await rect()).toEqual({ x: 80, y: 60, w: 660, h: 490 });
 });
 
 test("Todo tasks can be created, completed, edited and restored from a backup", async ({

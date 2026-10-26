@@ -1,3 +1,4 @@
+import { fragmentOffset, cardRect } from "./geometry";
 import {
   type Board,
   type Card,
@@ -25,25 +26,38 @@ export function duplicateFragment(
   fragment: Fragment,
   offset: number,
 ) {
+  const delta = fragmentOffset(fragment.cards, board.cards, offset);
+  if (fragment.groups.length) {
+    const left = Math.min(
+      ...fragment.groups.filter((g) => g.bounds).map((g) => g.bounds!.x),
+    );
+    const right = Math.max(
+      ...board.groups
+        .filter((g) => g.bounds)
+        .map((g) => g.bounds!.x + g.bounds!.width),
+      ...board.cards.map((c) => c.x + cardRect(c).width),
+    );
+    delta.x = Math.max(delta.x, right + 24 - left);
+  }
   const ids = new Map(fragment.groups.map((g) => [g.id, crypto.randomUUID()]));
   const groups = fragment.groups.map((g) => ({
     ...g,
     id: ids.get(g.id)!,
     parent: g.parent ? ids.get(g.parent) : undefined,
     bounds: g.bounds
-      ? { ...g.bounds, x: g.bounds.x + offset, y: g.bounds.y + offset }
+      ? { ...g.bounds, x: g.bounds.x + delta.x, y: g.bounds.y + delta.y }
       : undefined,
   }));
   const cards = fragment.cards.map((c) => ({
     ...c,
     id: crypto.randomUUID(),
-    x: c.x + offset,
-    y: c.y + offset,
+    x: c.x + delta.x,
+    y: c.y + delta.y,
     group:
       c.group && ids.has(c.group)
         ? ids.get(c.group)
         : containingGroup(
-            { ...c, x: c.x + offset, y: c.y + offset },
+            { ...c, x: c.x + delta.x, y: c.y + delta.y },
             board.groups,
           ),
     tasks: c.tasks?.map((t) => ({ ...t, id: crypto.randomUUID() })),
@@ -54,7 +68,7 @@ export function duplicateFragment(
       cards: [...board.cards, ...cards],
       groups: attachParents([...board.groups, ...groups]),
     },
-    cards: cards.map((c) => c.id),
+    cards: cards.map((c): string => c.id),
     group: groups.find((g) => !g.parent)?.id,
   };
 }

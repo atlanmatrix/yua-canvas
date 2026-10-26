@@ -22,7 +22,7 @@ async function setup(page: Page) {
         text: "起点",
         title: "",
         x: 0,
-        y: 0,
+        y: 600,
         color: "#fffdf5",
       },
       {
@@ -61,7 +61,7 @@ async function drag(page: Page, source: Locator, to: { x: number; y: number }) {
   await page.mouse.move(to.x, to.y, { steps: 12 });
   await page.mouse.up();
 }
-const membership = (card: Locator) => card.locator("footer>span").first();
+const membership = (card: Locator) => card;
 test("dragging into, between and out of groups uses full containment at zoom", async ({
   page,
 }) => {
@@ -69,22 +69,26 @@ test("dragging into, between and out of groups uses full containment at zoom", a
   const card = page.getByTestId("card").filter({ hasText: "移动卡片" });
   // Grab the card center, so drop coordinates are its center as well.
   await drag(page, card, await point(page, 170, 225));
-  await expect(membership(card)).toHaveText("内组");
+  await expect(membership(card)).toHaveAttribute("data-group-name", "内组");
   await expect(page.getByText("已选 1 项")).toBeVisible();
-  // Overlaps inner frame, but is not fully inside: falls back to outer frame.
+  // Partial overlap retains the original group and expands its frame.
   await drag(page, card, await point(page, 340, 225));
-  await expect(membership(card)).toHaveText("外组");
-  // The right edge exceeds both frames.
+  await expect(membership(card)).toHaveAttribute("data-group-name", "内组");
+  // Fully outside inner, but overlapping outer: transfer and expand outer.
   await drag(page, card, await point(page, 700, 225));
-  await expect(membership(card)).toHaveText("");
+  await expect(membership(card)).toHaveAttribute("data-group-name", "外组");
+  await page.keyboard.press("-");
+  await page.keyboard.press("-");
+  await drag(page, card, await point(page, 1200, 225));
+  await expect(membership(card)).toHaveAttribute("data-group-name", "");
   await expect(page.locator(".group-boundary")).toHaveCount(2);
   await drag(page, card, await point(page, 170, 225));
-  await expect(membership(card)).toHaveText("内组");
+  await expect(membership(card)).toHaveAttribute("data-group-name", "内组");
   await expect(
     page.locator('.save-indicator[data-state="已保存至本地"]'),
   ).toBeVisible();
   await page.reload();
-  await expect(membership(card)).toHaveText("内组");
+  await expect(membership(card)).toHaveAttribute("data-group-name", "内组");
   await page.getByRole("button", { name: "适应所有内容" }).click();
   const title = page.getByRole("button", { name: "拖动分组 内组" });
   await page.keyboard.press("Escape");
@@ -125,7 +129,7 @@ test("toolbar note and Todo drag to exact positions, join groups and cancel outs
   await page.getByRole("textbox", { name: "笔记内容" }).fill("拖入笔记");
   await page.getByRole("button", { name: "保存笔记" }).click();
   const note = page.getByTestId("card").filter({ hasText: "拖入笔记" });
-  await expect(membership(note)).toHaveText("内组");
+  await expect(membership(note)).toHaveAttribute("data-group-name", "内组");
   const position = await note.evaluate((el) => ({
     x: parseFloat((el as HTMLElement).style.left),
     y: parseFloat((el as HTMLElement).style.top),
@@ -141,7 +145,7 @@ test("toolbar note and Todo drag to exact positions, join groups and cancel outs
   await page.getByRole("button", { name: "保存任务" }).click();
   await expect(
     membership(page.getByTestId("card").filter({ hasText: "拖入任务" })),
-  ).toHaveText("外组");
+  ).toHaveAttribute("data-group-name", "外组");
   await drag(
     page,
     page.getByRole("button", { name: "添加笔记", exact: true }),
@@ -179,14 +183,14 @@ test("toolbar attachment drops keep the drop position through file selection", a
       mimeType: mime,
       buffer: Buffer.from(content),
     });
-    const card = page.getByTestId("card").filter({ hasText: name });
+    const card = page.locator(`.card[aria-label="${name}"]`);
     await expect(card).toHaveCount(1);
-    await expect(membership(card)).toHaveText("内组");
+    await expect(membership(card)).toHaveAttribute("data-group-name", "内组");
     const p = await card.evaluate((el) => ({
       x: parseFloat((el as HTMLElement).style.left),
       y: parseFloat((el as HTMLElement).style.top),
     }));
-    expect(p.x).toBeCloseTo(50, 0);
+    expect(p.x).toBeGreaterThanOrEqual(50);
     expect(p.y).toBeCloseTo(100, 0);
   }
 });
