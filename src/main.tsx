@@ -48,7 +48,11 @@ import { Markdown } from "./Markdown";
 import { NoteText, linkTarget } from "./NoteText";
 import { TextEditor } from "./TextEditor";
 import { TodoEditor } from "./TodoEditor";
-import { CanvasContextMenu, ColorPalette } from "./CanvasContextMenu";
+import {
+  CanvasContextMenu,
+  ColorPalette,
+  MenuSection,
+} from "./CanvasContextMenu";
 import { ConnectionView } from "./ConnectionView";
 import { cardsFromFiles } from "./files";
 import { archiveSelection, createArchive, isZip, readArchive } from "./archive";
@@ -425,29 +429,37 @@ function App() {
   };
   const updateCards = (fn: (cards: Card[]) => Card[]) =>
     setBoard((b) => ({ ...b, cards: fn(b.cards) }));
+  const deleteItems = (ids: string[], groupId?: string) => {
+    const family = groupId ? groupTreeIds(board.groups, groupId) : undefined;
+    const cardIds = new Set(ids);
+    if (family?.has(filter)) setFilter("all");
+    setBoard((b) => ({
+      ...b,
+      groups: family
+        ? b.groups.filter((group) => !family.has(group.id))
+        : b.groups,
+      cards: b.cards.filter(
+        (card) =>
+          !cardIds.has(card.id) && (!card.group || !family?.has(card.group)),
+      ),
+    }));
+    setSelection([]);
+    setSelectedGroup(undefined);
+    setSelectedConnection(undefined);
+    setMenu(null);
+  };
   const removeSelected = () => {
     if (selectedConnection) {
       setBoard((b) => ({
         ...b,
-        connections: b.connections?.filter((c) => c.id !== selectedConnection),
+        connections: b.connections?.filter(
+          (connection) => connection.id !== selectedConnection,
+        ),
       }));
       setSelectedConnection(undefined);
-      return;
-    }
-    if (selectedGroup) {
-      const family = groupTreeIds(board.groups, selectedGroup);
-      setBoard((b) => ({
-        ...b,
-        groups: b.groups.filter((g) => !family.has(g.id)),
-        cards: b.cards.filter((c) => !c.group || !family.has(c.group)),
-      }));
-      setSelectedGroup(undefined);
-      return;
-    }
-    if (selection.length) {
-      updateCards((cards) => cards.filter((c) => !selection.includes(c.id)));
-      setSelection([]);
-    }
+      setMenu(null);
+    } else if (selectedGroup || selection.length)
+      deleteItems(selectedGroup ? [] : selection, selectedGroup);
   };
   const center = () => {
     const r = surface.current!.getBoundingClientRect();
@@ -1290,6 +1302,7 @@ function App() {
       e.type !== "pointercancel" &&
       g.context
     ) {
+      setSelectedConnection(undefined);
       if (g.context.kind === "group") {
         setSelectedGroup(g.context.id);
         setSelection([]);
@@ -1308,7 +1321,7 @@ function App() {
         e.clientY >= r.top &&
         e.clientY <= r.bottom &&
         !hit?.closest(
-          '.toolbar,.floating-top,.zoom-controls,.selection-bar,.sidebar,.minimap,[role="dialog"]',
+          '.toolbar,.floating-top,.zoom-controls,.sidebar,.minimap,[role="dialog"]',
         )
       ) {
         const point = {
@@ -1675,6 +1688,11 @@ function App() {
     menu?.kind === "group"
       ? board.groups.find((group) => group.id === menu.id)
       : undefined;
+  const menuCardIds = menuCard
+    ? selection.includes(menuCard.id)
+      ? selection
+      : [menuCard.id]
+    : [];
   return (
     <div
       onPointerMoveCapture={(e) => setLinkModifier(e.metaKey || e.ctrlKey)}
@@ -2109,6 +2127,7 @@ function App() {
                           e.stopPropagation();
                           setSelectedGroup(g.id);
                           setSelection([]);
+                          setSelectedConnection(undefined);
                           setMenu({
                             x: e.clientX,
                             y: e.clientY,
@@ -2168,6 +2187,7 @@ function App() {
                   e.preventDefault();
                   e.stopPropagation();
                   setSelectedGroup(undefined);
+                  setSelectedConnection(undefined);
                   if (!selection.includes(c.id)) setSelection([c.id]);
                   setMenu({
                     x: e.clientX,
@@ -2481,39 +2501,6 @@ function App() {
             }));
           }}
         />
-        {selection.length > 0 && (
-          <div className="selection-bar">
-            <strong>已选 {selection.length} 项</strong>
-            <span />
-            <button
-              disabled={selection.length < 2}
-              onClick={() => setGroupDialog({ name: "" })}
-            >
-              <Folder size={15} />
-              创建分组
-            </button>
-            {board.cards.some((c) => selection.includes(c.id) && c.group) && (
-              <button
-                onClick={() =>
-                  updateCards((cards) =>
-                    cards.map((c) =>
-                      selection.includes(c.id) ? { ...c, group: undefined } : c,
-                    ),
-                  )
-                }
-              >
-                <Unlink size={15} />
-                移出分组
-              </button>
-            )}
-            <button title="删除选中内容" onClick={removeSelected}>
-              <Trash2 size={16} />
-            </button>
-            <button title="取消选择" onClick={() => setSelection([])}>
-              <X size={16} />
-            </button>
-          </div>
-        )}
         <div className="bottom-tools">
           <div className="toolbar">
             <button
@@ -2637,65 +2624,109 @@ function App() {
       />
       {menu && (
         <CanvasContextMenu x={menu.x} y={menu.y}>
-          {menuCard?.kind === "text" && (
-            <>
-              <button
-                role="menuitem"
-                onClick={() => {
-                  const href = linkTarget(menuCard.text);
-                  setMenu(null);
-                  if (href) window.open(href, "_blank", "noopener,noreferrer");
-                  else openCard(menuCard);
-                }}
-              >
-                <ArrowUpRight size={14} />
-                打开
-              </button>
-              <button
-                role="menuitem"
-                onClick={() => {
-                  setMenu(null);
-                  void copySelected([menuCard.id]);
-                }}
-              >
-                <Copy size={14} />
-                复制
-              </button>
-            </>
-          )}
           {menuCard && (
-            <button
-              role="menuitem"
-              onClick={() => {
-                setMenu(null);
-                downloadCard(menuCard);
-              }}
-            >
-              <Download size={14} />
-              下载
-            </button>
+            <MenuSection label="内容操作">
+              {menuCard.kind === "text" && (
+                <>
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      const href = linkTarget(menuCard.text);
+                      setMenu(null);
+                      if (href)
+                        window.open(href, "_blank", "noopener,noreferrer");
+                      else openCard(menuCard);
+                    }}
+                  >
+                    <ArrowUpRight size={14} />
+                    打开
+                  </button>
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setMenu(null);
+                      void copySelected([menuCard.id]);
+                    }}
+                  >
+                    <Copy size={14} />
+                    复制
+                  </button>
+                </>
+              )}
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null);
+                  downloadCard(menuCard);
+                }}
+              >
+                <Download size={14} />
+                下载
+              </button>
+            </MenuSection>
           )}
-          {menu.kind === "card" ? (
+          <MenuSection label="分组操作">
+            {menu.kind === "card" ? (
+              <>
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setMenu(null);
+                    setGroupDialog({ name: "" });
+                  }}
+                >
+                  <Folder size={14} />
+                  创建分组
+                </button>
+                {board.cards.some(
+                  (card) => menuCardIds.includes(card.id) && card.group,
+                ) && (
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setMenu(null);
+                      updateCards((cards) =>
+                        cards.map((card) =>
+                          menuCardIds.includes(card.id)
+                            ? { ...card, group: undefined }
+                            : card,
+                        ),
+                      );
+                    }}
+                  >
+                    <Unlink size={14} />
+                    移出分组
+                  </button>
+                )}
+              </>
+            ) : (
+              <button role="menuitem" onClick={() => dissolveGroup(menu.id)}>
+                <Unlink size={14} />
+                解散分组
+              </button>
+            )}
+          </MenuSection>
+          <MenuSection label="外观">
+            <ColorPalette
+              value={menuCard?.color || menuGroup?.color}
+              onChange={changeBackground}
+            />
+          </MenuSection>
+          <MenuSection label="删除操作">
             <button
+              className="danger"
               role="menuitem"
-              onClick={() => {
-                setMenu(null);
-                setGroupDialog({ name: "" });
-              }}
+              onClick={() =>
+                deleteItems(
+                  menuCardIds,
+                  menu.kind === "group" ? menu.id : undefined,
+                )
+              }
             >
-              <Folder size={14} />
-              创建分组
+              <Trash2 size={14} />
+              删除
             </button>
-          ) : (
-            <button role="menuitem" onClick={() => dissolveGroup(menu.id)}>
-              <Unlink size={14} />
-              解散分组
-            </button>
-          )}
-          <ColorPalette
-            value={menuCard?.color || menuGroup?.color}
-            onChange={changeBackground}
-          />
+          </MenuSection>
         </CanvasContextMenu>
       )}
       {groupDialog && (

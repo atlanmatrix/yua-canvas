@@ -70,7 +70,7 @@ test("dragging into, between and out of groups uses full containment at zoom", a
   // Grab the card center, so drop coordinates are its center as well.
   await drag(page, card, await point(page, 170, 225));
   await expect(membership(card)).toHaveAttribute("data-group-name", "内组");
-  await expect(page.getByText("已选 1 项")).toBeVisible();
+  await expect(page.locator(".card.selected")).toHaveCount(1);
   // Partial overlap retains the original group and expands its frame.
   await drag(page, card, await point(page, 340, 225));
   await expect(membership(card)).toHaveAttribute("data-group-name", "内组");

@@ -57,6 +57,19 @@ export function ColorPalette({
     </div>
   );
 }
+export function MenuSection({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="context-menu-section" role="group" aria-label={label}>
+      {children}
+    </div>
+  );
+}
 export function CanvasContextMenu({
   x,
   y,

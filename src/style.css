@@ -433,35 +433,6 @@ main {
   height: 15px;
   margin: 0 2px;
 }
-.selection-bar {
-  position: absolute;
-  bottom: 90px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #ffffff;
-  border: 1px solid #cfd5e2;
-  box-shadow: 0 3px 15px #4f5b7615;
-  border-radius: 7px;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  padding: 10px 14px;
-  font-size: 11px;
-  white-space: nowrap;
-  z-index: 5;
-}
-.selection-bar strong {
-  font-size: 10px;
-  font-weight: 500;
-}
-.selection-bar > span {
-  width: 1px;
-  height: 15px;
-  background: #dadee7;
-}
-.selection-bar button {
-  font-size: 10px;
-}
 .button {
   padding: 9px 14px;
   border: 1px solid #d7dae2;
@@ -740,9 +711,6 @@ main {
   .zoom-controls {
     bottom: 87px;
   }
-  .selection-bar {
-    bottom: 137px;
-  }
   .sidebar {
     width: 200px;
   }
@@ -792,14 +760,6 @@ main {
   .zoom-controls {
     bottom: 79px;
     right: 12px;
-  }
-  .selection-bar {
-    bottom: 130px;
-    gap: 8px;
-    padding: 8px;
-    max-width: 96%;
-    flex-wrap: wrap;
-    justify-content: center;
   }
   .modal {
     padding: 20px;
@@ -1478,9 +1438,7 @@ main {
 .context-menu .color-palette {
   display: flex;
   gap: 4px;
-  padding: 9px 2px 5px;
-  border-top: 1px solid #e8ebf0;
-  margin-top: 4px;
+  padding: 7px 2px;
 }
 .context-menu .color-swatch {
   position: relative;
@@ -1579,4 +1537,16 @@ main {
 .todo-editor .completed input:not([type="checkbox"]) {
   text-decoration: line-through;
   color: #9199aa;
+}
+
+.context-menu-section + .context-menu-section {
+  border-top: 1px solid #e8ebf0;
+  margin-top: 4px;
+  padding-top: 4px;
+}
+.context-menu button.danger {
+  color: #dc2626;
+}
+.context-menu button.danger:hover {
+  background: #fff1f2;
 }

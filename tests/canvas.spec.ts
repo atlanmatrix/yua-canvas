@@ -16,8 +16,10 @@ test("notes, grouping, persistence, attachments and portable backup", async ({
   await page.keyboard.press("ControlOrMeta+Enter");
   await page.locator(".canvas").click({ position: { x: 20, y: 20 } });
   await page.keyboard.press("ControlOrMeta+a");
-  await expect(page.getByText("已选 2 项")).toBeVisible();
-  await page.getByRole("button", { name: "创建分组", exact: true }).click();
+  await expect(page.locator(".card.selected")).toHaveCount(2);
+  await expect(page.locator(".selection-bar")).toHaveCount(0);
+  await page.getByTestId("card").last().click({ button: "right" });
+  await page.getByRole("menuitem", { name: "创建分组", exact: true }).click();
   await page.getByRole("textbox", { name: "分组名称" }).fill("周末出发");
   await page.getByRole("button", { name: "保存分组" }).click();
   await expect(page.locator(".group-row")).toContainText("周末出发");
