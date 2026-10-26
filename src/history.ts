@@ -1,5 +1,5 @@
 import { pruneConnections } from "./connections";
-import { layoutBoard } from "./geometry";
+import { updateGroupMembership } from "./geometry";
 import { useRef, useState } from "react";
 import { emptyBoard, type Board } from "./storage";
 export function useBoardHistory() {
@@ -17,7 +17,7 @@ export function useBoardHistory() {
       raw = pruneConnections(
         typeof action === "function" ? action(previous) : action,
       ),
-      next = transaction.current ? raw : layoutBoard(raw, previous);
+      next = transaction.current ? raw : updateGroupMembership(raw, previous);
     if (next === previous) return;
     if (!transaction.current) push(previous);
     current.current = next;
@@ -28,7 +28,10 @@ export function useBoardHistory() {
   };
   const end = () => {
     if (transaction.current) {
-      current.current = layoutBoard(current.current, transaction.current);
+      current.current = updateGroupMembership(
+        current.current,
+        transaction.current,
+      );
       setState(current.current);
     }
     const start = transaction.current;
@@ -36,7 +39,7 @@ export function useBoardHistory() {
     if (start && start !== current.current) push(start);
   };
   const reset = (raw: Board) => {
-    const b = pruneConnections(layoutBoard(raw));
+    const b = pruneConnections(updateGroupMembership(raw));
     past.current = [];
     future.current = [];
     transaction.current = null;

@@ -1,13 +1,11 @@
 import { test, expect, type Page, type Locator } from "@playwright/test";
 async function load(page: Page, cards: unknown[], groups: unknown[] = []) {
   await page.goto("/");
-  await page
-    .getByTestId("import")
-    .setInputFiles({
-      name: "refine.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify({ version: 1, cards, groups })),
-    });
+  await page.getByTestId("import").setInputFiles({
+    name: "refine.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify({ version: 1, cards, groups })),
+  });
   await page.getByRole("button", { name: "确认替换" }).click();
   await expect(page.getByTestId("card")).toHaveCount(cards.length);
 }
@@ -33,7 +31,7 @@ async function point(page: Page, x: number, y: number) {
   );
 }
 for (const direction of ["right", "left", "down", "up"]) {
-  test(`dragging ${direction} pushes a chain of neighbours without blocking and undoes in one step`, async ({
+  test(`dragging ${direction} allows overlap without moving neighbours and undoes in one step`, async ({
     page,
   }) => {
     const horizontal = direction === "right" || direction === "left",
@@ -49,16 +47,14 @@ for (const direction of ["right", "left", "down", "up"]) {
         : [note("主动", 200, a), note("邻居", 200, b), note("后续", 200, c)],
     );
     const coords = () =>
-      page
-        .getByTestId("card")
-        .evaluateAll((els) =>
-          els.map((el) => ({
-            x: parseFloat((el as HTMLElement).style.left),
-            y: parseFloat((el as HTMLElement).style.top),
-            w: parseFloat((el as HTMLElement).style.width),
-            h: parseFloat((el as HTMLElement).style.height),
-          })),
-        );
+      page.getByTestId("card").evaluateAll((els) =>
+        els.map((el) => ({
+          x: parseFloat((el as HTMLElement).style.left),
+          y: parseFloat((el as HTMLElement).style.top),
+          w: parseFloat((el as HTMLElement).style.width),
+          h: parseFloat((el as HTMLElement).style.height),
+        })),
+      );
     const before = await coords(),
       card = page.getByTestId("card").first(),
       box = await card.boundingBox(),
@@ -73,25 +69,9 @@ for (const direction of ["right", "left", "down", "up"]) {
     await page.mouse.up();
     const after = await coords();
     expect(horizontal ? after[0].x : after[0].y).toBeCloseTo(target, 0);
-    const pos = (r: (typeof after)[number]) => (horizontal ? r.x : r.y);
-    if (positive) {
-      expect(pos(after[1])).toBeGreaterThan(pos(before[1]));
-      expect(pos(after[2])).toBeGreaterThan(pos(before[2]));
-    } else {
-      expect(pos(after[1])).toBeLessThan(pos(before[1]));
-      expect(pos(after[2])).toBeLessThan(pos(before[2]));
-    }
-    for (let i = 0; i < after.length; i++)
-      for (let j = i + 1; j < after.length; j++) {
-        const a = after[i],
-          b = after[j];
-        expect(
-          a.x + a.w <= b.x + 0.1 ||
-            b.x + b.w <= a.x + 0.1 ||
-            a.y + a.h <= b.y + 0.1 ||
-            b.y + b.h <= a.y + 0.1,
-        ).toBe(true);
-      }
+    expect(after.slice(1)).toEqual(before.slice(1));
+    expect(after[0].x).toBeCloseTo(after[1].x, 0);
+    expect(after[0].y).toBeCloseTo(after[1].y, 0);
     await page.keyboard.press("ControlOrMeta+z");
     expect(await coords()).toEqual(before);
     await page.keyboard.press("ControlOrMeta+Shift+z");

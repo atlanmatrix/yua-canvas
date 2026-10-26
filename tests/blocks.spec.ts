@@ -75,7 +75,7 @@ test("plain text pastes as a title-free 80-character block with persistent borde
   ).toBeCloseTo(width);
   await expect(card.locator(".note-body")).toHaveText(text);
 });
-test("pasted images retain aspect ratio without chrome and all new copies avoid collisions", async ({
+test("pasted images retain aspect ratio without chrome and new copies may overlap without displacing originals", async ({
   page,
   context,
 }) => {
@@ -115,7 +115,7 @@ test("pasted images retain aspect ratio without chrome and all new copies avoid 
   await expect(page.getByRole("status")).toContainText("已复制图片");
   await page.keyboard.press("ControlOrMeta+v");
   await expect(page.getByTestId("card")).toHaveCount(2);
-  expect(await noOverlap(page)).toBe(true);
+  expect(await noOverlap(page)).toBe(false);
   for (let i = 0; i < 3; i++) {
     await page.evaluate(
       (t) => navigator.clipboard.writeText(t),
@@ -123,10 +123,10 @@ test("pasted images retain aspect ratio without chrome and all new copies avoid 
     );
     await page.keyboard.press("ControlOrMeta+v");
     await expect(page.getByTestId("card")).toHaveCount(3 + i);
-    expect(await noOverlap(page)).toBe(true);
+    expect(await noOverlap(page)).toBe(false);
   }
 });
-test("partially outside blocks expand a group; wholly outside leave and collision drags push neighbours away", async ({
+test("partially outside blocks expand a group; wholly outside leave and overlapping neighbours remain stationary", async ({
   page,
 }) => {
   await page.goto("/");
@@ -174,7 +174,7 @@ test("partially outside blocks expand a group; wholly outside leave and collisio
   await expect(a).toHaveAttribute("data-group-name", "");
   expect(await noOverlap(page)).toBe(true);
   await move(page, a, await point(page, 730, 140));
-  expect(await noOverlap(page)).toBe(true);
+  expect(await noOverlap(page)).toBe(false);
   const ar = await a.evaluate((el) => ({
     x: parseFloat((el as HTMLElement).style.left),
     w: parseFloat((el as HTMLElement).style.width),
@@ -184,7 +184,7 @@ test("partially outside blocks expand a group; wholly outside leave and collisio
     .getByTestId("card")
     .filter({ hasText: "乙" })
     .evaluate((el) => parseFloat((el as HTMLElement).style.left));
-  expect(neighbour).toBeGreaterThanOrEqual(ar.x + ar.w);
+  expect(neighbour).toBe(650);
   await page.keyboard.press("ControlOrMeta+z");
   await expect(a).toHaveAttribute("data-group-name", "");
   await page.keyboard.press("ControlOrMeta+z");

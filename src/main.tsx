@@ -56,14 +56,7 @@ import {
   duplicateFragment,
   type Fragment,
 } from "./fragments";
-import {
-  cardRect,
-  textSize,
-  TEXT_MAX_WIDTH,
-  canPlace,
-  pushCards,
-  settleGroups,
-} from "./geometry";
+import { cardRect, textSize, TEXT_MAX_WIDTH, settleGroups } from "./geometry";
 import { cardDownload } from "./downloads";
 import { type Endpoint, type Side, endpointPoint, curve } from "./connections";
 import "./style.css";
@@ -297,8 +290,6 @@ function App() {
       startX: number;
       startY: number;
       moved: boolean;
-      lastX?: number;
-      lastY?: number;
     } | null>(null),
     space = useRef(false),
     loaded = useRef(false);
@@ -311,13 +302,7 @@ function App() {
     setLinkDraft(null);
     if (g?.kind === "create") suppressToolbarClick.current = true;
     if (g?.moved && (g.kind === "move" || g.kind === "resize"))
-      setBoard((b) =>
-        settleGroups(
-          b,
-          g.groupId ? [] : g.ids,
-          g.groupIds ? [...g.groupIds] : [],
-        ),
-      );
+      setBoard((b) => settleGroups(b, g.groupId ? [] : g.ids));
     end();
   };
   useLayoutEffect(() => {
@@ -468,19 +453,6 @@ function App() {
       x: (r.width / 2 - view.x) / view.z - 120,
       y: (r.height / 2 - view.y) / view.z - 100,
     };
-    let attempts = 0;
-    while (
-      board.cards.some(
-        (c) => Math.abs(c.x - p.x) < 245 && Math.abs(c.y - p.y) < 255,
-      ) &&
-      attempts++ < 200
-    ) {
-      p.x += 270;
-      if (attempts % 3 === 0) {
-        p.x -= 810;
-        p.y += 280;
-      }
-    }
     return p;
   };
   const addFiles = async (
@@ -954,12 +926,6 @@ function App() {
     if (!g) return;
     const dx = e.clientX - g.x,
       dy = e.clientY - g.y;
-    const delta = {
-      x: e.clientX - (g.lastX ?? g.x),
-      y: e.clientY - (g.lastY ?? g.y),
-    };
-    g.lastX = e.clientX;
-    g.lastY = e.clientY;
     if (Math.abs(dx) + Math.abs(dy) > 4) g.moved = true;
     if (g.kind === "link" && g.from) {
       const r = surface.current!.getBoundingClientRect();
@@ -1017,7 +983,7 @@ function App() {
       };
       setBoard((b) => {
         const cards = b.cards.map((c) => (c.id === next.id ? next : c));
-        return canPlace(cards) ? { ...b, cards } : b;
+        return { ...b, cards };
       });
     }
     if (g.kind === "resize" && g.bounds && !g.cardId) {
@@ -1087,7 +1053,7 @@ function App() {
                 })
               : b.groups,
         };
-        return pushCards(proposed, g.ids, delta);
+        return proposed;
       });
     if (g.kind === "select") {
       const x = Math.min(g.startX, g.startX + dx / g.view.z),
@@ -1214,13 +1180,7 @@ function App() {
       }
     }
     if (g?.moved && (g.kind === "move" || g.kind === "resize")) {
-      setBoard((b) =>
-        settleGroups(
-          b,
-          g.groupId ? [] : g.ids,
-          g.groupIds ? [...g.groupIds] : [],
-        ),
-      );
+      setBoard((b) => settleGroups(b, g.groupId ? [] : g.ids));
     }
     end();
   };
@@ -1707,8 +1667,6 @@ function App() {
                   rightPan.view = next;
                   rightPan.x = e.clientX;
                   rightPan.y = e.clientY;
-                  rightPan.lastX = e.clientX;
-                  rightPan.lastY = e.clientY;
                   rightPan.moved = true;
                 }
                 return next;

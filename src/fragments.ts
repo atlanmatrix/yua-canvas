@@ -1,5 +1,4 @@
 import type { Connection } from "./connections";
-import { fragmentOffset, cardRect } from "./geometry";
 import {
   type Board,
   type Card,
@@ -38,19 +37,7 @@ export function duplicateFragment(
   fragment: Fragment,
   offset: number,
 ) {
-  const delta = fragmentOffset(fragment.cards, board.cards, offset);
-  if (fragment.groups.length) {
-    const left = Math.min(
-      ...fragment.groups.filter((g) => g.bounds).map((g) => g.bounds!.x),
-    );
-    const right = Math.max(
-      ...board.groups
-        .filter((g) => g.bounds)
-        .map((g) => g.bounds!.x + g.bounds!.width),
-      ...board.cards.map((c) => c.x + cardRect(c).width),
-    );
-    delta.x = Math.max(delta.x, right + 24 - left);
-  }
+  const delta = { x: offset, y: offset };
   const ids = new Map(fragment.groups.map((g) => [g.id, crypto.randomUUID()]));
   const groups = fragment.groups.map((g) => ({
     ...g,

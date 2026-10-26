@@ -1,11 +1,4 @@
-import {
-  type Board,
-  type Card,
-  type Rect,
-  attachParents,
-  containingGroup,
-  groupBounds,
-} from "./storage";
+import { type Board, type Card, type Rect, attachParents } from "./storage";
 export const TEXT_MAX_WIDTH = 648;
 export const cardRect = (
   c: Pick<Card, "x" | "y" | "width" | "height">,
@@ -40,25 +33,7 @@ export function textSize(text: string) {
   );
   return { width, height: Math.max(48, rows * 24 + 24) };
 }
-export function freePosition(card: Card, others: Card[]): Card {
-  let next = card;
-  for (let i = 0; i <= others.length; i++) {
-    const hits = others.filter(
-      (c) => c.id !== next.id && overlaps(cardRect(next), cardRect(c)),
-    );
-    if (!hits.length) return next;
-    next = {
-      ...next,
-      x: Math.max(...hits.map((c) => c.x + cardRect(c).width)) + 16,
-    };
-  }
-  return next;
-}
-export function settleGroups(
-  board: Board,
-  moved: string[],
-  movedGroups: string[] = [],
-): Board {
+export function settleGroups(board: Board, moved: string[]): Board {
   let groups = board.groups.map((g) => ({
     ...g,
     bounds: g.bounds ? { ...g.bounds } : undefined,
@@ -97,15 +72,6 @@ export function settleGroups(
     }
     return { ...c, group: undefined };
   });
-  // Every intersecting frame must contain the entire card, never cross it.
-  for (const card of cards)
-    for (const group of groups)
-      if (
-        group.bounds &&
-        overlaps(group.bounds, cardRect(card)) &&
-        !contains(group.bounds, cardRect(card))
-      )
-        expand(group.id, cardRect(card));
   // Retain a child's parent while their frames still intersect. Repeated passes
   // propagate growth through all ancestor levels without moving any content.
   for (let pass = 0; pass < groups.length; pass++) {
@@ -124,34 +90,9 @@ export function settleGroups(
     }
     if (!changed) break;
   }
-  // Frames may contain one another, but may not cross partially.
-  for (let pass = 0; pass < groups.length; pass++) {
-    let changed = false;
-    for (let i = 0; i < groups.length; i++)
-      for (let j = i + 1; j < groups.length; j++) {
-        const a = groups[i],
-          b = groups[j];
-        if (
-          !a.bounds ||
-          !b.bounds ||
-          !overlaps(a.bounds, b.bounds) ||
-          contains(a.bounds, b.bounds) ||
-          contains(b.bounds, a.bounds)
-        )
-          continue;
-        if (
-          a.bounds.width * a.bounds.height >=
-          b.bounds.width * b.bounds.height
-        )
-          expand(a.id, b.bounds);
-        else expand(b.id, a.bounds);
-        changed = true;
-      }
-    if (!changed) break;
-  }
   return { ...board, cards, groups: attachParents(groups) };
 }
-export function layoutBoard(board: Board, previous?: Board): Board {
+export function updateGroupMembership(board: Board, previous?: Board): Board {
   const old = new Map(previous?.cards.map((c) => [c.id, c]) || []);
   const changed = board.cards.filter((c) => {
     const p = old.get(c.id);
@@ -164,91 +105,8 @@ export function layoutBoard(board: Board, previous?: Board): Board {
     );
   });
   if (!changed.length) return board;
-  const ids = new Set(changed.map((c) => c.id)),
-    placed = board.cards.filter((c) => !ids.has(c.id)),
-    mapped = new Map<string, Card>();
-  for (const c of changed) {
-    const next = freePosition(c, placed);
-    placed.push(next);
-    mapped.set(c.id, next);
-  }
   return settleGroups(
-    { ...board, cards: board.cards.map((c) => mapped.get(c.id) || c) },
+    board,
     changed.map((c) => c.id),
   );
-}
-export function canPlace(cards: Card[]): boolean {
-  for (let i = 0; i < cards.length; i++)
-    for (let j = i + 1; j < cards.length; j++)
-      if (overlaps(cardRect(cards[i]), cardRect(cards[j]))) return false;
-  return true;
-}
-export function fragmentOffset(cards: Card[], others: Card[], offset: number) {
-  let dx = offset;
-  for (let pass = 0; pass <= others.length; pass++) {
-    let correction = 0;
-    for (const c of cards)
-      for (const other of others)
-        if (
-          overlaps(
-            { ...cardRect(c), x: c.x + dx, y: c.y + offset },
-            cardRect(other),
-          )
-        )
-          correction = Math.max(
-            correction,
-            other.x + cardRect(other).width + 16 - (c.x + dx),
-          );
-    if (!correction) return { x: dx, y: offset };
-    dx += correction;
-  }
-  return { x: dx, y: offset };
-}
-
-// Moving cards are anchors; sweep other cards out along the drag direction.
-// The directional order lets a displaced neighbour push the next neighbour too.
-export function pushCards(
-  board: Board,
-  movingIds: string[],
-  delta: { x: number; y: number },
-): Board {
-  const fixed = new Set(movingIds),
-    horizontal = Math.abs(delta.x) >= Math.abs(delta.y),
-    sign = (horizontal ? delta.x : delta.y) < 0 ? -1 : 1;
-  const anchors = board.cards.filter((c) => fixed.has(c.id));
-  const others = board.cards
-    .filter((c) => !fixed.has(c.id))
-    .sort(
-      (a, b) =>
-        sign * ((horizontal ? a.x : a.y) - (horizontal ? b.x : b.y)) ||
-        a.id.localeCompare(b.id),
-    );
-  const placed = [...anchors],
-    updated = new Map<string, Card>();
-  for (const card of others) {
-    let next = card;
-    for (let pass = 0; pass <= placed.length; pass++) {
-      const hits = placed.filter((p) => overlaps(cardRect(next), cardRect(p)));
-      if (!hits.length) break;
-      if (horizontal)
-        next = {
-          ...next,
-          x:
-            sign > 0
-              ? Math.max(...hits.map((c) => c.x + cardRect(c).width)) + 16
-              : Math.min(...hits.map((c) => c.x)) - cardRect(next).width - 16,
-        };
-      else
-        next = {
-          ...next,
-          y:
-            sign > 0
-              ? Math.max(...hits.map((c) => c.y + cardRect(c).height)) + 16
-              : Math.min(...hits.map((c) => c.y)) - cardRect(next).height - 16,
-        };
-    }
-    placed.push(next);
-    updated.set(next.id, next);
-  }
-  return { ...board, cards: board.cards.map((c) => updated.get(c.id) || c) };
 }
