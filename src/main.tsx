@@ -286,6 +286,7 @@ function App() {
       createKind?: Card["kind"];
       button?: number;
       link?: string;
+      toggleCard?: string;
       context?: { id: string; kind: "card" | "group" };
       groupId?: string;
       groupIds?: Set<string>;
@@ -871,13 +872,23 @@ function App() {
       y = (e.clientY - r.top - view.y) / view.z;
     const target = e.target as Element,
       cardTarget = target.closest("[data-card-id]"),
-      groupTarget = target.closest(".group-title")?.closest("[data-group-id]");
+      groupTarget = target.closest(".group-title")?.closest("[data-group-id]"),
+      link =
+        e.button === 0 && (e.ctrlKey || e.metaKey)
+          ? target.closest<HTMLAnchorElement>("a.note-link")?.href
+          : undefined;
     gesture.current = {
       kind: pan ? "pan" : id || groupId ? "move" : "select",
       button: e.button,
-      link:
-        e.button === 0 && (e.ctrlKey || e.metaKey)
-          ? target.closest<HTMLAnchorElement>("a.note-link")?.href
+      link,
+      toggleCard:
+        e.button === 0 &&
+        (e.ctrlKey || e.metaKey) &&
+        !link &&
+        tool !== "hand" &&
+        !space.current &&
+        !target.closest("button,input,textarea,label,.resize-handle")
+          ? cardTarget?.getAttribute("data-card-id") || undefined
           : undefined,
       context: cardTarget
         ? { id: cardTarget.getAttribute("data-card-id")!, kind: "card" }
@@ -1062,7 +1073,7 @@ function App() {
       suppressToolbarClick.current = true;
       setCreatePreview({ kind: g.createKind!, x: e.clientX, y: e.clientY });
     }
-    if (g.kind === "pan" && (g.button !== 2 || g.moved))
+    if (g.kind === "pan" && ((g.button !== 2 && !g.toggleCard) || g.moved))
       setView({ ...g.view, x: g.view.x + dx, y: g.view.y + dy });
     if (g.kind === "resize" && g.cardId && g.bounds) {
       const original = g.cards.find((c) => c.id === g.cardId)!;
@@ -1212,6 +1223,19 @@ function App() {
       Math.abs(e.clientX - g.x) + Math.abs(e.clientY - g.y) <= 4
     ) {
       window.open(g.link, "_blank", "noopener,noreferrer");
+    }
+    if (
+      g?.toggleCard &&
+      !g.moved &&
+      e.type !== "pointercancel" &&
+      Math.abs(e.clientX - g.x) + Math.abs(e.clientY - g.y) <= 4
+    ) {
+      const id = g.toggleCard;
+      setSelectedGroup(undefined);
+      setSelectedConnection(undefined);
+      setSelection((ids) =>
+        ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id],
+      );
     }
     if (g?.kind === "link" && g.from) {
       setLinkDraft(null);
