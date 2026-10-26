@@ -41,8 +41,10 @@ import {
   exportBoard,
   importBoard,
 } from "./storage";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { Markdown } from "./Markdown";
+import { ConnectionView } from "./ConnectionView";
+import { cardsFromFiles } from "./files";
+import { archiveSelection, createArchive, isZip, readArchive } from "./archive";
 import {
   clipboardCopy,
   canvasClipboard,
@@ -113,23 +115,7 @@ function Attachment({ card, large = false }: { card: Card; large?: boolean }) {
     (/\.(md|markdown|mdown)$/i.test(card.title) ||
       card.mime === "text/markdown")
   )
-    return (
-      <div className="markdown">
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          skipHtml
-          components={{
-            a: ({ children, ...props }) => (
-              <a {...props} target="_blank" rel="noopener noreferrer">
-                {children}
-              </a>
-            ),
-          }}
-        >
-          {fileText}
-        </ReactMarkdown>
-      </div>
-    );
+    return <Markdown>{fileText}</Markdown>;
   if (large && fileText)
     return (
       <pre className="file-text">
@@ -205,8 +191,10 @@ function GroupNameEditor({
 function App() {
   const { board, setBoard, reset, begin, end, undo, redo } = useBoardHistory();
   const [dragCursor, setDragCursor] = useState(false);
+  const [archiveBusy, setArchiveBusy] = useState(false);
   const [linkDraft, setLinkDraft] = useState<{
       from: Endpoint;
+      to?: Endpoint;
       point: { x: number; y: number };
     } | null>(null),
     [selectedConnection, setSelectedConnection] = useState<string>(),
@@ -453,56 +441,53 @@ function App() {
   ) => {
     if (!files?.length) return;
     const p = point || center();
-    const next: Card[] = await Promise.all(
-      Array.from(files).map(async (f, i) => {
-        let size = isTextFile({ title: f.name, mime: f.type } as Card)
-          ? { width: 320, height: 240 }
-          : { width: 240, height: 250 };
-        if (f.type.startsWith("image/")) {
-          const url = URL.createObjectURL(f);
-          try {
-            const img = new Image();
-            img.src = url;
-            await img.decode();
-            const scale = Math.min(
-              480 / img.naturalWidth,
-              720 / img.naturalHeight,
-              Math.max(1, 80 / Math.max(img.naturalWidth, img.naturalHeight)),
+    try {
+      const incoming = Array.from(files);
+      const archives = incoming.filter(isZip);
+      const next = await cardsFromFiles(
+        incoming.filter((f) => !isZip(f)),
+        p,
+      );
+      const fragments = await Promise.all(
+        archives.map((file) => readArchive(file, p)),
+      );
+      let added: string[] = [];
+      let imported: Board | undefined;
+      setBoard(
+        (b) => {
+          let updated = {
+            ...b,
+            cards: [
+              ...b.cards,
+              ...next.map((c) => ({
+                ...c,
+                group: containingGroup(c, b.groups),
+              })),
+            ],
+          };
+          added = next.map((c) => c.id);
+          for (const fragment of fragments) {
+            const result = duplicateFragment(
+              updated,
+              fragment,
+              0,
+              fragment.hasMetadata,
             );
-            size = {
-              width: img.naturalWidth * scale,
-              height: img.naturalHeight * scale,
-            };
-          } catch {
-            notify(`无法读取图片 ${f.name}`);
-          } finally {
-            URL.revokeObjectURL(url);
+            updated = result.board;
+            added.push(...result.cards);
           }
-        }
-        return {
-          id: uid(),
-          kind: f.type.startsWith("image/") ? "image" : "file",
-          title: f.name,
-          text: "",
-          x: p.x + (i % 4) * 270,
-          y: p.y + Math.floor(i / 4) * 290,
-          color: colors[0],
-          blob: f,
-          mime: f.type,
-          ...size,
-        } as Card;
-      }),
-    );
-    setBoard((b) => ({
-      ...b,
-      cards: [
-        ...b.cards,
-        ...next.map((c) => ({ ...c, group: containingGroup(c, b.groups) })),
-      ],
-    }));
-    setSelection(next.map((c) => c.id));
-    setSelectedGroup(undefined);
-    notify(`已添加 ${next.length} 个文件`);
+          imported = updated;
+          return updated;
+        },
+        { preserveLayout: fragments.some((fragment) => fragment.hasMetadata) },
+      );
+      setSelection(added);
+      setSelectedGroup(undefined);
+      if (archives.length && imported) fit(imported.cards, imported.groups);
+      notify(`已添加 ${added.length} 个元素`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "文件导入失败");
+    }
   };
   useEffect(() => {
     const paste = (event: ClipboardEvent) => {
@@ -866,6 +851,46 @@ function App() {
     };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
+  const nearbyPort = (
+    x: number,
+    y: number,
+    from: Endpoint,
+  ): Endpoint | undefined => {
+    let nearest: Endpoint | undefined,
+      distance = 24;
+    surface.current
+      ?.querySelectorAll<HTMLElement>("[data-port-card]")
+      .forEach((port) => {
+        if (
+          port.dataset.portCard === from.card ||
+          getComputedStyle(port).visibility === "hidden"
+        )
+          return;
+        const r = port.getBoundingClientRect();
+        const d = Math.hypot(
+          x - (r.left + r.width / 2),
+          y - (r.top + r.height / 2),
+        );
+        if (
+          d < distance &&
+          document
+            .elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+            ?.closest("[data-port-card]") === port
+        ) {
+          distance = d;
+          nearest = {
+            card: port.dataset.portCard!,
+            side: port.dataset.portSide as Side,
+            task: port.dataset.portTask || undefined,
+          };
+        }
+      });
+    return nearest;
+  };
+  const activePort = (card: string, side: Side, task?: string) =>
+    linkDraft?.to?.card === card &&
+    linkDraft.to.side === side &&
+    linkDraft.to.task === task;
   const startConnection = (e: React.PointerEvent, from: Endpoint) => {
     if (e.button !== 0) return;
     e.stopPropagation();
@@ -921,12 +946,16 @@ function App() {
     if (Math.abs(dx) + Math.abs(dy) > 4) g.moved = true;
     if (g.kind === "link" && g.from) {
       const r = surface.current!.getBoundingClientRect();
+      const to = nearbyPort(e.clientX, e.clientY, g.from);
       setLinkDraft({
         from: g.from,
-        point: {
-          x: (e.clientX - r.left - view.x) / view.z,
-          y: (e.clientY - r.top - view.y) / view.z,
-        },
+        to,
+        point: to
+          ? endpointPoint(to, board.cards, taskOffsets)
+          : {
+              x: (e.clientX - r.left - view.x) / view.z,
+              y: (e.clientY - r.top - view.y) / view.z,
+            },
       });
       return;
     }
@@ -1081,14 +1110,14 @@ function App() {
         const hit = document.elementFromPoint(e.clientX, e.clientY),
           port = hit?.closest<HTMLElement>("[data-port-card]"),
           cardNode = hit?.closest<HTMLElement>("[data-card-id]");
-        let to: Endpoint | undefined;
-        if (port)
+        let to = nearbyPort(e.clientX, e.clientY, g.from);
+        if (!to && port)
           to = {
             card: port.dataset.portCard!,
             side: port.dataset.portSide as Side,
             task: port.dataset.portTask || undefined,
           };
-        else if (cardNode) {
+        else if (!to && cardNode) {
           const target = board.cards.find(
             (c) => c.id === cardNode.dataset.cardId,
           )!;
@@ -1265,6 +1294,21 @@ function App() {
       }
     }
   };
+  const downloadSelected = async () => {
+    if (archiveBusy) return;
+    setArchiveBusy(true);
+    try {
+      const fragment = archiveSelection(board, selection, selectedGroup);
+      download(
+        await createArchive(fragment),
+        `yua-canvas-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`,
+      );
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "打包下载失败");
+    } finally {
+      setArchiveBusy(false);
+    }
+  };
   const exportAll = async () => {
     try {
       download(
@@ -1278,6 +1322,10 @@ function App() {
   };
   const importFile = async (file?: File) => {
     if (!file) return;
+    if (isZip(file)) {
+      await addFiles([file]);
+      return;
+    }
     try {
       setConfirmImport(await importBoard(await file.text()));
     } catch (e) {
@@ -1598,6 +1646,17 @@ function App() {
             )}
           </div>
           <div className="floating-actions">
+            {(selection.length > 1 || selectedGroup) && (
+              <button
+                className="floating-button batch-download"
+                aria-label="批量下载"
+                title="批量下载 ZIP"
+                disabled={archiveBusy}
+                onClick={() => void downloadSelected()}
+              >
+                <Download size={18} />
+              </button>
+            )}
             <span
               className={
                 "save-indicator " + (saveStatus === "保存失败" ? "error" : "")
@@ -1711,34 +1770,29 @@ function App() {
                     visible.some((card) => card.id === c.to.card),
                 )
                 .map((c) => {
-                  const d = curve(
-                    endpointPoint(c.from, board.cards, taskOffsets),
-                    endpointPoint(c.to, board.cards, taskOffsets),
-                    c.from.side,
-                    c.to.side,
-                  );
                   return (
-                    <g key={c.id} data-connection-id={c.id}>
-                      <path
-                        className={
-                          "connection-path " +
-                          (selectedConnection === c.id ? "selected" : "")
-                        }
-                        d={d}
-                      />
-                      <path
-                        className="connection-hit"
-                        d={d}
-                        role="button"
-                        aria-label="选择连线"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() => {
-                          setSelectedConnection(c.id);
-                          setSelection([]);
-                          setSelectedGroup(undefined);
-                        }}
-                      />
-                    </g>
+                    <ConnectionView
+                      key={c.id}
+                      connection={c}
+                      cards={board.cards}
+                      offsets={taskOffsets}
+                      selected={selectedConnection === c.id}
+                      onSelect={() => {
+                        setSelectedConnection(c.id);
+                        setSelection([]);
+                        setSelectedGroup(undefined);
+                      }}
+                      onLabelChange={(label) =>
+                        setBoard((b) => ({
+                          ...b,
+                          connections: b.connections?.map((connection) =>
+                            connection.id === c.id
+                              ? { ...connection, label: label || undefined }
+                              : connection,
+                          ),
+                        }))
+                      }
+                    />
                   );
                 })}
               {linkDraft && (
@@ -2011,7 +2065,7 @@ function App() {
                     return (
                       <button
                         key={side}
-                        className={`connection-port port-${side}`}
+                        className={`connection-port port-${side} ${activePort(c.id, side) ? "target-active" : ""}`}
                         aria-label={`连接 ${c.title || c.text.slice(0, 20) || "任务"} ${side}`}
                         data-port-card={c.id}
                         data-port-side={side}
@@ -2033,7 +2087,7 @@ function App() {
                       return (
                         <button
                           key={`${task.id}:${side}`}
-                          className={`connection-port task-port port-${side}`}
+                          className={`connection-port task-port port-${side} ${activePort(c.id, side, task.id) ? "target-active" : ""}`}
                           style={{
                             top: (offset?.y ?? 54 + index * 32) - 1,
                             visibility:
@@ -2289,7 +2343,7 @@ function App() {
         ref={importInput}
         data-testid="import"
         type="file"
-        accept=".json,application/json"
+        accept=".json,.zip,application/json,application/zip"
         hidden
         onChange={(e) => {
           void importFile(e.target.files?.[0]);

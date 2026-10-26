@@ -22,7 +22,11 @@
   "homepage": "https://github.com/atlanmatrix/yua-canvas#readme",
   "private": true,
   "dependencies": {
+    "dompurify": "^3.4.17",
+    "fflate": "^0.8.3",
+    "flowchart.js": "^1.18.1",
     "lucide-react": "^1.61.0",
+    "mermaid": "^12.2.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-markdown": "^10.1.0",

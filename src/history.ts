@@ -12,12 +12,18 @@ export function useBoardHistory() {
     past.current = [...past.current.slice(-99), b];
     future.current = [];
   };
-  const setBoard = (action: Board | ((b: Board) => Board)) => {
+  const setBoard = (
+    action: Board | ((b: Board) => Board),
+    options?: { preserveLayout?: boolean },
+  ) => {
     const previous = current.current,
       raw = pruneConnections(
         typeof action === "function" ? action(previous) : action,
       ),
-      next = transaction.current ? raw : updateGroupMembership(raw, previous);
+      next =
+        transaction.current || options?.preserveLayout
+          ? raw
+          : updateGroupMembership(raw, previous);
     if (next === previous) return;
     if (!transaction.current) push(previous);
     current.current = next;
@@ -39,7 +45,7 @@ export function useBoardHistory() {
     if (start && start !== current.current) push(start);
   };
   const reset = (raw: Board) => {
-    const b = pruneConnections(updateGroupMembership(raw));
+    const b = pruneConnections(raw);
     past.current = [];
     future.current = [];
     transaction.current = null;

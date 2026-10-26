@@ -1397,3 +1397,63 @@ main {
     height: 39px;
   }
 }
+.markdown-diagram {
+  margin: 16px 0;
+  overflow: auto;
+}
+.markdown-diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: auto;
+}
+.diagram-staging {
+  position: fixed;
+  top: 0;
+  left: -100000px;
+  pointer-events: none;
+}
+.connection-port.target-active {
+  opacity: 1;
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px #2563eb22;
+}
+.connection-label-host {
+  overflow: visible;
+  pointer-events: none;
+  display: flex;
+}
+.connection-label {
+  width: fit-content;
+  max-width: 260px;
+  margin: 3px auto;
+  border-radius: 5px;
+  background: white;
+  padding: 4px 8px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 22px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+  pointer-events: auto;
+  box-shadow: 0 1px 4px #33415512;
+}
+.connection-label-editor {
+  width: 240px;
+  height: 32px;
+  margin: 2px 10px;
+  padding: 4px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  background: white;
+  color: var(--ink);
+  font-size: 13px;
+  pointer-events: auto;
+}
+.batch-download {
+  color: var(--accent);
+}

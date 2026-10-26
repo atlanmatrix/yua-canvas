@@ -175,7 +175,10 @@ export async function exportBoard(board: Board) {
     2,
   );
 }
-export async function importBoard(raw: string): Promise<Board> {
+export async function importBoard(
+  raw: string,
+  attachment?: (path: string, mime: string) => Blob | undefined,
+): Promise<Board> {
   const data = JSON.parse(raw);
   if (
     data.version !== 1 ||
@@ -239,7 +242,15 @@ export async function importBoard(raw: string): Promise<Board> {
             (c.height as number) > 1e7))
       )
         throw new Error("元素尺寸无效");
-      let blob: Blob | undefined;
+      let blob: Blob | undefined =
+        attachment &&
+        (c.kind === "file" || c.kind === "image") &&
+        typeof c.archiveFile === "string"
+          ? attachment(
+              c.archiveFile,
+              typeof c.mime === "string" ? c.mime : "application/octet-stream",
+            )
+          : undefined;
       if (c.blob !== undefined) {
         if (typeof c.blob !== "string" || !/^data:[^,]*;base64,/.test(c.blob))
           throw new Error("附件数据无效");
@@ -300,12 +311,15 @@ export async function importBoard(raw: string): Promise<Board> {
         connectionIds.has(c.id) ||
         !validEndpoint(c.from, cards) ||
         !validEndpoint(c.to, cards) ||
-        c.from.card === c.to.card
+        c.from.card === c.to.card ||
+        (c.label !== undefined &&
+          (typeof c.label !== "string" || c.label.length > 1000))
       )
         throw new Error("连线数据无效");
       connectionIds.add(c.id);
       return {
         id: c.id,
+        label: c.label,
         from: { card: c.from.card, side: c.from.side, task: c.from.task },
         to: { card: c.to.card, side: c.to.side, task: c.to.task },
       };

@@ -36,6 +36,7 @@ export function duplicateFragment(
   board: Board,
   fragment: Fragment,
   offset: number,
+  preserveGroups = false,
 ) {
   const delta = { x: offset, y: offset };
   const ids = new Map(fragment.groups.map((g) => [g.id, crypto.randomUUID()]));
@@ -63,10 +64,12 @@ export function duplicateFragment(
     group:
       c.group && ids.has(c.group)
         ? ids.get(c.group)
-        : containingGroup(
-            { ...c, x: c.x + delta.x, y: c.y + delta.y },
-            board.groups,
-          ),
+        : preserveGroups
+          ? undefined
+          : containingGroup(
+              { ...c, x: c.x + delta.x, y: c.y + delta.y },
+              board.groups,
+            ),
     tasks: c.tasks?.map((t) => ({ ...t, id: taskIds.get(`${c.id}:${t.id}`)! })),
   }));
   return {
@@ -77,6 +80,7 @@ export function duplicateFragment(
       connections: [
         ...(board.connections || []),
         ...(fragment.connections || []).map((c) => ({
+          ...c,
           id: crypto.randomUUID(),
           from: {
             ...c.from,

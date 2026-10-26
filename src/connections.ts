@@ -2,7 +2,12 @@ import type { Board, Card } from "./storage";
 import { cardRect } from "./geometry";
 export type Side = "n" | "e" | "s" | "w";
 export type Endpoint = { card: string; side: Side; task?: string };
-export type Connection = { id: string; from: Endpoint; to: Endpoint };
+export type Connection = {
+  id: string;
+  from: Endpoint;
+  to: Endpoint;
+  label?: string;
+};
 export function validEndpoint(
   value: unknown,
   cards: Card[],
@@ -68,7 +73,7 @@ const normals = {
   s: { x: 0, y: 1 },
   w: { x: -1, y: 0 },
 };
-export function curve(
+function curvePoints(
   from: { x: number; y: number },
   to: { x: number; y: number },
   fromSide: Side,
@@ -83,5 +88,27 @@ export function curve(
   const horizontal = Math.abs(from.y - to.y) < 1 && a.y === 0 && b.y === 0;
   const vertical = Math.abs(from.x - to.x) < 1 && a.x === 0 && b.x === 0;
   const bend = Math.min(28, distance * 0.2);
-  return `M ${from.x} ${from.y} C ${from.x + a.x * distance + (vertical ? bend : 0)} ${from.y + a.y * distance + (horizontal ? bend : 0)}, ${to.x + b.x * distance + (vertical ? bend : 0)} ${to.y + b.y * distance + (horizontal ? bend : 0)}, ${to.x} ${to.y}`;
+  return [
+    from,
+    {
+      x: from.x + a.x * distance + (vertical ? bend : 0),
+      y: from.y + a.y * distance + (horizontal ? bend : 0),
+    },
+    {
+      x: to.x + b.x * distance + (vertical ? bend : 0),
+      y: to.y + b.y * distance + (horizontal ? bend : 0),
+    },
+    to,
+  ];
+}
+export function curve(...args: Parameters<typeof curvePoints>) {
+  const [from, a, b, to] = curvePoints(...args);
+  return `M ${from.x} ${from.y} C ${a.x} ${a.y}, ${b.x} ${b.y}, ${to.x} ${to.y}`;
+}
+export function curveMidpoint(...args: Parameters<typeof curvePoints>) {
+  const [from, a, b, to] = curvePoints(...args);
+  return {
+    x: (from.x + 3 * a.x + 3 * b.x + to.x) / 8,
+    y: (from.y + 3 * a.y + 3 * b.y + to.y) / 8,
+  };
 }

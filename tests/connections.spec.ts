@@ -191,3 +191,89 @@ test("canceled connections and drops onto groups create no edges", async ({
   await expect(page.locator(".connection-path")).toHaveCount(0);
   await expect(page.locator(".group-boundary .connection-port")).toHaveCount(0);
 });
+
+test("nearby target ports activate blue, snap on release and labels edit, cancel, undo and persist", async ({
+  page,
+}) => {
+  await setup(page);
+  const source = page.locator('.card[data-card-id="来源"]');
+  const target = page.locator('.card[data-card-id="目标"] .port-w');
+  await source.hover();
+  const a = await source.locator(".port-e").boundingBox(),
+    b = await target.boundingBox();
+  await page.mouse.move(a!.x + a!.width / 2, a!.y + a!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b!.x + b!.width / 2 - 20, b!.y + b!.height / 2, {
+    steps: 10,
+  });
+  await expect(target).toHaveClass(/target-active/);
+  await expect(target).toHaveCSS("background-color", "rgb(37, 99, 235)");
+  await page.mouse.move(b!.x - 80, b!.y - 80);
+  await expect(target).not.toHaveClass(/target-active/);
+  await page.mouse.move(b!.x + b!.width / 2 - 20, b!.y + b!.height / 2);
+  await page.mouse.up();
+  await expect(page.locator(".connection-hit")).toHaveCount(1);
+  await expect(page.locator(".target-active")).toHaveCount(0);
+  const midpoint = await page.locator(".connection-hit").evaluate((el) => {
+    const path = el as SVGPathElement;
+    const p = path
+      .getPointAtLength(path.getTotalLength() / 2)
+      .matrixTransform(path.getScreenCTM()!);
+    return { x: p.x, y: p.y };
+  });
+  await page.mouse.dblclick(midpoint.x, midpoint.y);
+  const input = page.getByRole("textbox", { name: "连线文字" });
+  await expect(input).toBeFocused();
+  await input.fill("参考关系");
+  await page.keyboard.press("Enter");
+  const label = page.locator(".connection-label");
+  await expect(label).toHaveText("参考关系");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(label).toHaveCount(0);
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect(label).toHaveText("参考关系");
+  await label.dblclick();
+  await input.fill("取消修改");
+  await page.keyboard.press("Escape");
+  await expect(label).toHaveText("参考关系");
+  await label.dblclick();
+  await input.fill("更新后的关系");
+  await page.getByRole("button", { name: "放大", exact: true }).click();
+  await expect(label).toHaveText("更新后的关系");
+  const backupBoard = JSON.parse((await backup(page)).toString());
+  expect(backupBoard.connections[0].label).toBe("更新后的关系");
+  await expect(
+    page.locator('.save-indicator[data-state="已保存至本地"]'),
+  ).toBeVisible();
+  await page.reload();
+  await expect(label).toHaveText("更新后的关系");
+  await label.dblclick();
+  await input.fill("");
+  await page.keyboard.press("Enter");
+  await expect(label).toHaveCount(0);
+});
+
+test("Todo target highlights the nearest individual task border port at reduced zoom", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.keyboard.press("-");
+  const source = page.locator('.card[data-card-id="目标"]');
+  const target = page.locator(
+    '.card-todo [data-port-task="t2"][data-port-side="e"]',
+  );
+  await source.hover();
+  const a = await source.locator(".port-w").boundingBox(),
+    b = await target.boundingBox();
+  await page.mouse.move(a!.x + a!.width / 2, a!.y + a!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b!.x + b!.width / 2 + 18, b!.y + b!.height / 2, {
+    steps: 15,
+  });
+  await expect(target).toHaveClass(/target-active/);
+  await expect(page.locator(".target-active")).toHaveCount(1);
+  await page.mouse.up();
+  const board = JSON.parse((await backup(page)).toString());
+  expect(board.connections[0].to.task).toBe("t2");
+  expect(board.connections[0].to.card).toBe("todo");
+});
