@@ -7,12 +7,10 @@ test("notes, grouping, persistence, attachments and portable backup", async ({
     page.locator('.save-indicator[data-state="已保存至本地"]'),
   ).toBeVisible();
   await page.getByRole("button", { name: "添加笔记", exact: true }).click();
-  await page.getByRole("textbox", { name: "笔记标题" }).fill("旅行计划");
   await page.getByRole("textbox", { name: "笔记内容" }).fill("周末去山里走走");
   await page.getByRole("button", { name: "保存笔记" }).click();
   await expect(page.getByTestId("card")).toHaveCount(1);
   await page.getByRole("button", { name: "添加笔记", exact: true }).click();
-  await page.getByRole("textbox", { name: "笔记标题" }).fill("装备清单");
   await page.getByRole("textbox", { name: "笔记内容" }).fill("相机、地图、水");
   await page.getByRole("button", { name: "保存笔记" }).click();
   await page.locator(".canvas").click({ position: { x: 20, y: 20 } });
@@ -77,11 +75,13 @@ test("notes, grouping, persistence, attachments and portable backup", async ({
   await page
     .getByTestId("card")
     .filter({
-      has: page.getByRole("heading", { name: "旅行计划", exact: true }),
+      hasText: "周末去山里走走",
     })
     .dblclick();
-  await expect(page.getByRole("dialog")).toContainText("周末去山里走走");
-  await page.getByRole("button", { name: "编辑笔记", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "笔记内容" })).toHaveValue(
+    "周末去山里走走",
+  );
+  await expect(page.getByRole("textbox", { name: "笔记标题" })).toHaveCount(0);
   await page
     .getByRole("textbox", { name: "笔记内容" })
     .fill("更新后的旅行计划");
@@ -99,7 +99,7 @@ test("moving cards, searching, zooming and rejecting invalid imports", async ({
   await page.goto("/");
   for (const title of ["第一张", "第二张"]) {
     await page.getByRole("button", { name: "添加笔记", exact: true }).click();
-    await page.getByRole("textbox", { name: "笔记标题" }).fill(title);
+    await page.getByRole("textbox", { name: "笔记内容" }).fill(title);
     await page.getByRole("button", { name: "保存笔记" }).click();
   }
   await page.getByRole("button", { name: "适应所有内容" }).click();
@@ -134,7 +134,7 @@ test("mobile canvas remains usable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.getByRole("button", { name: "添加笔记", exact: true }).click();
-  await page.getByRole("textbox", { name: "笔记标题" }).fill("移动灵感");
+  await page.getByRole("textbox", { name: "笔记内容" }).fill("移动灵感");
   await page.getByRole("button", { name: "保存笔记" }).click();
   await expect(page.getByTestId("card")).toHaveCount(1);
   await page.screenshot({ path: "/tmp/yua-canvas-mobile.png", fullPage: true });
@@ -280,7 +280,6 @@ test("full-height canvas and keyboard editing shortcuts", async ({ page }) => {
     ),
   ).toHaveCount(0);
   await page.keyboard.press("n");
-  await page.getByRole("textbox", { name: "笔记标题" }).fill("快捷键笔记");
   await page
     .getByRole("textbox", { name: "笔记内容" })
     .fill("v h n 应当保持输入");
@@ -367,4 +366,336 @@ test("Markdown files open only on double-click and render safe GFM", async ({
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await image.dblclick();
   await expect(page.locator(".detail-image")).toBeVisible();
+});
+
+test("group title drags every member at current zoom, including filtered cards", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const board = {
+    version: 1,
+    groups: [{ id: "group", name: "测试组" }],
+    cards: [
+      {
+        id: "a",
+        kind: "text",
+        title: "",
+        text: "组内一",
+        x: 0,
+        y: 0,
+        color: "#fffdf5",
+        group: "group",
+      },
+      {
+        id: "b",
+        kind: "text",
+        title: "",
+        text: "组内二",
+        x: 300,
+        y: 0,
+        color: "#fffdf5",
+        group: "group",
+      },
+      {
+        id: "c",
+        kind: "text",
+        title: "",
+        text: "其他笔记",
+        x: 0,
+        y: 300,
+        color: "#fffdf5",
+      },
+    ],
+  };
+  await page.getByTestId("import").setInputFiles({
+    name: "groups.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(board)),
+  });
+  await page.getByRole("button", { name: "确认替换" }).click();
+  await expect(page.getByTestId("card")).toHaveCount(3);
+  await page.keyboard.press("1");
+  await page.getByRole("button", { name: "放大", exact: true }).click();
+  // Keep the title clear of the floating controls after zooming in.
+  await page.keyboard.press("h");
+  const canvas = await page.locator(".canvas").boundingBox();
+  await page.mouse.move(canvas!.x + canvas!.width - 40, 350);
+  await page.mouse.down();
+  await page.mouse.move(canvas!.x + canvas!.width - 40, 470, { steps: 6 });
+  await page.mouse.up();
+  await page.keyboard.press("v");
+  const drag = async (dx: number, dy: number) => {
+    const box = await page
+      .getByRole("button", { name: "拖动分组 测试组" })
+      .boundingBox();
+    await page.mouse.move(box!.x + 80, box!.y + 17);
+    await page.mouse.down();
+    await page.mouse.move(box!.x + 80 + dx, box!.y + 17 + dy, { steps: 8 });
+    await page.mouse.up();
+  };
+  const positions = () =>
+    page.getByTestId("card").evaluateAll((elements) =>
+      elements.map((el) => ({
+        text: el.querySelector(".note-body")!.textContent,
+        x: parseFloat((el as HTMLElement).style.left),
+        y: parseFloat((el as HTMLElement).style.top),
+      })),
+    );
+  await drag(96, 48);
+  let cards = await positions();
+  expect(cards.map((c) => [c.x, c.y])).toEqual([
+    [80, 40],
+    [380, 40],
+    [0, 300],
+  ]);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("textbox", { name: "搜索画布" }).fill("组内一");
+  await expect(page.getByTestId("card")).toHaveCount(1);
+  await drag(60, 24);
+  await page.getByRole("button", { name: "清除搜索" }).click();
+  cards = await positions();
+  expect(cards.map((c) => [c.x, c.y])).toEqual([
+    [130, 60],
+    [430, 60],
+    [0, 300],
+  ]);
+  await expect(
+    page.locator('.save-indicator[data-state="已保存至本地"]'),
+  ).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId("card")).toHaveCount(3);
+  expect(await positions()).toEqual(cards);
+  await page.getByRole("button", { name: "适应所有内容" }).click();
+  await page.getByRole("button", { name: "拖动分组 测试组" }).dblclick();
+  await expect(page.getByRole("textbox", { name: "分组名称" })).toHaveValue(
+    "测试组",
+  );
+});
+
+test("legacy notes open directly as content-only editors and preserve stored data", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const board = {
+    version: 1,
+    groups: [],
+    cards: [
+      {
+        id: "old",
+        kind: "text",
+        title: "旧标题",
+        text: "旧内容",
+        x: 100,
+        y: 100,
+        color: "#eaf0e8",
+      },
+    ],
+  };
+  await page.getByTestId("import").setInputFiles({
+    name: "old.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(board)),
+  });
+  await page.getByRole("button", { name: "确认替换" }).click();
+  const card = page.getByTestId("card");
+  await expect(card.locator("h2")).toHaveCount(0);
+  await expect(card).not.toContainText("旧标题");
+  await card.dblclick();
+  await expect(page.getByRole("dialog", { name: "编辑笔记" })).toBeVisible();
+  const content = page.getByRole("textbox", { name: "笔记内容" });
+  await expect(content).toHaveValue("旧内容");
+  await expect(content).toBeFocused();
+  await expect(page.getByRole("textbox", { name: "笔记标题" })).toHaveCount(0);
+  await content.fill("   ");
+  await expect(page.getByRole("button", { name: "保存笔记" })).toBeDisabled();
+  await content.fill("编辑后的内容\n第二行");
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await expect(card).toContainText("编辑后的内容");
+  await expect(
+    page.locator('.save-indicator[data-state="已保存至本地"]'),
+  ).toBeVisible();
+  await page.reload();
+  await expect(card).toContainText("第二行");
+  await card.click();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog", { name: "编辑笔记" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "笔记内容" })).toHaveValue(
+    "编辑后的内容\n第二行",
+  );
+});
+
+test("group bounds stay fixed as cards move and resize independently with persistence", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const board = {
+    version: 1,
+    groups: [
+      {
+        id: "g",
+        name: "固定组",
+        bounds: { x: 80, y: 60, width: 600, height: 310 },
+      },
+    ],
+    cards: [
+      {
+        id: "a",
+        kind: "text",
+        title: "",
+        text: "固定一",
+        x: 100,
+        y: 100,
+        color: "#fffdf5",
+        group: "g",
+      },
+      {
+        id: "b",
+        kind: "text",
+        title: "",
+        text: "固定二",
+        x: 400,
+        y: 100,
+        color: "#fffdf5",
+        group: "g",
+      },
+    ],
+  };
+  await page
+    .getByTestId("import")
+    .setInputFiles({
+      name: "bounds.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(board)),
+    });
+  await page.getByRole("button", { name: "确认替换" }).click();
+  await expect(page.getByTestId("card")).toHaveCount(2);
+  await page.keyboard.press("1");
+  const frame = page.locator(".group-boundary");
+  const rect = () =>
+    frame.evaluate((el) => {
+      const s = (el as HTMLElement).style;
+      return {
+        x: parseFloat(s.left),
+        y: parseFloat(s.top),
+        w: parseFloat(s.width),
+        h: parseFloat(s.height),
+      };
+    });
+  const initial = await rect();
+  expect(initial).toEqual({ x: 80, y: 60, w: 600, h: 310 });
+  await page.getByTestId("card").filter({ hasText: "固定一" }).click();
+  for (let i = 0; i < 15; i++) await page.keyboard.press("Shift+ArrowDown");
+  expect(await rect()).toEqual(initial);
+  const positions = () =>
+    page
+      .getByTestId("card")
+      .evaluateAll((els) =>
+        els.map((el) => ({
+          x: (el as HTMLElement).style.left,
+          y: (el as HTMLElement).style.top,
+        })),
+      );
+  const before = await positions();
+  const handle = await page.getByTestId("resize-se").boundingBox();
+  await page.mouse.move(handle!.x + 6, handle!.y + 6);
+  await page.mouse.down();
+  await page.mouse.move(handle!.x + 66, handle!.y + 36, { steps: 6 });
+  await page.mouse.up();
+  expect(await rect()).toEqual({ x: 80, y: 60, w: 660, h: 340 });
+  expect(await positions()).toEqual(before);
+  await expect(
+    page.locator('.save-indicator[data-state="已保存至本地"]'),
+  ).toBeVisible();
+  await page.reload();
+  await expect(frame).toHaveCount(1);
+  expect(await rect()).toEqual({ x: 80, y: 60, w: 660, h: 340 });
+  const downloadEvent = page.waitForEvent("download");
+  await page.getByRole("button", { name: "导出画布" }).click();
+  const download = await downloadEvent;
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream!) chunks.push(chunk);
+  const backup = Buffer.concat(chunks);
+  expect(JSON.parse(backup.toString()).groups[0].bounds).toEqual({
+    x: 80,
+    y: 60,
+    width: 660,
+    height: 340,
+  });
+  await page
+    .getByTestId("import")
+    .setInputFiles({
+      name: "roundtrip.json",
+      mimeType: "application/json",
+      buffer: backup,
+    });
+  await page.getByRole("button", { name: "确认替换" }).click();
+  expect(await rect()).toEqual({ x: 80, y: 60, w: 660, h: 340 });
+});
+
+test("Todo tasks can be created, completed, edited and restored from a backup", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(
+    page.locator('.save-indicator[data-state="已保存至本地"]'),
+  ).toBeVisible();
+  await page.keyboard.press("t");
+  await expect(page.getByRole("dialog", { name: "新建任务" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "保存任务" })).toBeDisabled();
+  await page.getByRole("textbox", { name: "任务内容 1" }).fill("准备资料");
+  await page
+    .getByRole("button", { name: "添加任务", exact: true })
+    .last()
+    .click();
+  await page.getByRole("textbox", { name: "任务内容 2" }).fill("提交报告");
+  await page.keyboard.press("ControlOrMeta+Enter");
+  const card = page.getByTestId("card");
+  await expect(card).toHaveCount(1);
+  await expect(
+    card.getByRole("checkbox", { name: "准备资料" }),
+  ).not.toBeChecked();
+  await card.getByRole("checkbox", { name: "准备资料" }).check();
+  await expect(card.getByRole("checkbox", { name: "准备资料" })).toBeChecked();
+  await expect(card.locator(".completed")).toHaveText("准备资料");
+  await expect(
+    page.locator('.save-indicator[data-state="已保存至本地"]'),
+  ).toBeVisible();
+  await page.reload();
+  await expect(card.getByRole("checkbox", { name: "准备资料" })).toBeChecked();
+  await card.locator(".card-top").dblclick();
+  await expect(page.getByRole("dialog", { name: "编辑任务" })).toBeVisible();
+  await page.getByRole("textbox", { name: "任务内容 2" }).fill("提交最终报告");
+  await page.getByRole("button", { name: "保存任务" }).click();
+  await expect(card).toContainText("提交最终报告");
+  await page.getByRole("textbox", { name: "搜索画布" }).fill("提交最终");
+  await expect(card).toHaveCount(1);
+  await page.getByRole("button", { name: "清除搜索" }).click();
+  const downloadEvent = page.waitForEvent("download");
+  await page.getByRole("button", { name: "导出画布" }).click();
+  const download = await downloadEvent;
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream!) chunks.push(chunk);
+  const backup = Buffer.concat(chunks);
+  expect(JSON.parse(backup.toString()).cards[0].tasks).toEqual([
+    expect.objectContaining({ text: "准备资料", done: true }),
+    expect.objectContaining({ text: "提交最终报告", done: false }),
+  ]);
+  await card.locator(".card-top").click();
+  await page.keyboard.press("Delete");
+  await expect(card).toHaveCount(0);
+  await page
+    .getByTestId("import")
+    .setInputFiles({
+      name: "todo.json",
+      mimeType: "application/json",
+      buffer: backup,
+    });
+  await page.getByRole("button", { name: "确认替换" }).click();
+  await expect(card.getByRole("checkbox", { name: "准备资料" })).toBeChecked();
+  await card.getByRole("checkbox", { name: "准备资料" }).uncheck();
+  await expect(
+    card.getByRole("checkbox", { name: "准备资料" }),
+  ).not.toBeChecked();
 });

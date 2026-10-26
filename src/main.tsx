@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
+  ListTodo,
   Plus,
   Search,
   ArrowUpRight,
@@ -27,6 +28,9 @@ import {
 import {
   type Board,
   type Card,
+  type Task,
+  type Rect,
+  groupBounds,
   emptyBoard,
   readBoard,
   saveBoard,
@@ -133,9 +137,13 @@ function App() {
     [sidebar, setSidebar] = useState(() => window.innerWidth > 700),
     [detail, setDetail] = useState<string>(),
     [note, setNote] = useState<{
-      title: string;
       text: string;
       id?: string;
+      color: string;
+    } | null>(null),
+    [todo, setTodo] = useState<{
+      id?: string;
+      tasks: Task[];
       color: string;
     } | null>(null),
     [groupDialog, setGroupDialog] = useState<{
@@ -155,7 +163,10 @@ function App() {
     imageInput = useRef<HTMLInputElement>(null),
     importInput = useRef<HTMLInputElement>(null),
     gesture = useRef<{
-      kind: "pan" | "move" | "select";
+      kind: "pan" | "move" | "select" | "resize";
+      groupId?: string;
+      bounds?: Rect;
+      edge?: string;
       x: number;
       y: number;
       view: typeof view;
@@ -289,10 +300,57 @@ function App() {
     window.addEventListener("paste", paste);
     return () => window.removeEventListener("paste", paste);
   }, [ready, addFiles]);
-  const addNote = () => setNote({ title: "", text: "", color: colors[0] });
+  const addNote = () => setNote({ text: "", color: colors[0] });
+  const openCard = (card: Card) => {
+    if (card.kind === "text")
+      setNote({ id: card.id, text: card.text, color: card.color });
+    else if (card.kind === "todo")
+      setTodo({
+        id: card.id,
+        tasks: card.tasks?.map((t) => ({ ...t })) || [],
+        color: card.color,
+      });
+    else setDetail(card.id);
+  };
+  const addTodo = () =>
+    setTodo({
+      tasks: [{ id: uid(), text: "", done: false }],
+      color: colors[0],
+    });
+  const submitTodo = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!todo) return;
+    const tasks = todo.tasks
+      .filter((t) => t.text.trim())
+      .map((t) => ({ ...t, text: t.text.trim() }));
+    if (!tasks.length) return;
+    if (todo.id)
+      updateCards((cards) =>
+        cards.map((c) =>
+          c.id === todo.id ? { ...c, tasks, color: todo.color } : c,
+        ),
+      );
+    else {
+      const id = uid();
+      updateCards((cards) => [
+        ...cards,
+        {
+          id,
+          kind: "todo",
+          title: "",
+          text: "",
+          tasks,
+          color: todo.color,
+          ...center(),
+        },
+      ]);
+      setSelection([id]);
+    }
+    setTodo(null);
+  };
   const submitNote = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!note?.title.trim() && !note?.text.trim()) return;
+    if (!note?.text.trim()) return;
     const n = note!;
     if (n.id)
       updateCards((cards) =>
@@ -300,7 +358,6 @@ function App() {
           c.id === n.id
             ? {
                 ...c,
-                title: n.title.trim() || "未命名笔记",
                 text: n.text,
                 color: n.color,
               }
@@ -314,7 +371,7 @@ function App() {
         {
           id,
           kind: "text",
-          title: n.title.trim() || "未命名笔记",
+          title: "",
           text: n.text,
           color: n.color,
           ...center(),
@@ -367,18 +424,38 @@ function App() {
         (filter === "text" && c.kind === "text") ||
         (filter === "image" && c.kind === "image") ||
         (filter === "file" && c.kind === "file") ||
+        (filter === "todo" && c.kind === "todo") ||
         filter === c.group) &&
       (!query ||
-        (c.title + " " + c.text).toLowerCase().includes(query.toLowerCase())),
+        (
+          c.title +
+          " " +
+          c.text +
+          " " +
+          (c.tasks || []).map((t) => t.text).join(" ")
+        )
+          .toLowerCase()
+          .includes(query.toLowerCase())),
   );
-  const pointerDown = (e: React.PointerEvent, id?: string) => {
+  const pointerDown = (
+    e: React.PointerEvent,
+    id?: string,
+    groupId?: string,
+  ) => {
     if (e.button !== 0 && e.button !== 1) return;
-    if ((e.target as HTMLElement).closest("button")) return;
+    if (
+      (e.target as HTMLElement).closest("button,input,textarea,label") &&
+      !groupId
+    )
+      return;
     if (e.button === 1) e.preventDefault();
     const r = surface.current!.getBoundingClientRect();
     const pan = tool === "hand" || space.current || e.button === 1;
     let ids = selection;
-    if (id && !pan) {
+    if (groupId && !pan) {
+      ids = board.cards.filter((c) => c.group === groupId).map((c) => c.id);
+      setSelection(ids);
+    } else if (id && !pan) {
       if (e.shiftKey) {
         ids = selection.includes(id)
           ? selection.filter((v) => v !== id)
@@ -389,14 +466,43 @@ function App() {
     const x = (e.clientX - r.left - view.x) / view.z,
       y = (e.clientY - r.top - view.y) / view.z;
     gesture.current = {
-      kind: pan ? "pan" : id ? "move" : "select",
+      kind: pan ? "pan" : id || groupId ? "move" : "select",
       x: e.clientX,
       y: e.clientY,
       view,
       cards: board.cards,
-      ids: pan ? [] : id ? ids : e.shiftKey ? selection : [],
+      ids: pan ? [] : id || groupId ? ids : e.shiftKey ? selection : [],
       startX: x,
       startY: y,
+      moved: false,
+      groupId: !pan ? groupId : undefined,
+      bounds: groupId
+        ? board.groups.find((g) => g.id === groupId)?.bounds
+        : undefined,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const resizeGroup = (
+    e: React.PointerEvent,
+    groupId: string,
+    bounds: Rect,
+    edge: string,
+  ) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    gesture.current = {
+      kind: "resize",
+      groupId,
+      bounds,
+      edge,
+      x: e.clientX,
+      y: e.clientY,
+      view,
+      cards: board.cards,
+      ids: [],
+      startX: 0,
+      startY: 0,
       moved: false,
     };
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -409,9 +515,44 @@ function App() {
     if (Math.abs(dx) + Math.abs(dy) > 4) g.moved = true;
     if (g.kind === "pan")
       setView({ ...g.view, x: g.view.x + dx, y: g.view.y + dy });
+    if (g.kind === "resize" && g.bounds) {
+      const b = g.bounds,
+        edge = g.edge!;
+      const width = Math.max(
+        160,
+        b.width +
+          (edge.includes("e")
+            ? dx / g.view.z
+            : edge.includes("w")
+              ? -dx / g.view.z
+              : 0),
+      );
+      const height = Math.max(
+        120,
+        b.height +
+          (edge.includes("s")
+            ? dy / g.view.z
+            : edge.includes("n")
+              ? -dy / g.view.z
+              : 0),
+      );
+      const bounds = {
+        x: edge.includes("w") ? b.x + b.width - width : b.x,
+        y: edge.includes("n") ? b.y + b.height - height : b.y,
+        width,
+        height,
+      };
+      setBoard((b) => ({
+        ...b,
+        groups: b.groups.map((group) =>
+          group.id === g.groupId ? { ...group, bounds } : group,
+        ),
+      }));
+    }
     if (g.kind === "move" && g.moved)
-      updateCards((cards) =>
-        cards.map((c) => {
+      setBoard((b) => ({
+        ...b,
+        cards: b.cards.map((c) => {
           const original = g.cards.find((a) => a.id === c.id);
           return g.ids.includes(c.id) && original
             ? {
@@ -421,7 +562,22 @@ function App() {
               }
             : c;
         }),
-      );
+        groups:
+          g.groupId && g.bounds
+            ? b.groups.map((group) =>
+                group.id === g.groupId
+                  ? {
+                      ...group,
+                      bounds: {
+                        ...g.bounds!,
+                        x: g.bounds!.x + dx / g.view.z,
+                        y: g.bounds!.y + dy / g.view.z,
+                      },
+                    }
+                  : group,
+              )
+            : b.groups,
+      }));
     if (g.kind === "select") {
       const x = Math.min(g.startX, g.startX + dx / g.view.z),
         y = Math.min(g.startY, g.startY + dy / g.view.z),
@@ -480,6 +636,7 @@ function App() {
         mod = e.ctrlKey || e.metaKey;
       if (key === "escape") {
         setNote(null);
+        setTodo(null);
         setGroupDialog(null);
         setDetail(undefined);
         setConfirmImport(null);
@@ -556,6 +713,9 @@ function App() {
       else if (key === "n" && !e.repeat) {
         e.preventDefault();
         addNote();
+      } else if (key === "t" && !e.repeat) {
+        e.preventDefault();
+        addTodo();
       } else if (key === "i" && !e.repeat) {
         e.preventDefault();
         imageInput.current?.click();
@@ -568,7 +728,8 @@ function App() {
         !target?.closest("button")
       ) {
         e.preventDefault();
-        setDetail(selection[0]);
+        const card = board.cards.find((c) => c.id === selection[0]);
+        if (card) openCard(card);
       } else if (key === "+" || key === "=") {
         e.preventDefault();
         zoom(1.2);
@@ -627,7 +788,9 @@ function App() {
       window.removeEventListener("blur", blur);
     };
   });
-  const current = board.cards.find((c) => c.id === detail);
+  const current = board.cards.find(
+    (c) => c.id === detail && (c.kind === "image" || c.kind === "file"),
+  );
   return (
     <div className="app">
       <aside className={"sidebar " + (!sidebar ? "collapsed" : "")}>
@@ -642,6 +805,7 @@ function App() {
           {[
             { id: "all", name: "全部内容", icon: Layers },
             { id: "text", name: "文字笔记", icon: StickyNote },
+            { id: "todo", name: "任务", icon: ListTodo },
             { id: "image", name: "图片", icon: ImagePlus },
             { id: "file", name: "文件", icon: FileText },
           ].map(({ id, name, icon: Icon }) => (
@@ -804,27 +968,48 @@ function App() {
             {board.groups.map((g) => {
               const cards = visible.filter((c) => c.group === g.id);
               if (!cards.length) return null;
-              const left = Math.min(...cards.map((c) => c.x)) - 20,
-                top = Math.min(...cards.map((c) => c.y)) - 45,
-                right = Math.max(...cards.map((c) => c.x + 240)) + 20,
-                bottom = Math.max(...cards.map((c) => c.y + 250)) + 20;
+              const bounds = g.bounds!;
               return (
                 <div
                   key={g.id}
                   className="group-boundary"
                   style={{
-                    left,
-                    top,
-                    width: right - left,
-                    height: bottom - top,
+                    left: bounds.x,
+                    top: bounds.y,
+                    width: bounds.width,
+                    height: bounds.height,
                   }}
                 >
                   <button
-                    onClick={() => setGroupDialog({ id: g.id, name: g.name })}
+                    className="group-title"
+                    aria-label={`拖动分组 ${g.name}`}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      pointerDown(e, undefined, g.id);
+                    }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setGroupDialog({ id: g.id, name: g.name });
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setGroupDialog({ id: g.id, name: g.name });
+                      }
+                    }}
                   >
                     <Folder size={13} />
                     {g.name}
                   </button>
+                  {["n", "s", "e", "w", "ne", "nw", "se", "sw"].map((edge) => (
+                    <div
+                      key={edge}
+                      className={`resize-handle resize-${edge}`}
+                      data-testid={`resize-${edge}`}
+                      onPointerDown={(e) => resizeGroup(e, g.id, bounds, edge)}
+                    />
+                  ))}
                 </div>
               );
             })}
@@ -842,13 +1027,15 @@ function App() {
                 }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
-                  setDetail(c.id);
+                  openCard(c);
                 }}
               >
                 <div className="card-top">
                   <span>
                     {c.kind === "text" ? (
                       <StickyNote size={13} />
+                    ) : c.kind === "todo" ? (
+                      <ListTodo size={13} />
                     ) : c.kind === "image" ? (
                       <ImagePlus size={13} />
                     ) : (
@@ -856,15 +1043,54 @@ function App() {
                     )}{" "}
                     {c.kind === "text"
                       ? "NOTE"
-                      : c.kind === "image"
-                        ? "IMAGE"
-                        : "FILE"}
+                      : c.kind === "todo"
+                        ? "TODO"
+                        : c.kind === "image"
+                          ? "IMAGE"
+                          : "FILE"}
                   </span>
                 </div>
                 {c.kind === "text" ? (
                   <div className="note-body">
-                    <h2>{c.title}</h2>
                     <p>{c.text}</p>
+                  </div>
+                ) : c.kind === "todo" ? (
+                  <div
+                    className="todo-list"
+                    onDoubleClick={(e) => {
+                      if ((e.target as HTMLElement).closest("input,label"))
+                        e.stopPropagation();
+                    }}
+                  >
+                    {(c.tasks || []).map((task) => (
+                      <label
+                        key={task.id}
+                        className={task.done ? "completed" : ""}
+                      >
+                        <input
+                          type="checkbox"
+                          aria-label={task.text}
+                          checked={task.done}
+                          onChange={() =>
+                            updateCards((cards) =>
+                              cards.map((card) =>
+                                card.id === c.id
+                                  ? {
+                                      ...card,
+                                      tasks: card.tasks?.map((t) =>
+                                        t.id === task.id
+                                          ? { ...t, done: !t.done }
+                                          : t,
+                                      ),
+                                    }
+                                  : card,
+                              ),
+                            )
+                          }
+                        />
+                        <span>{task.text}</span>
+                      </label>
+                    ))}
                   </div>
                 ) : (
                   <>
@@ -976,6 +1202,14 @@ function App() {
               <StickyNote size={20} />
             </button>
             <button
+              title="添加任务 (T)"
+              aria-label="添加任务"
+              disabled={!ready}
+              onClick={addTodo}
+            >
+              <ListTodo size={20} />
+            </button>
+            <button
               title="上传图片 (I)"
               aria-label="上传图片"
               disabled={!ready}
@@ -1082,15 +1316,8 @@ function App() {
                 <X size={20} />
               </button>
             </div>
-            <input
-              autoFocus
-              aria-label="笔记标题"
-              placeholder="标题"
-              maxLength={200}
-              value={note.title}
-              onChange={(e) => setNote({ ...note, title: e.target.value })}
-            />
             <textarea
+              autoFocus
               aria-label="笔记内容"
               placeholder="内容"
               value={note.text}
@@ -1113,11 +1340,106 @@ function App() {
               </div>
               <button
                 className="primary"
-                disabled={!note.title.trim() && !note.text.trim()}
+                disabled={!note.text.trim()}
                 type="submit"
               >
                 保存笔记
                 <ArrowUpRight size={15} />
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {todo && (
+        <div className="modal-backdrop">
+          <form
+            className="modal todo-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={todo.id ? "编辑任务" : "新建任务"}
+            onSubmit={submitTodo}
+          >
+            <div className="modal-heading">
+              <span>
+                <ListTodo size={18} />
+                {todo.id ? "编辑任务" : "新建任务"}
+              </span>
+              <button
+                type="button"
+                aria-label="关闭"
+                onClick={() => setTodo(null)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="task-editor">
+              {todo.tasks.map((task, index) => (
+                <div className="task-editor-row" key={task.id}>
+                  <input
+                    type="checkbox"
+                    aria-label={`完成任务 ${index + 1}`}
+                    checked={task.done}
+                    onChange={() =>
+                      setTodo({
+                        ...todo,
+                        tasks: todo.tasks.map((t) =>
+                          t.id === task.id ? { ...t, done: !t.done } : t,
+                        ),
+                      })
+                    }
+                  />
+                  <input
+                    autoFocus={index === 0}
+                    aria-label={`任务内容 ${index + 1}`}
+                    placeholder="任务"
+                    value={task.text}
+                    onChange={(e) =>
+                      setTodo({
+                        ...todo,
+                        tasks: todo.tasks.map((t) =>
+                          t.id === task.id ? { ...t, text: e.target.value } : t,
+                        ),
+                      })
+                    }
+                  />
+                  <button
+                    type="button"
+                    aria-label={`删除任务 ${index + 1}`}
+                    onClick={() =>
+                      setTodo({
+                        ...todo,
+                        tasks: todo.tasks.filter((t) => t.id !== task.id),
+                      })
+                    }
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="modal-bottom">
+              <button
+                type="button"
+                className="button"
+                onClick={() =>
+                  setTodo({
+                    ...todo,
+                    tasks: [
+                      ...todo.tasks,
+                      { id: uid(), text: "", done: false },
+                    ],
+                  })
+                }
+              >
+                <Plus size={16} />
+                添加任务
+              </button>
+              <button
+                type="submit"
+                className="primary"
+                disabled={!todo.tasks.some((t) => t.text.trim())}
+              >
+                保存任务
               </button>
             </div>
           </form>
@@ -1140,7 +1462,16 @@ function App() {
                   ? b.groups.map((g) =>
                       g.id === id ? { ...g, name: groupDialog.name.trim() } : g,
                     )
-                  : [...b.groups, { id, name: groupDialog.name.trim() }],
+                  : [
+                      ...b.groups,
+                      {
+                        id,
+                        name: groupDialog.name.trim(),
+                        bounds: groupBounds(
+                          b.cards.filter((c) => selection.includes(c.id)),
+                        ),
+                      },
+                    ],
                 cards: groupDialog.id
                   ? b.cards
                   : b.cards.map((c) =>
@@ -1222,40 +1553,17 @@ function App() {
               </button>
             </div>
             <div className="detail-content">
-              {current.kind === "text" ? (
-                <p className="full-text">{current.text}</p>
-              ) : (
-                <Attachment card={current} large />
-              )}
+              <Attachment card={current} large />
             </div>
             <div className="modal-bottom">
-              <small>
-                {current.kind === "text" ? "文字笔记" : current.mime || "文件"}
-              </small>
-              {current.kind === "text" ? (
-                <button
-                  className="primary"
-                  onClick={() => {
-                    setNote({
-                      id: current.id,
-                      title: current.title,
-                      text: current.text,
-                      color: current.color,
-                    });
-                    setDetail(undefined);
-                  }}
-                >
-                  编辑笔记
-                </button>
-              ) : (
-                <button
-                  className="primary"
-                  onClick={() => download(current.blob!, current.title)}
-                >
-                  <Download size={15} />
-                  下载原文件
-                </button>
-              )}
+              <small>{current.mime || "文件"}</small>
+              <button
+                className="primary"
+                onClick={() => download(current.blob!, current.title)}
+              >
+                <Download size={15} />
+                下载原文件
+              </button>
             </div>
           </div>
         </div>

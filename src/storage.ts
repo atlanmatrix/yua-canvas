@@ -1,6 +1,6 @@
 export type Card = {
   id: string;
-  kind: "text" | "image" | "file";
+  kind: "text" | "image" | "file" | "todo";
   title: string;
   text: string;
   x: number;
@@ -9,8 +9,35 @@ export type Card = {
   blob?: Blob;
   mime?: string;
   group?: string;
+  tasks?: Task[];
 };
-export type Group = { id: string; name: string };
+export type Task = { id: string; text: string; done: boolean };
+export type Rect = { x: number; y: number; width: number; height: number };
+export type Group = { id: string; name: string; bounds?: Rect };
+export function groupBounds(cards: Card[]): Rect {
+  if (!cards.length) return { x: 0, y: 0, width: 300, height: 300 };
+  const x = Math.min(...cards.map((c) => c.x)) - 20,
+    y = Math.min(...cards.map((c) => c.y)) - 45;
+  return {
+    x,
+    y,
+    width: Math.max(...cards.map((c) => c.x + 240)) + 20 - x,
+    height: Math.max(...cards.map((c) => c.y + 250)) + 20 - y,
+  };
+}
+export function initializeGroups(board: Board): Board {
+  return {
+    ...board,
+    groups: board.groups.map((g) =>
+      g.bounds
+        ? g
+        : {
+            ...g,
+            bounds: groupBounds(board.cards.filter((c) => c.group === g.id)),
+          },
+    ),
+  };
+}
 export type Board = { version: 1; cards: Card[]; groups: Group[] };
 export const emptyBoard: Board = { version: 1, cards: [], groups: [] };
 const database = new Promise<IDBDatabase>((resolve, reject) => {
@@ -23,7 +50,8 @@ export async function readBoard(): Promise<Board | undefined> {
   const db = await database;
   return new Promise((resolve, reject) => {
     const r = db.transaction("boards").objectStore("boards").get("main");
-    r.onsuccess = () => resolve(r.result);
+    r.onsuccess = () =>
+      resolve(r.result ? initializeGroups(r.result) : undefined);
     r.onerror = () => reject(r.error);
   });
 }
@@ -71,7 +99,28 @@ export async function importBoard(raw: string): Promise<Board> {
     if (typeof g.id !== "string" || typeof g.name !== "string" || ids.has(g.id))
       throw new Error("分组数据无效");
     ids.add(g.id);
-    return { id: g.id, name: g.name.slice(0, 200) };
+    if (
+      g.bounds &&
+      (!g.bounds ||
+        ![g.bounds.x, g.bounds.y, g.bounds.width, g.bounds.height].every(
+          (v) => Number.isFinite(v) && Math.abs(v) <= 1e7,
+        ) ||
+        g.bounds.width < 160 ||
+        g.bounds.height < 120)
+    )
+      throw new Error("分组尺寸无效");
+    return {
+      id: g.id,
+      name: g.name.slice(0, 200),
+      bounds: g.bounds
+        ? {
+            x: g.bounds.x,
+            y: g.bounds.y,
+            width: g.bounds.width,
+            height: g.bounds.height,
+          }
+        : undefined,
+    };
   });
   ids.clear();
   const cards: Card[] = await Promise.all(
@@ -79,7 +128,7 @@ export async function importBoard(raw: string): Promise<Board> {
       if (
         typeof c.id !== "string" ||
         ids.has(c.id) ||
-        !["text", "image", "file"].includes(c.kind as string) ||
+        !["text", "image", "file", "todo"].includes(c.kind as string) ||
         typeof c.title !== "string" ||
         typeof c.text !== "string" ||
         !Number.isFinite(c.x) ||
@@ -97,8 +146,27 @@ export async function importBoard(raw: string): Promise<Board> {
         const bytes = Uint8Array.from(atob(body), (ch) => ch.charCodeAt(0));
         blob = new Blob([bytes], { type: header.slice(5, -7) });
       }
-      if (c.kind !== "text" && !blob) throw new Error("缺少附件");
+      if ((c.kind === "image" || c.kind === "file") && !blob)
+        throw new Error("缺少附件");
+      let tasks: Task[] | undefined;
+      if (c.kind === "todo") {
+        if (!Array.isArray(c.tasks)) throw new Error("任务数据无效");
+        const taskIds = new Set<string>();
+        tasks = c.tasks.map((t) => {
+          if (
+            !t ||
+            typeof t.id !== "string" ||
+            taskIds.has(t.id) ||
+            typeof t.text !== "string" ||
+            typeof t.done !== "boolean"
+          )
+            throw new Error("任务数据无效");
+          taskIds.add(t.id);
+          return { id: t.id, text: t.text, done: t.done };
+        });
+      }
       return {
+        tasks,
         id: c.id,
         kind: c.kind as Card["kind"],
         title: c.title,
@@ -118,5 +186,5 @@ export async function importBoard(raw: string): Promise<Board> {
       };
     }),
   );
-  return { version: 1, cards, groups };
+  return initializeGroups({ version: 1, cards, groups });
 }
