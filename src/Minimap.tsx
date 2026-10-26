@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useState, type RefObject } from "react";
 import { type Board, type Card, type Rect, groupDepth } from "./storage";
 import { cardRect } from "./geometry";
+import { ConnectionArrow } from "./ConnectionArrow";
 import { endpointPoint, curve } from "./connections";
 
 type View = { x: number; y: number; z: number };
@@ -125,6 +126,13 @@ export function Minimap({
       }}
     >
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} aria-hidden="true">
+        <defs>
+          <ConnectionArrow
+            id="minimap-connection-arrow"
+            size={4 / scale}
+            color="#94a3b8"
+          />
+        </defs>
         <g
           data-testid="minimap-world"
           transform={`translate(${x} ${y}) scale(${scale})`}
@@ -151,6 +159,7 @@ export function Minimap({
               key={c.id}
               data-minimap-connection={c.id}
               className="minimap-connection"
+              markerEnd="url(#minimap-connection-arrow)"
               d={curve(
                 endpointPoint(c.from, board.cards, offsets),
                 endpointPoint(c.to, board.cards, offsets),

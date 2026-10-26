@@ -41,7 +41,8 @@ test("autosave waits 600ms after the last interaction and persists only the late
     (window as any).__writes = writes;
     const put = IDBObjectStore.prototype.put;
     IDBObjectStore.prototype.put = function (value, key) {
-      if (this.name === "boards") writes.push(structuredClone(value));
+      if (this.name === "boards" && key === "main")
+        writes.push(structuredClone(value));
       return put.call(this, value, key!);
     };
   });

@@ -51,6 +51,7 @@ export function ConnectionView({
       <path
         className={"connection-path " + (selected ? "selected" : "")}
         d={d}
+        markerEnd={`url(#canvas-connection-arrow${selected ? "-selected" : ""})`}
       />
       <path
         className="connection-hit"

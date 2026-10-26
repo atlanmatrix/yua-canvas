@@ -277,3 +277,61 @@ test("Todo target highlights the nearest individual task border port at reduced 
   expect(board.connections[0].to.task).toBe("t2");
   expect(board.connections[0].to.card).toBe("todo");
 });
+
+test("connections, drafts and minimap curves have target arrows that keep a usable size when zooming", async ({
+  page,
+}) => {
+  await setup(page);
+  const source = page.locator('.card[data-card-id="来源"]'),
+    target = page.locator('.card[data-card-id="目标"]');
+  await source.hover();
+  const a = await source.locator(".port-e").boundingBox(),
+    b = await target.locator(".port-w").boundingBox();
+  await page.mouse.move(a!.x + a!.width / 2, a!.y + a!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b!.x - 20, b!.y + b!.height / 2, { steps: 10 });
+  await expect(page.locator(".connection-path.draft")).toHaveAttribute(
+    "marker-end",
+    "url(#canvas-connection-arrow)",
+  );
+  await page.mouse.move(b!.x + b!.width / 2, b!.y + b!.height / 2);
+  await page.mouse.up();
+  await page.mouse.move(1200, 400);
+  const path = page.locator(".connection-path:not(.draft)");
+  await expect(path).toHaveAttribute(
+    "marker-end",
+    "url(#canvas-connection-arrow)",
+  );
+  const marker = page.locator("#canvas-connection-arrow");
+  await expect(marker).toHaveAttribute("orient", "auto");
+  await expect(marker).toHaveAttribute("refX", "10");
+  const end = await path.evaluate((el) => {
+    const p = el as SVGPathElement,
+      v = p.getPointAtLength(p.getTotalLength());
+    return { x: v.x, y: v.y };
+  });
+  expect(end).toEqual({ x: 600, y: 140 });
+  await expect(page.locator(".minimap-connection")).toHaveAttribute(
+    "marker-end",
+    "url(#minimap-connection-arrow)",
+  );
+  for (const key of ["-", "+", "+"]) {
+    await page.keyboard.press(key);
+    const zoom = await page
+      .locator(".world")
+      .evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
+    expect(+(await marker.getAttribute("markerWidth"))! * zoom).toBeCloseTo(
+      10,
+      3,
+    );
+  }
+  await expect(
+    page.locator('.save-indicator[data-state="已保存至本地"]'),
+  ).toBeVisible();
+  await page.reload();
+  await expect(path).toHaveAttribute(
+    "marker-end",
+    "url(#canvas-connection-arrow)",
+  );
+  await page.screenshot({ path: "/tmp/yua-arrow-connection.png" });
+});

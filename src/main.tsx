@@ -16,6 +16,7 @@ import {
   Maximize,
   Layers,
   Folder,
+  FolderUp,
   Check,
   X,
   Trash2,
@@ -38,6 +39,7 @@ import {
   containingGroup,
   emptyBoard,
   readBoard,
+  readView,
   exportBoard,
   importBoard,
 } from "./storage";
@@ -61,6 +63,13 @@ import { cardRect, textSize, TEXT_MAX_WIDTH, settleGroups } from "./geometry";
 import { cardDownload } from "./downloads";
 import { type Endpoint, type Side, endpointPoint, curve } from "./connections";
 import { useAutosave } from "./autosave";
+import { ConnectionArrow } from "./ConnectionArrow";
+import {
+  captureTransfer,
+  directoriesFragment,
+  nodesFromFiles,
+  type ImportNode,
+} from "./directories";
 import { Minimap } from "./Minimap";
 import "./style.css";
 const uid = () => crypto.randomUUID();
@@ -257,6 +266,7 @@ function App() {
   const searchInput = useRef<HTMLInputElement>(null),
     surface = useRef<HTMLDivElement>(null),
     fileInput = useRef<HTMLInputElement>(null),
+    directoryInput = useRef<HTMLInputElement>(null),
     imageInput = useRef<HTMLInputElement>(null),
     importInput = useRef<HTMLInputElement>(null),
     pendingUpload = useRef<{ x: number; y: number } | undefined>(undefined),
@@ -340,9 +350,10 @@ function App() {
     return () => clearTimeout(t);
   }, [toast, copyFiles.length]);
   useEffect(() => {
-    readBoard()
-      .then((b) => {
+    Promise.all([readBoard(), readView()])
+      .then(([b, savedView]) => {
         if (b) reset(b);
+        if (savedView) setView(savedView);
         setReady(true);
         setSaveStatus("已保存至本地");
       })
@@ -351,7 +362,7 @@ function App() {
         notify("无法读取浏览器存储，请检查浏览器设置后刷新。");
       });
   }, []);
-  useAutosave(board, ready, setSaveStatus);
+  useAutosave(board, view, ready, setSaveStatus);
   useEffect(() => {
     if (searchOpen) searchInput.current?.focus();
   }, [searchOpen]);
@@ -435,14 +446,20 @@ function App() {
     };
     return p;
   };
-  const addFiles = async (
-    files: FileList | File[] | null,
+  const addNodes = async (
+    nodes: ImportNode[],
     point?: { x: number; y: number },
   ) => {
-    if (!files?.length) return;
+    if (!nodes.length) throw Error("浏览器未提供目录内容，请使用导入目录");
     const p = point || center();
     try {
-      const incoming = Array.from(files);
+      const incoming = nodes.flatMap((node) =>
+        node.kind === "file" ? [node.file] : [],
+      );
+      const directories = nodes.filter(
+        (node): node is Extract<ImportNode, { kind: "directory" }> =>
+          node.kind === "directory",
+      );
       const archives = incoming.filter(isZip);
       const next = await cardsFromFiles(
         incoming.filter((f) => !isZip(f)),
@@ -451,7 +468,24 @@ function App() {
       const fragments = await Promise.all(
         archives.map((file) => readArchive(file, p)),
       );
+      if (directories.length)
+        fragments.push({
+          ...(await directoriesFragment(
+            directories,
+            next.length
+              ? {
+                  x:
+                    Math.max(
+                      ...next.map((card) => card.x + cardRect(card).width),
+                    ) + 32,
+                  y: p.y,
+                }
+              : p,
+          )),
+          hasMetadata: false,
+        });
       let added: string[] = [];
+      let directoryGroup: string | undefined;
       let imported: Board | undefined;
       setBoard(
         (b) => {
@@ -475,18 +509,42 @@ function App() {
             );
             updated = result.board;
             added.push(...result.cards);
+            if (nodes.length === 1 && directories.length === 1)
+              directoryGroup = result.group;
           }
           imported = updated;
           return updated;
         },
         { preserveLayout: fragments.some((fragment) => fragment.hasMetadata) },
       );
-      setSelection(added);
-      setSelectedGroup(undefined);
-      if (archives.length && imported) fit(imported.cards, imported.groups);
+      setSelection(directoryGroup ? [] : added);
+      setSelectedGroup(directoryGroup);
+      if ((archives.length || directories.length) && imported)
+        fit(imported.cards, imported.groups, directories.length > 0);
       notify(`已添加 ${added.length} 个元素`);
     } catch (error) {
       notify(error instanceof Error ? error.message : "文件导入失败");
+    }
+  };
+  const addFiles = async (
+    files: FileList | File[] | null,
+    point?: { x: number; y: number },
+  ) => {
+    if (!files?.length) return;
+    try {
+      await addNodes(nodesFromFiles(Array.from(files)), point);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "目录读取失败");
+    }
+  };
+  const addTransfer = async (
+    nodes: Promise<ImportNode[]>,
+    point?: { x: number; y: number },
+  ) => {
+    try {
+      await addNodes(await nodes, point);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "目录读取失败");
     }
   };
   useEffect(() => {
@@ -529,16 +587,10 @@ function App() {
         notify("已粘贴");
         return;
       }
-      // Prefer files: browsers can expose the same attachment through both lists.
-      const files = clipboard.files.length
-        ? Array.from(clipboard.files)
-        : Array.from(clipboard.items)
-            .filter((item) => item.kind === "file")
-            .map((item) => item.getAsFile())
-            .filter((file): file is File => file !== null);
-      if (files.length) {
+      const transfer = captureTransfer(clipboard);
+      if (transfer.hasFiles) {
         event.preventDefault();
-        void addFiles(files);
+        void addTransfer(transfer.nodes);
         return;
       }
       const text = clipboard.getData("text/plain");
@@ -678,14 +730,21 @@ function App() {
       };
     });
   };
-  const fit = (cards = board.cards, groups = board.groups) => {
-    const grouped = cards.filter((c) => c.group);
+  const fit = (
+    cards = board.cards,
+    groups = board.groups,
+    includeEmpty = false,
+  ) => {
+    const grouped = cards.filter((card) => card.group);
     const frames = groups
       .filter(
         (g) =>
           g.bounds &&
-          (!grouped.length ||
-            grouped.some((c) => groupTreeIds(groups, g.id).has(c.group!))),
+          (includeEmpty ||
+            !grouped.length ||
+            grouped.some((card) =>
+              groupTreeIds(groups, g.id).has(card.group!),
+            )),
       )
       .map((g) => g.bounds!);
     const rects = [...cards.map(cardRect), ...frames];
@@ -1575,6 +1634,9 @@ function App() {
                             c.group &&
                             groupTreeIds(board.groups, g.id).has(c.group),
                         ),
+                        board.groups.filter((group) =>
+                          groupTreeIds(board.groups, g.id).has(group.id),
+                        ),
                       );
                     }}
                   >
@@ -1750,7 +1812,9 @@ function App() {
           onDrop={(e) => {
             e.preventDefault();
             const r = surface.current!.getBoundingClientRect();
-            void addFiles(e.dataTransfer.files, {
+            const transfer = captureTransfer(e.dataTransfer);
+            if (!transfer.hasFiles) return;
+            void addTransfer(transfer.nodes, {
               x: (e.clientX - r.left - view.x) / view.z,
               y: (e.clientY - r.top - view.y) / view.z,
             });
@@ -1763,6 +1827,18 @@ function App() {
             }}
           >
             <svg className="connection-layer" aria-label="画布连线">
+              <defs>
+                <ConnectionArrow
+                  id="canvas-connection-arrow"
+                  size={10 / view.z}
+                  color="#60a5fa"
+                />
+                <ConnectionArrow
+                  id="canvas-connection-arrow-selected"
+                  size={10 / view.z}
+                  color="#2563eb"
+                />
+              </defs>
               {(board.connections || [])
                 .filter(
                   (c) =>
@@ -1798,6 +1874,7 @@ function App() {
               {linkDraft && (
                 <path
                   className="connection-path draft"
+                  markerEnd="url(#canvas-connection-arrow)"
                   d={curve(
                     endpointPoint(linkDraft.from, board.cards, taskOffsets),
                     linkDraft.point,
@@ -2278,6 +2355,14 @@ function App() {
             >
               <FileUp size={20} />
             </button>
+            <button
+              title="导入目录"
+              aria-label="导入目录"
+              disabled={!ready}
+              onClick={() => directoryInput.current?.click()}
+            >
+              <FolderUp size={20} />
+            </button>
             <i />
             <button
               className="add-button"
@@ -2336,6 +2421,18 @@ function App() {
         onChange={(e) => {
           void addFiles(e.target.files, pendingUpload.current);
           pendingUpload.current = undefined;
+          e.target.value = "";
+        }}
+      />
+      <input
+        ref={directoryInput}
+        data-testid="directories"
+        type="file"
+        multiple
+        hidden
+        {...{ webkitdirectory: "" }}
+        onChange={(e) => {
+          void addFiles(e.target.files);
           e.target.value = "";
         }}
       />

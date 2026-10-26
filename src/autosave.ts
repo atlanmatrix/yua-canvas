@@ -1,10 +1,11 @@
 import { useEffect, useRef } from "react";
-import { saveBoard, type Board } from "./storage";
+import { saveBoard, type Board, type View } from "./storage";
 
 // Save only after the user has stopped interacting; an older write must not
 // report success over a newer pending change.
 export function useAutosave(
   board: Board,
+  view: View,
   ready: boolean,
   setStatus: (status: string) => void,
 ) {
@@ -25,7 +26,7 @@ export function useAutosave(
       const current = ++revision;
       setStatus("正在保存…");
       timer = setTimeout(() => {
-        saveBoard(board).then(
+        saveBoard(board, view).then(
           () => {
             if (active && current === revision) {
               pending = false;
@@ -71,5 +72,5 @@ export function useAutosave(
       );
       window.removeEventListener("pointermove", move, true);
     };
-  }, [board, ready, setStatus]);
+  }, [board, view, ready, setStatus]);
 }

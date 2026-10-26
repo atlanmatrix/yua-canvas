@@ -122,6 +122,7 @@ export function initializeGroups(board: Board): Board {
     ),
   };
 }
+export type View = { x: number; y: number; z: number };
 export type Board = {
   version: 1;
   cards: Card[];
@@ -144,11 +145,32 @@ export async function readBoard(): Promise<Board | undefined> {
     r.onerror = () => reject(r.error);
   });
 }
-export async function saveBoard(board: Board) {
+export async function readView(): Promise<View | undefined> {
+  const db = await database;
+  return new Promise((resolve, reject) => {
+    const request = db.transaction("boards").objectStore("boards").get("view");
+    request.onsuccess = () => {
+      const view = request.result;
+      resolve(
+        view &&
+          [view.x, view.y, view.z].every(Number.isFinite) &&
+          Math.abs(view.x) <= 1e9 &&
+          Math.abs(view.y) <= 1e9 &&
+          view.z >= 0.2 &&
+          view.z <= 3
+          ? { x: view.x, y: view.y, z: view.z }
+          : undefined,
+      );
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+export async function saveBoard(board: Board, view?: View) {
   const db = await database;
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction("boards", "readwrite");
     tx.objectStore("boards").put(board, "main");
+    if (view) tx.objectStore("boards").put(view, "view");
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
