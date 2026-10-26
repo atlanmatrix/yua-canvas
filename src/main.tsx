@@ -71,6 +71,7 @@ import {
   type ImportNode,
 } from "./directories";
 import { Minimap } from "./Minimap";
+import { useMinimapGeometry } from "./minimapGeometry";
 import "./style.css";
 const uid = () => crypto.randomUUID();
 const colors = ["#ffffff"];
@@ -293,6 +294,7 @@ function App() {
       moved: boolean;
     } | null>(null),
     space = useRef(false);
+  const { viewport, projection } = useMinimapGeometry(board, view, surface);
   const cancelGesture = () => {
     const g = gesture.current;
     gesture.current = null;
@@ -1827,6 +1829,15 @@ function App() {
             }}
           >
             <svg className="connection-layer" aria-label="画布连线">
+              {(board.cards.length > 0 || board.groups.length > 0) && (
+                <rect
+                  className="minimap-boundary"
+                  data-testid="minimap-boundary"
+                  aria-hidden="true"
+                  {...projection.bounds}
+                  vectorEffect="non-scaling-stroke"
+                />
+              )}
               <defs>
                 <ConnectionArrow
                   id="canvas-connection-arrow"
@@ -2244,8 +2255,9 @@ function App() {
         </div>
         <Minimap
           board={board}
-          view={view}
-          surface={surface}
+          viewport={viewport}
+          projection={projection}
+          onDragChange={setDragCursor}
           selection={selection}
           offsets={taskOffsets}
           onNavigate={(point) => {

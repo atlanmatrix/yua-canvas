@@ -1457,3 +1457,18 @@ main {
 .batch-download {
   color: var(--accent);
 }
+
+.minimap {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.minimap.dragging {
+  cursor: grabbing;
+}
+.minimap-boundary {
+  fill: none;
+  stroke: #d1d5db;
+  stroke-width: 1;
+  pointer-events: none;
+}

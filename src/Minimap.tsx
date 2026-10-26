@@ -1,13 +1,14 @@
-import { useEffect, useLayoutEffect, useState, type RefObject } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type Board, type Card, type Rect, groupDepth } from "./storage";
 import { cardRect } from "./geometry";
 import { ConnectionArrow } from "./ConnectionArrow";
 import { endpointPoint, curve } from "./connections";
 
-type View = { x: number; y: number; z: number };
-const WIDTH = 200,
-  HEIGHT = 132,
-  PADDING = 10;
+import {
+  MINIMAP_WIDTH as WIDTH,
+  MINIMAP_HEIGHT as HEIGHT,
+  type MinimapProjection,
+} from "./minimapGeometry";
 
 function MiniCard({ card, selected }: { card: Card; selected: boolean }) {
   const [image, setImage] = useState("");
@@ -55,74 +56,105 @@ function MiniCard({ card, selected }: { card: Card; selected: boolean }) {
 
 export function Minimap({
   board,
-  view,
-  surface,
+  viewport,
+  projection,
   selection,
   offsets,
   onNavigate,
+  onDragChange,
 }: {
   board: Board;
-  view: View;
-  surface: RefObject<HTMLDivElement | null>;
+  viewport: Rect;
+  projection: MinimapProjection;
   selection: string[];
   offsets: Record<string, { y: number; visible: boolean }>;
   onNavigate: (point: { x: number; y: number }) => void;
+  onDragChange: (dragging: boolean) => void;
 }) {
-  const [size, setSize] = useState({ width: 1, height: 1 });
-  useLayoutEffect(() => {
-    const el = surface.current;
-    if (!el) return;
-    const measure = () =>
-      setSize({ width: el.clientWidth, height: el.clientHeight });
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [surface]);
-  const viewport: Rect = {
-    x: -view.x / view.z,
-    y: -view.y / view.z,
-    width: size.width / view.z,
-    height: size.height / view.z,
+  const { x, y, scale } = projection;
+  const button = useRef<HTMLButtonElement>(null);
+  const drag = useRef<{ pointer: number; inverse: DOMMatrix } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const finish = () => {
+    const current = drag.current;
+    if (!current) return;
+    drag.current = null;
+    setDragging(false);
+    onDragChange(false);
+    if (button.current?.hasPointerCapture(current.pointer))
+      button.current.releasePointerCapture(current.pointer);
   };
-  const rects = [
-    ...board.cards.map(cardRect),
-    ...board.groups.flatMap((g) => (g.bounds ? [g.bounds] : [])),
-  ];
-  if (!rects.length) rects.push(viewport);
-  // Curve control handles extend up to 300 world units past their endpoints.
-  const margin = board.connections?.length ? 300 : 0;
-  const left = Math.min(...rects.map((r) => r.x)) - margin;
-  const top = Math.min(...rects.map((r) => r.y)) - margin;
-  const width = Math.max(...rects.map((r) => r.x + r.width)) + margin - left;
-  const height = Math.max(...rects.map((r) => r.y + r.height)) + margin - top;
-  const scale = Math.min(
-    (WIDTH - PADDING * 2) / width,
-    (HEIGHT - PADDING * 2) / height,
-  );
-  const x = (WIDTH - width * scale) / 2 - left * scale;
-  const y = (HEIGHT - height * scale) / 2 - top * scale;
+  const navigate = (clientX: number, clientY: number) => {
+    if (drag.current)
+      onNavigate(
+        new DOMPoint(clientX, clientY).matrixTransform(drag.current.inverse),
+      );
+  };
+  useEffect(() => {
+    const cancel = (e: KeyboardEvent) => {
+      if (e.key === "Escape") finish();
+    };
+    window.addEventListener("blur", finish);
+    window.addEventListener("keydown", cancel);
+    return () => {
+      window.removeEventListener("blur", finish);
+      window.removeEventListener("keydown", cancel);
+      finish();
+    };
+  }, [onDragChange]);
   return (
     <button
-      className="minimap"
+      ref={button}
+      className={"minimap " + (dragging ? "dragging" : "")}
       aria-label="画布缩略图"
       title="画布缩略图"
       data-testid="minimap"
+      onPointerDown={(e) => {
+        if (e.button !== 0 || drag.current) return;
+        const matrix = e.currentTarget
+          .querySelector<SVGGElement>("[data-testid='minimap-world']")
+          ?.getScreenCTM();
+        if (!matrix) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.currentTarget.focus({ preventScroll: true });
+        // Keep this mapping fixed through the drag, including on empty boards
+        // where panning changes the overview's fallback bounds.
+        drag.current = { pointer: e.pointerId, inverse: matrix.inverse() };
+        e.currentTarget.setPointerCapture(e.pointerId);
+        setDragging(true);
+        onDragChange(true);
+        navigate(e.clientX, e.clientY);
+      }}
+      onPointerMove={(e) => {
+        if (drag.current?.pointer !== e.pointerId) return;
+        e.stopPropagation();
+        navigate(e.clientX, e.clientY);
+      }}
+      onPointerUp={(e) => {
+        if (drag.current?.pointer !== e.pointerId) return;
+        e.stopPropagation();
+        navigate(e.clientX, e.clientY);
+        finish();
+      }}
+      onPointerCancel={(e) => {
+        if (drag.current?.pointer === e.pointerId) {
+          e.stopPropagation();
+          finish();
+        }
+      }}
+      onLostPointerCapture={(e) => {
+        e.stopPropagation();
+        finish();
+      }}
       onClick={(e) => {
-        const world = e.currentTarget.querySelector<SVGGElement>("g")!;
-        const matrix = world.getScreenCTM();
-        if (e.detail && matrix) {
-          onNavigate(
-            new DOMPoint(e.clientX, e.clientY).matrixTransform(
-              matrix.inverse(),
-            ),
-          );
-        } else {
+        // Pointer navigation already happened above; Enter/Space still center
+        // the overview when the button is used from the keyboard.
+        if (!e.detail)
           onNavigate({
             x: (WIDTH / 2 - x) / scale,
             y: (HEIGHT / 2 - y) / scale,
           });
-        }
       }}
     >
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} aria-hidden="true">
