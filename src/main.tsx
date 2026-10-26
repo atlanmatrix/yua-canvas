@@ -64,7 +64,7 @@ import {
 } from "./geometry";
 import "./style.css";
 const uid = () => crypto.randomUUID();
-const colors = ["#fffdf5", "#eaf0e8", "#f4e8e2", "#e8edf4", "#ede8f4"];
+const colors = ["#ffffff"];
 function Attachment({ card, large = false }: { card: Card; large?: boolean }) {
   const [url, setUrl] = useState(""),
     [fileText, setFileText] = useState("");
@@ -1266,12 +1266,6 @@ function App() {
       onPointerCancel={pointerUp}
     >
       <aside className={"sidebar " + (!sidebar ? "collapsed" : "")}>
-        <a className="brand" href="#" onClick={(e) => e.preventDefault()}>
-          <span className="brand-icon">y</span>
-          <span>
-            yua<span className="brand-light"> canvas</span>
-          </span>
-        </a>
         <div className="section-label">素材库</div>
         <nav>
           {[
@@ -1602,7 +1596,7 @@ function App() {
                   top: c.y,
                   width: cardRect(c).width,
                   height: cardRect(c).height,
-                  background: c.kind === "image" ? "transparent" : c.color,
+                  background: "#ffffff",
                 }}
                 onPointerDown={(e) => {
                   e.stopPropagation();
@@ -1956,20 +1950,6 @@ function App() {
               onChange={(e) => setNote({ ...note, text: e.target.value })}
             />
             <div className="modal-bottom">
-              <div className="colors">
-                {colors.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    aria-label={`颜色 ${color}`}
-                    className={note.color === color ? "selected-color" : ""}
-                    style={{ background: color }}
-                    onClick={() => setNote({ ...note, color })}
-                  >
-                    {note.color === color && <Check size={13} />}
-                  </button>
-                ))}
-              </div>
               <button
                 className="primary"
                 disabled={!note.text.trim()}

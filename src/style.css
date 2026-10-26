@@ -8,7 +8,7 @@
     "Microsoft YaHei",
     sans-serif;
   color: #353a32;
-  background: #fafbf6;
+  background: #f1f2f4;
   font-synthesis: none;
   font-size: 14px;
 }
@@ -68,8 +68,8 @@ button:hover {
 .sidebar {
   width: 216px;
   flex-shrink: 0;
-  border-right: 1px solid #e4e5dc;
-  background: #f2f3ed;
+  border-right: 1px solid #e1e3e6;
+  background: #f7f7f8;
   display: flex;
   flex-direction: column;
   padding: 25px 16px;
@@ -79,32 +79,6 @@ button:hover {
   width: 0;
   padding: 0;
   border: 0;
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  font-size: 22px;
-  font-weight: 650;
-  letter-spacing: -1px;
-  white-space: nowrap;
-  padding: 0 9px;
-  margin-bottom: 32px;
-}
-.brand-light {
-  font-weight: 400;
-  letter-spacing: -0.8px;
-}
-.brand-icon {
-  background: #43513c;
-  color: #f6f6eb;
-  width: 31px;
-  height: 35px;
-  display: grid;
-  place-items: center;
-  font: italic 34px Georgia;
-  border-radius: 10px 10px 12px 3px;
-  padding-bottom: 8px;
 }
 .section-label {
   font-size: 11px;
@@ -168,8 +142,8 @@ main {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background-color: #fafbf6;
-  background-image: radial-gradient(circle, #d5dccc 0.85px, transparent 0.9px);
+  background-color: #f1f2f4;
+  background-image: radial-gradient(circle, #d5d8dc 0.85px, transparent 0.9px);
   touch-action: none;
   user-select: none;
 }
@@ -204,7 +178,7 @@ main {
   height: 40px;
   border: 1px solid #dfe4d5;
   border-radius: 9px;
-  background: #fffffbed;
+  background: #ffffffed;
   box-shadow: 0 3px 12px #576c3e09;
   color: #778569;
 }
@@ -217,7 +191,7 @@ main {
   padding: 11px 12px;
   width: 210px;
   color: #99a38c;
-  background: #fffffbed;
+  background: #ffffffed;
   box-shadow: 0 3px 12px #576c3e09;
 }
 .search input {
@@ -350,7 +324,7 @@ main {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: #edefe6;
+  background: #f5f6f7;
   color: #879476;
   flex: 1;
   min-height: 120px;
@@ -400,7 +374,7 @@ main {
   display: flex;
   align-items: center;
   gap: 5px;
-  background: #fffffbed;
+  background: #ffffffed;
   border: 1px solid #e1e5d6;
   border-radius: 10px;
   padding: 7px;
@@ -434,7 +408,7 @@ main {
   display: flex;
   align-items: center;
   border: 1px solid #e4e8da;
-  background: #fffffbed;
+  background: #ffffffed;
   border-radius: 8px;
   padding: 6px;
   z-index: 5;
@@ -1110,7 +1084,7 @@ main {
   overflow: visible;
 }
 .card-text {
-  background: transparent !important;
+  background: #ffffff !important;
 }
 .card-text .note-body {
   padding: 12px;
@@ -1141,4 +1115,8 @@ main {
 }
 .card.selected {
   overflow: visible;
+}
+
+.note-modal .modal-bottom {
+  justify-content: flex-end;
 }
