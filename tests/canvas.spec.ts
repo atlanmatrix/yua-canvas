@@ -132,3 +132,123 @@ test("mobile canvas remains usable", async ({ page }) => {
   await expect(page.getByTestId("card")).toHaveCount(1);
   await page.screenshot({ path: "/tmp/yua-canvas-mobile.png", fullPage: true });
 });
+
+test("native clipboard image paste creates one persistent image", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  await expect(page.getByText("已保存至本地")).toBeVisible();
+  await page.getByRole("button", { name: "移动画布", exact: true }).click();
+  await page.evaluate(async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 1;
+    canvas.getContext("2d")!.fillRect(0, 0, 1, 1);
+    const blob = await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (value) =>
+          value ? resolve(value) : reject(new Error("PNG encoding failed")),
+        "image/png",
+      ),
+    );
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    (document.activeElement as HTMLElement)?.blur();
+  });
+  await page.keyboard.press("ControlOrMeta+v");
+  await expect(page.getByTestId("card")).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: "移动画布", exact: true }),
+  ).toHaveClass(/chosen/);
+  await expect
+    .poll(() =>
+      page
+        .locator(".thumbnail")
+        .evaluate((img: HTMLImageElement) => img.naturalWidth),
+    )
+    .toBe(1);
+  await expect(page.getByText("已保存至本地")).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId("card")).toHaveCount(1);
+  await expect
+    .poll(() =>
+      page
+        .locator(".thumbnail")
+        .evaluate((img: HTMLImageElement) => img.naturalWidth),
+    )
+    .toBe(1);
+});
+
+test("pasted files support batches, preserve editable fields and ignore modal pastes", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  await expect(page.getByText("已保存至本地")).toBeVisible();
+  // System clipboard support for arbitrary files varies by OS; exercise the
+  // browser paste event with real File/DataTransfer objects for this path.
+  await page.evaluate(() => {
+    const clipboardData = new DataTransfer();
+    clipboardData.items.add(
+      new File(["first attachment"], "first.txt", { type: "text/plain" }),
+    );
+    clipboardData.items.add(
+      new File(["second attachment"], "second.md", { type: "text/markdown" }),
+    );
+    document.body.dispatchEvent(
+      new ClipboardEvent("paste", {
+        clipboardData,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+  await expect(page.getByTestId("card")).toHaveCount(2);
+  await expect(page.locator(".attachment-title")).toHaveText([
+    "first.txt",
+    "second.md",
+  ]);
+  await page.getByRole("button", { name: "添加笔记", exact: true }).click();
+  await page.evaluate(() => navigator.clipboard.writeText("正常粘贴文字"));
+  await page.getByRole("textbox", { name: "笔记内容" }).focus();
+  await page.keyboard.press("ControlOrMeta+v");
+  await expect(page.getByRole("textbox", { name: "笔记内容" })).toHaveValue(
+    "正常粘贴文字",
+  );
+  await page.getByRole("textbox", { name: "笔记内容" }).evaluate((el) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.items.add(
+      new File(["ignored"], "ignored.txt", { type: "text/plain" }),
+    );
+    el.dispatchEvent(
+      new ClipboardEvent("paste", {
+        clipboardData,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+  await expect(page.getByTestId("card")).toHaveCount(2);
+  await page.getByRole("button", { name: "关闭", exact: true }).click();
+  await page.getByRole("textbox", { name: "搜索画布" }).evaluate((el) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.items.add(
+      new File(["ignored"], "search-ignored.txt", { type: "text/plain" }),
+    );
+    el.dispatchEvent(
+      new ClipboardEvent("paste", {
+        clipboardData,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+  await expect(page.getByTestId("card")).toHaveCount(2);
+  await page.evaluate(() =>
+    navigator.clipboard.writeText("普通文字不应变成附件"),
+  );
+  await page.locator(".canvas").click({ position: { x: 20, y: 20 } });
+  await page.keyboard.press("ControlOrMeta+v");
+  await expect(page.getByTestId("card")).toHaveCount(2);
+});

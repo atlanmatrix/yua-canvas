@@ -235,8 +235,10 @@ function App() {
         e.preventDefault();
         if (selection.length > 1) setGroupDialog({ name: "" });
       }
-      if (e.key.toLowerCase() === "v") setTool("select");
-      if (e.key.toLowerCase() === "h") setTool("hand");
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === "v")
+        setTool("select");
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === "h")
+        setTool("hand");
     };
     const up = (e: KeyboardEvent) => {
       if (e.code === "Space") space.current = false;
@@ -275,7 +277,7 @@ function App() {
     return p;
   };
   const addFiles = async (
-    files: FileList | null,
+    files: FileList | File[] | null,
     point?: { x: number; y: number },
   ) => {
     if (!files?.length) return;
@@ -295,6 +297,35 @@ function App() {
     setSelection(next.map((c) => c.id));
     notify(`已添加 ${next.length} 个文件`);
   };
+  useEffect(() => {
+    const paste = (event: ClipboardEvent) => {
+      const target = event.target;
+      if (
+        !ready ||
+        document.querySelector('[role="dialog"]') ||
+        (target instanceof HTMLElement &&
+          (target.isContentEditable ||
+            target.closest(
+              'input, textarea, [contenteditable]:not([contenteditable="false"])',
+            )))
+      )
+        return;
+      const clipboard = event.clipboardData;
+      if (!clipboard) return;
+      // Prefer files: browsers can expose the same attachment through both lists.
+      const files = clipboard.files.length
+        ? Array.from(clipboard.files)
+        : Array.from(clipboard.items)
+            .filter((item) => item.kind === "file")
+            .map((item) => item.getAsFile())
+            .filter((file): file is File => file !== null);
+      if (!files.length) return;
+      event.preventDefault();
+      void addFiles(files);
+    };
+    window.addEventListener("paste", paste);
+    return () => window.removeEventListener("paste", paste);
+  }, [ready, addFiles]);
   const addNote = () => setNote({ title: "", text: "", color: colors[0] });
   const submitNote = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1258,7 +1289,8 @@ function App() {
               </button>
             </div>
             <p>
-              点击工具栏添加笔记、图片和文件，也可以直接拖入文件。点击卡片右上角箭头查看完整内容。
+              点击工具栏添加笔记、图片和文件，也可以直接拖入文件，或按 Cmd/Ctrl
+              + V 粘贴剪贴板中的图片和文件。点击卡片右上角箭头查看完整内容。
             </p>
             <dl>
               <dt>移动画布</dt>
