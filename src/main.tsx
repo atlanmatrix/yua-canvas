@@ -210,6 +210,7 @@ function GroupNameEditor({
 }
 function App() {
   const { board, setBoard, reset, begin, end, undo, redo } = useBoardHistory();
+  const [dragCursor, setDragCursor] = useState(false);
   const [linkDraft, setLinkDraft] = useState<{
       from: Endpoint;
       point: { x: number; y: number };
@@ -301,6 +302,24 @@ function App() {
     } | null>(null),
     space = useRef(false),
     loaded = useRef(false);
+  const cancelGesture = () => {
+    const g = gesture.current;
+    gesture.current = null;
+    setDragCursor(false);
+    setMarquee(null);
+    setCreatePreview(null);
+    setLinkDraft(null);
+    if (g?.kind === "create") suppressToolbarClick.current = true;
+    if (g?.moved && (g.kind === "move" || g.kind === "resize"))
+      setBoard((b) =>
+        settleGroups(
+          b,
+          g.groupId ? [] : g.ids,
+          g.groupIds ? [...g.groupIds] : [],
+        ),
+      );
+    end();
+  };
   useLayoutEffect(() => {
     const el = surface.current;
     if (!el) return;
@@ -375,7 +394,12 @@ function App() {
     const el = surface.current;
     if (!el) return;
     const wheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) e.preventDefault();
+      if (
+        e.ctrlKey ||
+        e.metaKey ||
+        (gesture.current?.kind === "pan" && gesture.current.button === 2)
+      )
+        e.preventDefault();
     };
     el.addEventListener("wheel", wheel, { passive: false });
     return () => el.removeEventListener("wheel", wheel);
@@ -827,6 +851,7 @@ function App() {
         ? board.groups.find((g) => g.id === groupId)?.bounds
         : undefined,
     };
+    setDragCursor(pan || !!id || !!groupId);
     if (!pan && (id || groupId)) begin();
     e.currentTarget.setPointerCapture(e.pointerId);
   };
@@ -905,6 +930,7 @@ function App() {
   const startToolbarDrag = (e: React.PointerEvent, kind: Card["kind"]) => {
     if (e.button !== 0 || !ready) return;
     suppressToolbarClick.current = false;
+    setDragCursor(true);
     gesture.current = {
       kind: "create",
       createKind: kind,
@@ -1086,6 +1112,7 @@ function App() {
     }
   };
   const pointerUp = (e: React.PointerEvent) => {
+    setDragCursor(false);
     const g = gesture.current;
     gesture.current = null;
     setMarquee(null);
@@ -1310,6 +1337,7 @@ function App() {
       const key = e.key.toLowerCase(),
         mod = e.ctrlKey || e.metaKey;
       if (key === "escape") {
+        cancelGesture();
         if (gesture.current?.kind === "link") gesture.current = null;
         setLinkDraft(null);
         setSelectedConnection(undefined);
@@ -1470,6 +1498,7 @@ function App() {
       if (e.code === "Space") space.current = false;
     };
     const blur = () => {
+      cancelGesture();
       space.current = false;
     };
     window.addEventListener("keydown", down);
@@ -1486,10 +1515,17 @@ function App() {
   );
   return (
     <div
-      className={"app " + (linkDraft ? "connecting" : "")}
+      className={
+        "app " +
+        (linkDraft ? "connecting " : "") +
+        (dragCursor ? "is-grabbing" : "")
+      }
       onPointerMove={pointerMove}
       onPointerUp={pointerUp}
       onPointerCancel={pointerUp}
+      onLostPointerCapture={() => {
+        if (gesture.current) cancelGesture();
+      }}
     >
       <aside className={"sidebar " + (!sidebar ? "collapsed" : "")}>
         <div className="section-label">素材库</div>
@@ -1649,7 +1685,11 @@ function App() {
           }}
           onPointerDown={(e) => pointerDown(e)}
           onWheel={(e) => {
-            if (e.ctrlKey || e.metaKey) {
+            const rightPan =
+              gesture.current?.kind === "pan" && gesture.current.button === 2
+                ? gesture.current
+                : undefined;
+            if (e.ctrlKey || e.metaKey || rightPan) {
               const r = surface.current!.getBoundingClientRect(),
                 px = e.clientX - r.left,
                 py = e.clientY - r.top;
@@ -1658,11 +1698,20 @@ function App() {
                   3,
                   Math.max(0.2, v.z * Math.exp(-e.deltaY * 0.006)),
                 );
-                return {
+                const next = {
                   z,
                   x: px - ((px - v.x) * z) / v.z,
                   y: py - ((py - v.y) * z) / v.z,
                 };
+                if (rightPan) {
+                  rightPan.view = next;
+                  rightPan.x = e.clientX;
+                  rightPan.y = e.clientY;
+                  rightPan.lastX = e.clientX;
+                  rightPan.lastY = e.clientY;
+                  rightPan.moved = true;
+                }
+                return next;
               });
             } else
               setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));

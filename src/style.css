@@ -1309,3 +1309,8 @@ main {
 .connecting .canvas {
   cursor: crosshair;
 }
+/* Pointer capture may leave the original element; keep one cursor throughout. */
+.app.is-grabbing,
+.app.is-grabbing * {
+  cursor: grabbing !important;
+}
