@@ -1,4 +1,4 @@
-function linkTarget(text: string): string | undefined {
+export function linkTarget(text: string): string | undefined {
   const value = text.trim();
   if (!value || /[\s<>]/u.test(value)) return;
   try {

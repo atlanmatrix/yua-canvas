@@ -22,6 +22,7 @@ export type Rect = { x: number; y: number; width: number; height: number };
 export type Group = {
   id: string;
   name: string;
+  color?: string;
   bounds?: Rect;
   parent?: string;
 };
@@ -216,6 +217,11 @@ export async function importBoard(
       throw new Error("分组数据无效");
     ids.add(g.id);
     if (
+      g.color !== undefined &&
+      (typeof g.color !== "string" || !/^#[0-9a-f]{6}$/i.test(g.color))
+    )
+      throw Error("分组颜色无效");
+    if (
       g.bounds &&
       (!g.bounds ||
         ![g.bounds.x, g.bounds.y, g.bounds.width, g.bounds.height].every(
@@ -228,6 +234,7 @@ export async function importBoard(
     return {
       id: g.id,
       name: g.name.slice(0, 200),
+      color: g.color,
       parent: typeof g.parent === "string" ? g.parent : undefined,
       bounds: g.bounds
         ? {

@@ -21,7 +21,7 @@ async function view(page: Page) {
   });
 }
 
-test("pasted web URLs display as links, preserve original text and remain editable after reload", async ({
+test("pasted web URLs highlight only with modifiers, preserve text and remain editable after reload", async ({
   page,
 }) => {
   await page.goto("/");
@@ -35,8 +35,21 @@ test("pasted web URLs display as links, preserve original text and remain editab
   await expect(card).toHaveCount(1);
   await expect(link).toHaveText(text.trim());
   await expect(card.locator(".note-body")).toHaveText(text);
-  await expect(link).toHaveCSS("color", "rgb(37, 99, 235)");
-  await expect(link).toHaveCSS("text-decoration-line", "underline");
+  await expect(link).toHaveCSS("color", "rgb(51, 65, 85)");
+  await expect(link).toHaveCSS("text-decoration-line", "none");
+  await expect(link).toHaveCSS("cursor", "grab");
+  for (const modifier of ["Meta", "Control"]) {
+    await page.keyboard.down(modifier);
+    await expect(link).toHaveCSS("color", "rgb(37, 99, 235)");
+    await expect(link).toHaveCSS("text-decoration-line", "underline");
+    await expect(link).toHaveCSS("cursor", "pointer");
+    await page.keyboard.up(modifier);
+    await expect(link).toHaveCSS("text-decoration-line", "none");
+  }
+  await page.keyboard.down("Meta");
+  await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+  await expect(link).toHaveCSS("text-decoration-line", "none");
+  await page.keyboard.up("Meta");
   await expect(link).toHaveAttribute("href", new URL(text.trim()).href);
   await expect(link).toHaveAttribute("target", "_blank");
   await expect(link).toHaveAttribute("rel", "noopener noreferrer");

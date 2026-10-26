@@ -18,6 +18,7 @@ import {
   WrapText,
   ArrowLeftRight,
   Check,
+  Copy,
   X,
   Trash2,
   FileText,
@@ -44,7 +45,8 @@ import {
   importBoard,
 } from "./storage";
 import { Markdown } from "./Markdown";
-import { NoteText } from "./NoteText";
+import { NoteText, linkTarget } from "./NoteText";
+import { CanvasContextMenu, ColorPalette } from "./CanvasContextMenu";
 import { ConnectionView } from "./ConnectionView";
 import { cardsFromFiles } from "./files";
 import { archiveSelection, createArchive, isZip, readArchive } from "./archive";
@@ -202,6 +204,7 @@ function GroupNameEditor({
 function App() {
   const { board, setBoard, reset, begin, end, undo, redo } = useBoardHistory();
   const [dragCursor, setDragCursor] = useState(false);
+  const [linkModifier, setLinkModifier] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState(false);
   const [linkDraft, setLinkDraft] = useState<{
       from: Endpoint;
@@ -1316,8 +1319,36 @@ function App() {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
-  const copySelected = async () => {
-    const fragment = selectedFragment(board, selection, selectedGroup);
+  const downloadCard = (card: Card) => {
+    const file = cardDownload(card);
+    download(file.blob, file.name);
+  };
+  const changeBackground = (color: string) => {
+    if (!menu) return;
+    const target = menu;
+    const ids = new Set(
+      selection.includes(target.id) ? selection : [target.id],
+    );
+    setBoard((b) =>
+      target.kind === "group"
+        ? {
+            ...b,
+            groups: b.groups.map((group) =>
+              group.id === target.id ? { ...group, color } : group,
+            ),
+          }
+        : {
+            ...b,
+            cards: b.cards.map((card) =>
+              ids.has(card.id) ? { ...card, color } : card,
+            ),
+          },
+    );
+    setMenu(null);
+  };
+  const copySelected = async (cardIds?: string[]) => {
+    const group = cardIds ? undefined : selectedGroup;
+    const fragment = selectedFragment(board, cardIds || selection, group);
     if (!fragment.cards.length && !fragment.groups.length) return;
     const token = uid();
     notify("正在复制…");
@@ -1328,7 +1359,7 @@ function App() {
       let copy;
       let unsupported: Card[] = [];
       try {
-        if (!selectedGroup) copy = clipboardCopy(fragment.cards);
+        if (!group) copy = clipboardCopy(fragment.cards);
       } catch (error) {
         if (error instanceof FileClipboardUnsupported)
           unsupported = error.files;
@@ -1347,7 +1378,7 @@ function App() {
       } else {
         const files = fragment.cards.filter((c) => c.kind === "file" && c.blob);
         notify(
-          selectedGroup
+          group
             ? "已复制分组"
             : copy?.message
               ? files.length
@@ -1417,6 +1448,7 @@ function App() {
   };
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      setLinkModifier(e.metaKey || e.ctrlKey);
       const key = e.key.toLowerCase(),
         mod = e.ctrlKey || e.metaKey;
       if (key === "escape") {
@@ -1580,9 +1612,11 @@ function App() {
       }
     };
     const up = (e: KeyboardEvent) => {
+      setLinkModifier(e.metaKey || e.ctrlKey);
       if (e.code === "Space") space.current = false;
     };
     const blur = () => {
+      setLinkModifier(false);
       cancelGesture();
       space.current = false;
     };
@@ -1598,10 +1632,21 @@ function App() {
   const current = board.cards.find(
     (c) => c.id === detail && (c.kind === "image" || c.kind === "file"),
   );
+  const menuCard =
+    menu?.kind === "card"
+      ? board.cards.find((card) => card.id === menu.id)
+      : undefined;
+  const menuGroup =
+    menu?.kind === "group"
+      ? board.groups.find((group) => group.id === menu.id)
+      : undefined;
   return (
     <div
+      onPointerMoveCapture={(e) => setLinkModifier(e.metaKey || e.ctrlKey)}
+      onPointerDownCapture={(e) => setLinkModifier(e.metaKey || e.ctrlKey)}
       className={
         "app " +
+        (linkModifier ? "link-modifier " : "") +
         (linkDraft ? "connecting " : "") +
         (dragCursor ? "is-grabbing" : "")
       }
@@ -1972,6 +2017,10 @@ function App() {
                       top: bounds.y,
                       width: bounds.width,
                       height: bounds.height,
+                      background: g.color,
+                      ...({
+                        "--group-header-color": g.color,
+                      } as React.CSSProperties),
                     }}
                   >
                     {editingGroup === g.id ? (
@@ -2088,7 +2137,7 @@ function App() {
                   top: c.y,
                   width: cardRect(c).width,
                   height: cardRect(c).height,
-                  background: "#ffffff",
+                  background: c.color,
                 }}
                 onPointerDown={(e) => {
                   e.stopPropagation();
@@ -2286,8 +2335,7 @@ function App() {
                   onDoubleClick={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
-                    const file = cardDownload(c);
-                    download(file.blob, file.name);
+                    downloadCard(c);
                   }}
                 >
                   <Download size={17} />
@@ -2505,15 +2553,45 @@ function App() {
         }}
       />
       {menu && (
-        <div
-          className="context-menu"
-          role="menu"
-          style={{
-            left: Math.min(menu.x, window.innerWidth - 185),
-            top: Math.min(menu.y, window.innerHeight - 70),
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-        >
+        <CanvasContextMenu x={menu.x} y={menu.y}>
+          {menuCard?.kind === "text" && (
+            <>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  const href = linkTarget(menuCard.text);
+                  setMenu(null);
+                  if (href) window.open(href, "_blank", "noopener,noreferrer");
+                  else openCard(menuCard);
+                }}
+              >
+                <ArrowUpRight size={14} />
+                打开
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null);
+                  void copySelected([menuCard.id]);
+                }}
+              >
+                <Copy size={14} />
+                复制
+              </button>
+            </>
+          )}
+          {menuCard && (
+            <button
+              role="menuitem"
+              onClick={() => {
+                setMenu(null);
+                downloadCard(menuCard);
+              }}
+            >
+              <Download size={14} />
+              下载
+            </button>
+          )}
           {menu.kind === "card" ? (
             <button
               role="menuitem"
@@ -2522,14 +2600,20 @@ function App() {
                 setGroupDialog({ name: "" });
               }}
             >
+              <Folder size={14} />
               创建分组
             </button>
           ) : (
             <button role="menuitem" onClick={() => dissolveGroup(menu.id)}>
+              <Unlink size={14} />
               解散分组
             </button>
           )}
-        </div>
+          <ColorPalette
+            value={menuCard?.color || menuGroup?.color}
+            onChange={changeBackground}
+          />
+        </CanvasContextMenu>
       )}
       {note && (
         <div className="modal-backdrop">

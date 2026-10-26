@@ -33,6 +33,7 @@ function MiniCard({ card, selected }: { card: Card; selected: boolean }) {
     >
       <rect
         {...b}
+        style={{ fill: card.color }}
         rx={Math.min(10, b.height / 8)}
         vectorEffect="non-scaling-stroke"
       />
@@ -182,6 +183,7 @@ export function Minimap({
                     data-minimap-group={g.id}
                     className="minimap-group"
                     {...g.bounds}
+                    style={{ fill: g.color }}
                     vectorEffect="non-scaling-stroke"
                   />
                 ),
