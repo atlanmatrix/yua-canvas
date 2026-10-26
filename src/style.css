@@ -1036,3 +1036,24 @@ main {
 .card {
   z-index: 1;
 }
+.group-boundary .group-title {
+  padding-right: 44px;
+}
+.group-boundary .group-fit {
+  left: auto;
+  right: 8px;
+  top: 6px;
+  width: 25px;
+  height: 24px;
+  padding: 0;
+  border-radius: 5px;
+  background: #f8faf2d9;
+  pointer-events: auto;
+}
+.group-boundary .group-fit:hover {
+  background: #dce6cc;
+}
+.group-boundary .group-title {
+  width: calc(100% - 38px);
+  padding-right: 8px;
+}

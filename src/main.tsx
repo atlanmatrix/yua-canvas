@@ -30,6 +30,10 @@ import {
   type Card,
   type Task,
   type Rect,
+  type Group,
+  attachParents,
+  groupTreeIds,
+  groupDepth,
   groupBounds,
   containingGroup,
   emptyBoard,
@@ -176,6 +180,8 @@ function App() {
       kind: "pan" | "move" | "select" | "resize" | "create";
       createKind?: Card["kind"];
       groupId?: string;
+      groupIds?: Set<string>;
+      groups?: Group[];
       bounds?: Rect;
       edge?: string;
       x: number;
@@ -432,16 +438,29 @@ function App() {
       };
     });
   };
-  const fit = (cards = board.cards) => {
-    if (!cards.length) {
+  const fit = (cards = board.cards, groups = board.groups) => {
+    const grouped = cards.filter((c) => c.group);
+    const frames = groups
+      .filter(
+        (g) =>
+          g.bounds &&
+          (!grouped.length ||
+            grouped.some((c) => groupTreeIds(groups, g.id).has(c.group!))),
+      )
+      .map((g) => g.bounds!);
+    const rects = [
+      ...cards.map((c) => ({ x: c.x, y: c.y, width: 240, height: 250 })),
+      ...frames,
+    ];
+    if (!rects.length) {
       setView({ x: 65, y: 55, z: 1 });
       return;
     }
     const r = surface.current!.getBoundingClientRect();
-    const left = Math.min(...cards.map((c) => c.x)),
-      top = Math.min(...cards.map((c) => c.y)),
-      right = Math.max(...cards.map((c) => c.x + 240)),
-      bottom = Math.max(...cards.map((c) => c.y + 250));
+    const left = Math.min(...rects.map((c) => c.x)),
+      top = Math.min(...rects.map((c) => c.y)),
+      right = Math.max(...rects.map((c) => c.x + c.width)),
+      bottom = Math.max(...rects.map((c) => c.y + c.height));
     const z = Math.min(
       1.2,
       Math.max(
@@ -465,7 +484,7 @@ function App() {
         (filter === "image" && c.kind === "image") ||
         (filter === "file" && c.kind === "file") ||
         (filter === "todo" && c.kind === "todo") ||
-        filter === c.group) &&
+        (c.group && groupTreeIds(board.groups, filter).has(c.group))) &&
       (!query ||
         (
           c.title +
@@ -495,8 +514,11 @@ function App() {
     const pan =
       tool === "hand" || space.current || e.button === 1 || modifierPan;
     let ids = selection;
+    const family = groupId ? groupTreeIds(board.groups, groupId) : undefined;
     if (groupId && !pan) {
-      ids = board.cards.filter((c) => c.group === groupId).map((c) => c.id);
+      ids = board.cards
+        .filter((c) => c.group && family!.has(c.group))
+        .map((c) => c.id);
       setSelection([]);
     } else if (id && !pan) {
       if (e.shiftKey) {
@@ -519,6 +541,8 @@ function App() {
       startY: y,
       moved: false,
       groupId: !pan ? groupId : undefined,
+      groupIds: !pan ? family : undefined,
+      groups: board.groups,
       bounds: groupId
         ? board.groups.find((g) => g.id === groupId)?.bounds
         : undefined,
@@ -631,19 +655,22 @@ function App() {
             : c;
         }),
         groups:
-          g.groupId && g.bounds
-            ? b.groups.map((group) =>
-                group.id === g.groupId
+          g.groupId && g.groupIds
+            ? b.groups.map((group) => {
+                const original = g.groups?.find(
+                  (item) => item.id === group.id,
+                )?.bounds;
+                return g.groupIds!.has(group.id) && original
                   ? {
                       ...group,
                       bounds: {
-                        ...g.bounds!,
-                        x: g.bounds!.x + dx / g.view.z,
-                        y: g.bounds!.y + dy / g.view.z,
+                        ...original,
+                        x: original.x + dx / g.view.z,
+                        y: original.y + dy / g.view.z,
                       },
                     }
-                  : group,
-              )
+                  : group;
+              })
             : b.groups,
       }));
     if (g.kind === "select") {
@@ -694,6 +721,8 @@ function App() {
         }
       }
     }
+    if (g?.groupId && g.moved && (g.kind === "move" || g.kind === "resize"))
+      setBoard((b) => ({ ...b, groups: attachParents(b.groups) }));
     if (g?.kind === "move" && g.moved && !g.groupId) {
       setBoard((b) => ({
         ...b,
@@ -705,6 +734,23 @@ function App() {
       }));
     }
   };
+  const fitGroup = (id: string) =>
+    setBoard((b) => {
+      const family = groupTreeIds(b.groups, id);
+      const cards = b.cards.filter((c) => c.group && family.has(c.group));
+      const frames = b.groups
+        .filter((g) => g.id !== id && family.has(g.id) && g.bounds)
+        .map((g) => g.bounds!);
+      if (!cards.length && !frames.length) return b;
+      return {
+        ...b,
+        groups: attachParents(
+          b.groups.map((g) =>
+            g.id === id ? { ...g, bounds: groupBounds(cards, frames) } : g,
+          ),
+        ),
+      };
+    });
   const download = (blob: Blob, name: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -946,15 +992,30 @@ function App() {
                 <div className="group-row" key={g.id}>
                   <button
                     className={"nav-item " + (filter === g.id ? "active" : "")}
+                    style={{
+                      paddingLeft: 12 + groupDepth(board.groups, g.id) * 12,
+                    }}
                     onClick={() => {
                       setFilter(g.id);
-                      fit(board.cards.filter((c) => c.group === g.id));
+                      fit(
+                        board.cards.filter(
+                          (c) =>
+                            c.group &&
+                            groupTreeIds(board.groups, g.id).has(c.group),
+                        ),
+                      );
                     }}
                   >
                     <Folder size={16} />
                     <span>{g.name}</span>
                     <small>
-                      {board.cards.filter((c) => c.group === g.id).length}
+                      {
+                        board.cards.filter(
+                          (c) =>
+                            c.group &&
+                            groupTreeIds(board.groups, g.id).has(c.group),
+                        ).length
+                      }
                     </small>
                   </button>
                   <button
@@ -1082,58 +1143,85 @@ function App() {
               transform: `translate(${view.x}px,${view.y}px) scale(${view.z})`,
             }}
           >
-            {board.groups.map((g) => {
-              const cards = visible.filter((c) => c.group === g.id);
-              if (
-                !cards.length &&
-                (query || (filter !== "all" && filter !== g.id))
+            {[...board.groups]
+              .sort(
+                (a, b) =>
+                  groupDepth(board.groups, a.id) -
+                  groupDepth(board.groups, b.id),
               )
-                return null;
-              const bounds = g.bounds!;
-              return (
-                <div
-                  key={g.id}
-                  className="group-boundary"
-                  style={{
-                    left: bounds.x,
-                    top: bounds.y,
-                    width: bounds.width,
-                    height: bounds.height,
-                  }}
-                >
-                  <button
-                    className="group-title"
-                    aria-label={`拖动分组 ${g.name}`}
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                      pointerDown(e, undefined, g.id);
-                    }}
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      setGroupDialog({ id: g.id, name: g.name });
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setGroupDialog({ id: g.id, name: g.name });
-                      }
+              .map((g) => {
+                const family = groupTreeIds(board.groups, g.id);
+                const cards = visible.filter(
+                  (c) => c.group && family.has(c.group),
+                );
+                if (
+                  !cards.length &&
+                  (query ||
+                    (filter !== "all" &&
+                      !groupTreeIds(board.groups, filter).has(g.id)))
+                )
+                  return null;
+                const bounds = g.bounds!;
+                return (
+                  <div
+                    key={g.id}
+                    className="group-boundary"
+                    data-group-id={g.id}
+                    data-parent={g.parent || ""}
+                    style={{
+                      left: bounds.x,
+                      top: bounds.y,
+                      width: bounds.width,
+                      height: bounds.height,
                     }}
                   >
-                    <Folder size={13} />
-                    {g.name}
-                  </button>
-                  {["n", "s", "e", "w", "ne", "nw", "se", "sw"].map((edge) => (
-                    <div
-                      key={edge}
-                      className={`resize-handle resize-${edge}`}
-                      data-testid={`resize-${edge}`}
-                      onPointerDown={(e) => resizeGroup(e, g.id, bounds, edge)}
-                    />
-                  ))}
-                </div>
-              );
-            })}
+                    <button
+                      className="group-title"
+                      aria-label={`拖动分组 ${g.name}`}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        pointerDown(e, undefined, g.id);
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setGroupDialog({ id: g.id, name: g.name });
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setGroupDialog({ id: g.id, name: g.name });
+                        }
+                      }}
+                    >
+                      <Folder size={13} />
+                      {g.name}
+                    </button>
+                    <button
+                      className="group-fit"
+                      aria-label={`自适应分组 ${g.name}`}
+                      title="自适应"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onDoubleClick={(e) => e.stopPropagation()}
+                      onClick={() => fitGroup(g.id)}
+                    >
+                      <Maximize size={13} />
+                    </button>
+                    {["n", "s", "e", "w", "ne", "nw", "se", "sw"].map(
+                      (edge) => (
+                        <div
+                          key={edge}
+                          className={`resize-handle resize-${edge}`}
+                          data-testid={`resize-${edge}`}
+                          onPointerDown={(e) =>
+                            resizeGroup(e, g.id, bounds, edge)
+                          }
+                        />
+                      ),
+                    )}
+                  </div>
+                );
+              })}
             {visible.map((c) => (
               <article
                 key={c.id}
@@ -1594,28 +1682,33 @@ function App() {
               e.preventDefault();
               if (!groupDialog.name.trim()) return;
               const id = groupDialog.id || uid();
-              setBoard((b) => ({
-                ...b,
-                groups: groupDialog.id
-                  ? b.groups.map((g) =>
-                      g.id === id ? { ...g, name: groupDialog.name.trim() } : g,
-                    )
-                  : [
-                      ...b.groups,
-                      {
-                        id,
-                        name: groupDialog.name.trim(),
-                        bounds: groupBounds(
-                          b.cards.filter((c) => selection.includes(c.id)),
-                        ),
-                      },
-                    ],
-                cards: groupDialog.id
-                  ? b.cards
-                  : b.cards.map((c) =>
-                      selection.includes(c.id) ? { ...c, group: id } : c,
-                    ),
-              }));
+              setBoard((b) => {
+                const next: Board = {
+                  ...b,
+                  groups: groupDialog.id
+                    ? b.groups.map((g) =>
+                        g.id === id
+                          ? { ...g, name: groupDialog.name.trim() }
+                          : g,
+                      )
+                    : [
+                        ...b.groups,
+                        {
+                          id,
+                          name: groupDialog.name.trim(),
+                          bounds: groupBounds(
+                            b.cards.filter((c) => selection.includes(c.id)),
+                          ),
+                        },
+                      ],
+                  cards: groupDialog.id
+                    ? b.cards
+                    : b.cards.map((c) =>
+                        selection.includes(c.id) ? { ...c, group: id } : c,
+                      ),
+                };
+                return { ...next, groups: attachParents(next.groups) };
+              });
               setGroupDialog(null);
             }}
           >
@@ -1654,7 +1747,9 @@ function App() {
                     const id = groupDialog.id;
                     setBoard((b) => ({
                       ...b,
-                      groups: b.groups.filter((g) => g.id !== id),
+                      groups: attachParents(
+                        b.groups.filter((g) => g.id !== id),
+                      ),
                       cards: b.cards.map((c) =>
                         c.group === id ? { ...c, group: undefined } : c,
                       ),
@@ -1731,7 +1826,7 @@ function App() {
                   setFilter("all");
                   setQuery("");
                   setDetail(undefined);
-                  fit(confirmImport.cards);
+                  fit(confirmImport.cards, confirmImport.groups);
                   notify("画布已导入");
                 }}
               >

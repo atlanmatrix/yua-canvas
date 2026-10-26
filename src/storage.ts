@@ -13,17 +13,77 @@ export type Card = {
 };
 export type Task = { id: string; text: string; done: boolean };
 export type Rect = { x: number; y: number; width: number; height: number };
-export type Group = { id: string; name: string; bounds?: Rect };
-export function groupBounds(cards: Card[]): Rect {
-  if (!cards.length) return { x: 0, y: 0, width: 300, height: 300 };
-  const x = Math.min(...cards.map((c) => c.x)) - 20,
-    y = Math.min(...cards.map((c) => c.y)) - 45;
+export type Group = {
+  id: string;
+  name: string;
+  bounds?: Rect;
+  parent?: string;
+};
+export function groupBounds(cards: Card[], frames: Rect[] = []): Rect {
+  const rects = [
+    ...cards.map((c) => ({ x: c.x, y: c.y, width: 240, height: 250 })),
+    ...frames,
+  ];
+  if (!rects.length) return { x: 0, y: 0, width: 300, height: 300 };
+  const x = Math.min(...rects.map((r) => r.x)) - 20,
+    y = Math.min(...rects.map((r) => r.y)) - 45;
   return {
     x,
     y,
-    width: Math.max(...cards.map((c) => c.x + 240)) + 20 - x,
-    height: Math.max(...cards.map((c) => c.y + 250)) + 20 - y,
+    width: Math.max(160, Math.max(...rects.map((r) => r.x + r.width)) + 20 - x),
+    height: Math.max(
+      120,
+      Math.max(...rects.map((r) => r.y + r.height)) + 20 - y,
+    ),
   };
+}
+// Strictly larger enclosing frames keep parent links acyclic, including equal frames.
+export function attachParents(groups: Group[]): Group[] {
+  return groups.map((group) => {
+    const b = group.bounds;
+    const parent = b
+      ? groups
+          .filter((g) => {
+            const p = g.bounds;
+            return (
+              g.id !== group.id &&
+              p &&
+              p.width * p.height > b.width * b.height &&
+              b.x >= p.x &&
+              b.y >= p.y &&
+              b.x + b.width <= p.x + p.width &&
+              b.y + b.height <= p.y + p.height
+            );
+          })
+          .sort(
+            (a, b) =>
+              a.bounds!.width * a.bounds!.height -
+                b.bounds!.width * b.bounds!.height || a.id.localeCompare(b.id),
+          )[0]?.id
+      : undefined;
+    return { ...group, parent };
+  });
+}
+export function groupTreeIds(groups: Group[], root: string): Set<string> {
+  const ids = new Set([root]);
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const g of groups)
+      if (g.parent && ids.has(g.parent) && !ids.has(g.id)) {
+        ids.add(g.id);
+        changed = true;
+      }
+  }
+  return ids;
+}
+export function groupDepth(groups: Group[], id: string): number {
+  const seen = new Set<string>();
+  let group = groups.find((g) => g.id === id);
+  while (group?.parent && !seen.has(group.parent)) {
+    seen.add(group.parent);
+    group = groups.find((g) => g.id === group!.parent);
+  }
+  return seen.size;
 }
 // A card belongs to the smallest frame that fully contains its bounds.
 export function containingGroup(
@@ -47,13 +107,15 @@ export function containingGroup(
 export function initializeGroups(board: Board): Board {
   return {
     ...board,
-    groups: board.groups.map((g) =>
-      g.bounds
-        ? g
-        : {
-            ...g,
-            bounds: groupBounds(board.cards.filter((c) => c.group === g.id)),
-          },
+    groups: attachParents(
+      board.groups.map((g) =>
+        g.bounds
+          ? g
+          : {
+              ...g,
+              bounds: groupBounds(board.cards.filter((c) => c.group === g.id)),
+            },
+      ),
     ),
   };
 }
