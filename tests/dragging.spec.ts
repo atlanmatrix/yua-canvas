@@ -125,9 +125,10 @@ test("toolbar Todo cards drag to exact positions, join groups and cancel outside
     page.getByRole("button", { name: "添加任务", exact: true }),
     await point(page, 170, 225),
   );
-  await expect(page.getByRole("dialog", { name: "新建任务" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".todo-editor")).toBeVisible();
   await page.getByRole("textbox", { name: "任务内容 1" }).fill("拖入第一项");
-  await page.getByRole("button", { name: "保存任务" }).click();
+  await page.keyboard.press("ControlOrMeta+Enter");
   const note = page.getByTestId("card").filter({ hasText: "拖入第一项" });
   await expect(membership(note)).toHaveAttribute("data-group-name", "内组");
   const position = await note.evaluate((el) => ({
@@ -142,7 +143,7 @@ test("toolbar Todo cards drag to exact positions, join groups and cancel outside
     await point(page, 470, 225),
   );
   await page.getByRole("textbox", { name: "任务内容 1" }).fill("拖入任务");
-  await page.getByRole("button", { name: "保存任务" }).click();
+  await page.keyboard.press("ControlOrMeta+Enter");
   await expect(
     membership(page.getByTestId("card").filter({ hasText: "拖入任务" })),
   ).toHaveAttribute("data-group-name", "外组");
@@ -157,7 +158,8 @@ test("toolbar Todo cards drag to exact positions, join groups and cancel outside
   await expect(page.locator(".creation-preview")).toHaveCount(0);
   // A normal click still works after a canceled drag.
   await page.getByRole("button", { name: "添加任务", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "新建任务" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".todo-editor")).toBeVisible();
 });
 test("toolbar attachment drops keep the drop position through file selection", async ({
   page,

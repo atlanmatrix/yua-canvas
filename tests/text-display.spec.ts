@@ -255,7 +255,7 @@ test("toolbar has only the four requested actions and empty search collapses onl
   await expect(input).toHaveValue("");
   await page.getByRole("button", { name: "添加任务", exact: true }).click();
   await expect(input).toHaveCount(0);
-  await page.getByRole("button", { name: "关闭", exact: true }).click();
+  await page.keyboard.press("Escape");
   await page.keyboard.press("ControlOrMeta+k");
   await expect(input).toBeFocused();
   await input.fill("   ");

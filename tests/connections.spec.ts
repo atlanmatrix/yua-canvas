@@ -160,7 +160,7 @@ test("each Todo task has a border endpoint, links survive copies and task remova
   await page.getByRole("button", { name: "适应所有内容" }).click();
   await todo.locator(".card-top").dblclick();
   await page.getByRole("button", { name: "删除任务 1" }).click();
-  await page.getByRole("button", { name: "保存任务" }).click();
+  await page.keyboard.press("ControlOrMeta+Enter");
   await expect(page.locator(".connection-path:not(.draft)")).toHaveCount(1);
   await page.keyboard.press("ControlOrMeta+z");
   await expect(page.locator(".connection-path:not(.draft)")).toHaveCount(2);

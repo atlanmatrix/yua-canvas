@@ -20,7 +20,7 @@ export function TextEditor({
   return (
     <textarea
       ref={input}
-      className="text-editor"
+      className="text-editor canvas-editor"
       aria-label="文本内容"
       spellCheck={false}
       value={text}

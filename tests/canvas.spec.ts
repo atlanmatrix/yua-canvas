@@ -647,12 +647,15 @@ test("Todo tasks can be created, completed, edited and restored from a backup", 
     page.locator('.save-indicator[data-state="已保存至本地"]'),
   ).toBeVisible();
   await page.keyboard.press("t");
-  await expect(page.getByRole("dialog", { name: "新建任务" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "保存任务" })).toBeDisabled();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".todo-editor")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "任务内容 1" })).toHaveValue(
+    "",
+  );
   await page.getByRole("textbox", { name: "任务内容 1" }).fill("准备资料");
   await page
+    .locator(".todo-editor")
     .getByRole("button", { name: "添加任务", exact: true })
-    .last()
     .click();
   await page.getByRole("textbox", { name: "任务内容 2" }).fill("提交报告");
   await page.keyboard.press("ControlOrMeta+Enter");
@@ -670,9 +673,10 @@ test("Todo tasks can be created, completed, edited and restored from a backup", 
   await page.reload();
   await expect(card.getByRole("checkbox", { name: "准备资料" })).toBeChecked();
   await card.locator(".card-top").dblclick();
-  await expect(page.getByRole("dialog", { name: "编辑任务" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".todo-editor")).toBeVisible();
   await page.getByRole("textbox", { name: "任务内容 2" }).fill("提交最终报告");
-  await page.getByRole("button", { name: "保存任务" }).click();
+  await page.keyboard.press("ControlOrMeta+Enter");
   await expect(card).toContainText("提交最终报告");
   await page.getByRole("button", { name: "展开搜索" }).click();
   await page.getByRole("textbox", { name: "搜索画布" }).fill("提交最终");

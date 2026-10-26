@@ -14,6 +14,7 @@ export function ConnectionView({
   offsets,
   selected,
   editorLayer,
+  labelLayer,
   onSelect,
   onLabelChange,
 }: {
@@ -22,6 +23,7 @@ export function ConnectionView({
   offsets: Record<string, { y: number; visible: boolean }>;
   selected: boolean;
   editorLayer: RefObject<HTMLDivElement | null>;
+  labelLayer: RefObject<SVGSVGElement | null>;
   onSelect: () => void;
   onLabelChange: (label: string) => void;
 }) {
@@ -96,28 +98,32 @@ export function ConnectionView({
           />,
           editorLayer.current,
         )}
-      {!editing && connection.label && (
-        <foreignObject
-          className="connection-label-host"
-          x={midpoint.x - 130}
-          y={midpoint.y - 18}
-          width={260}
-          height={36}
-        >
-          <div
-            className="connection-label"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={onSelect}
-            onDoubleClick={(e) => {
-              e.stopPropagation();
-              edit();
-            }}
-            title={connection.label}
+      {!editing &&
+        connection.label &&
+        labelLayer.current &&
+        createPortal(
+          <foreignObject
+            className="connection-label-host"
+            x={midpoint.x - 130}
+            y={midpoint.y - 18}
+            width={260}
+            height={36}
           >
-            {connection.label}
-          </div>
-        </foreignObject>
-      )}
+            <div
+              className="connection-label"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={onSelect}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                edit();
+              }}
+              title={connection.label}
+            >
+              {connection.label}
+            </div>
+          </foreignObject>,
+          labelLayer.current,
+        )}
     </g>
   );
 }

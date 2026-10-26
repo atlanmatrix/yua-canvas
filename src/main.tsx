@@ -47,6 +47,7 @@ import {
 import { Markdown } from "./Markdown";
 import { NoteText, linkTarget } from "./NoteText";
 import { TextEditor } from "./TextEditor";
+import { TodoEditor } from "./TodoEditor";
 import { CanvasContextMenu, ColorPalette } from "./CanvasContextMenu";
 import { ConnectionView } from "./ConnectionView";
 import { cardsFromFiles } from "./files";
@@ -240,13 +241,8 @@ function App() {
     [filter, setFilter] = useState("all"),
     [sidebar, setSidebar] = useState(false),
     [detail, setDetail] = useState<string>(),
-    [editingText, setEditingText] = useState<string>(),
-    [todo, setTodo] = useState<{
-      id?: string;
-      tasks: Task[];
-      color: string;
-      point?: { x: number; y: number };
-    } | null>(null),
+    [editingCard, setEditingCard] = useState<string>(),
+    [editingTask, setEditingTask] = useState<string>(),
     [groupDialog, setGroupDialog] = useState<{
       name: string;
       id?: string;
@@ -265,15 +261,18 @@ function App() {
       w: number;
       h: number;
     } | null>(null);
-  const textSession = useRef<{
+  const editSession = useRef<{
     id: string;
-    text: string;
+    value: string;
     original: string;
+    tasks?: Task[];
+    hasContent: boolean;
     fresh: boolean;
   } | null>(null);
   const searchInput = useRef<HTMLInputElement>(null),
     surface = useRef<HTMLDivElement>(null),
     connectionEditors = useRef<HTMLDivElement>(null),
+    connectionLabels = useRef<SVGSVGElement>(null),
     fileInput = useRef<HTMLInputElement>(null),
     directoryInput = useRef<HTMLInputElement>(null),
     imageInput = useRef<HTMLInputElement>(null),
@@ -632,21 +631,31 @@ function App() {
     window.addEventListener("paste", paste);
     return () => window.removeEventListener("paste", paste);
   }, [ready, addFiles, board]);
-  const finishText = (id: string, cancelled = false) => {
-    const session = textSession.current;
+  const finishEditing = (id: string, cancelled = false) => {
+    const session = editSession.current;
     if (!session || session.id !== id) return;
-    textSession.current = null;
-    setEditingText(undefined);
+    editSession.current = null;
+    setEditingCard(undefined);
+    const tasks = session.tasks
+      ?.filter((task) => task.text.trim())
+      .map((task) => ({ ...task, text: task.text.trim() }));
+    const value = tasks ? JSON.stringify(tasks) : session.value;
     if (
       cancelled ||
-      (session.fresh ? !session.text.trim() : session.text === session.original)
+      (session.fresh ? !session.hasContent : value === session.original)
     ) {
       cancel();
       if (session.fresh) setSelection([]);
-    } else end();
+    } else {
+      if (tasks)
+        updateCards((cards) =>
+          cards.map((card) => (card.id === id ? { ...card, tasks } : card)),
+        );
+      end();
+    }
   };
-  const editText = (card: Card, fresh = false) => {
-    if (textSession.current) finishText(textSession.current.id);
+  const editCard = (card: Card, fresh = false, task?: string) => {
+    if (editSession.current) finishEditing(editSession.current.id);
     begin();
     if (fresh)
       setBoard((b) => ({
@@ -656,20 +665,27 @@ function App() {
           { ...card, group: containingGroup(card, b.groups) },
         ],
       }));
-    textSession.current = {
+    const tasks = card.kind === "todo" ? card.tasks || [] : undefined;
+    const value = tasks ? JSON.stringify(tasks) : card.text;
+    editSession.current = {
       id: card.id,
-      text: card.text,
-      original: card.text,
+      value,
+      original: value,
+      tasks,
+      hasContent: tasks
+        ? tasks.some((task) => !!task.text.trim())
+        : !!card.text.trim(),
       fresh,
     };
-    setEditingText(card.id);
+    setEditingCard(card.id);
+    setEditingTask(task);
     setSelection([card.id]);
     setSelectedGroup(undefined);
     setSelectedConnection(undefined);
     setMenu(null);
   };
   const addText = (point?: { x: number; y: number }) => {
-    editText(
+    editCard(
       {
         id: uid(),
         kind: "text",
@@ -685,8 +701,9 @@ function App() {
     );
   };
   const changeText = (id: string, text: string) => {
-    if (textSession.current?.id !== id) return;
-    textSession.current.text = text;
+    if (editSession.current?.id !== id) return;
+    editSession.current.value = text;
+    editSession.current.hasContent = !!text.trim();
     updateCards((cards) =>
       cards.map((card) =>
         card.id === id
@@ -700,60 +717,33 @@ function App() {
       ),
     );
   };
-  const openCard = (card: Card) => {
-    if (card.kind === "text") editText(card);
-    else if (card.kind === "todo")
-      setTodo({
-        id: card.id,
-        tasks: card.tasks?.map((t) => ({ ...t })) || [],
-        color: card.color,
-      });
+  const changeTodo = (id: string, tasks: Task[]) => {
+    if (editSession.current?.id !== id) return;
+    editSession.current.tasks = tasks;
+    editSession.current.value = JSON.stringify(tasks);
+    editSession.current.hasContent = tasks.some((task) => !!task.text.trim());
+    updateCards((cards) =>
+      cards.map((card) => (card.id === id ? { ...card, tasks } : card)),
+    );
+  };
+  const openCard = (card: Card, task?: string) => {
+    if (card.kind === "text" || card.kind === "todo")
+      editCard(card, false, task);
     else setDetail(card.id);
   };
   const addTodo = (point?: { x: number; y: number }) => {
-    setSelectedGroup(undefined);
-    setTodo({
-      point,
-      tasks: [{ id: uid(), text: "", done: false }],
-      color: colors[0],
-    });
-  };
-  const submitTodo = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!todo) return;
-    const tasks = todo.tasks
-      .filter((t) => t.text.trim())
-      .map((t) => ({ ...t, text: t.text.trim() }));
-    if (!tasks.length) return;
-    if (todo.id)
-      updateCards((cards) =>
-        cards.map((c) =>
-          c.id === todo.id ? { ...c, tasks, color: todo.color } : c,
-        ),
-      );
-    else {
-      const id = uid();
-      setBoard((b) => {
-        const cards = b.cards;
-        const next: Card[] = [
-          ...cards,
-          {
-            id,
-            kind: "todo",
-            title: "",
-            text: "",
-            tasks,
-            color: todo.color,
-            ...(todo.point || center()),
-          },
-        ];
-        const card = next[next.length - 1];
-        card.group = containingGroup(card, b.groups);
-        return { ...b, cards: next };
-      });
-      setSelection([id]);
-    }
-    setTodo(null);
+    editCard(
+      {
+        id: uid(),
+        kind: "todo",
+        title: "",
+        text: "",
+        color: colors[0],
+        tasks: [{ id: uid(), text: "", done: false }],
+        ...(point || center()),
+      },
+      true,
+    );
   };
   const zoom = (factor: number) => {
     const r = surface.current!.getBoundingClientRect();
@@ -811,7 +801,7 @@ function App() {
   };
   const visible = board.cards.filter(
     (c) =>
-      c.id === editingText ||
+      c.id === editingCard ||
       ((filter === "all" ||
         (filter === "text" && c.kind === "text") ||
         (filter === "image" && c.kind === "image") ||
@@ -1512,7 +1502,6 @@ function App() {
         setSearchOpen(false);
         setMenu(null);
         setEditingGroup(undefined);
-        setTodo(null);
         setGroupDialog(null);
         setDetail(undefined);
         setConfirmImport(null);
@@ -1692,10 +1681,10 @@ function App() {
       onPointerDownCapture={(e) => {
         setLinkModifier(e.metaKey || e.ctrlKey);
         if (
-          textSession.current &&
-          !(e.target as HTMLElement).closest(".text-editor")
+          editSession.current &&
+          !(e.target as HTMLElement).closest(".canvas-editor")
         )
-          finishText(textSession.current.id);
+          finishEditing(editSession.current.id);
       }}
       className={
         "app " +
@@ -1894,7 +1883,7 @@ function App() {
             backgroundSize: `${24 * view.z}px ${24 * view.z}px`,
           }}
           onPointerDownCapture={(e) => {
-            if ((e.target as HTMLElement).closest(".text-editor")) return;
+            if ((e.target as HTMLElement).closest(".canvas-editor")) return;
             if (
               e.button === 2 ||
               (e.button === 0 && (e.ctrlKey || e.metaKey))
@@ -1908,7 +1897,7 @@ function App() {
           onContextMenuCapture={(e) => {
             if (
               e.button === 2 &&
-              !(e.target as HTMLElement).closest(".text-editor")
+              !(e.target as HTMLElement).closest(".canvas-editor")
             ) {
               e.preventDefault();
               e.stopPropagation();
@@ -2009,6 +1998,7 @@ function App() {
                       offsets={taskOffsets}
                       selected={selectedConnection === c.id}
                       editorLayer={connectionEditors}
+                      labelLayer={connectionLabels}
                       onSelect={() => {
                         setSelectedConnection(c.id);
                         setSelection([]);
@@ -2046,6 +2036,11 @@ function App() {
                 />
               )}
             </svg>
+            <svg
+              className="connection-label-layer"
+              ref={connectionLabels}
+              aria-label="连线标签"
+            />
             {[...board.groups]
               .sort(
                 (a, b) =>
@@ -2168,7 +2163,8 @@ function App() {
                 data-testid="card"
                 data-card-id={c.id}
                 onContextMenu={(e) => {
-                  if ((e.target as HTMLElement).closest(".text-editor")) return;
+                  if ((e.target as HTMLElement).closest(".canvas-editor"))
+                    return;
                   e.preventDefault();
                   e.stopPropagation();
                   setSelectedGroup(undefined);
@@ -2188,7 +2184,7 @@ function App() {
                     : "") +
                   " " +
                   (selection.includes(c.id) ? "selected" : "") +
-                  (editingText === c.id ? " text-editing" : "")
+                  (editingCard === c.id ? " canvas-editing" : "")
                 }
                 aria-label={
                   c.kind === "text" ? c.text.slice(0, 80) : c.title || "任务"
@@ -2209,7 +2205,14 @@ function App() {
                 }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
-                  if (!e.ctrlKey && !e.metaKey) openCard(c);
+                  if (!e.ctrlKey && !e.metaKey)
+                    openCard(
+                      c,
+                      document
+                        .elementFromPoint(e.clientX, e.clientY)
+                        ?.closest<HTMLElement>("[data-task-id]")?.dataset
+                        .taskId,
+                    );
                 }}
               >
                 {c.kind !== "text" &&
@@ -2227,55 +2230,64 @@ function App() {
                     </div>
                   )}
                 {c.kind === "text" ? (
-                  editingText === c.id ? (
+                  editingCard === c.id ? (
                     <TextEditor
                       text={c.text}
                       mode={c.textMode}
                       onChange={(text) => changeText(c.id, text)}
-                      onFinish={(cancelled) => finishText(c.id, cancelled)}
+                      onFinish={(cancelled) => finishEditing(c.id, cancelled)}
                     />
                   ) : (
                     <NoteText text={c.text} mode={c.textMode} />
                   )
                 ) : c.kind === "todo" ? (
-                  <div
-                    className="todo-list"
-                    onDoubleClick={(e) => {
-                      if ((e.target as HTMLElement).closest("input,label"))
-                        e.stopPropagation();
-                    }}
-                  >
-                    {(c.tasks || []).map((task) => (
-                      <label
-                        key={task.id}
-                        data-task-id={task.id}
-                        className={task.done ? "completed" : ""}
-                      >
-                        <input
-                          type="checkbox"
-                          aria-label={task.text}
-                          checked={task.done}
-                          onChange={() =>
-                            updateCards((cards) =>
-                              cards.map((card) =>
-                                card.id === c.id
-                                  ? {
-                                      ...card,
-                                      tasks: card.tasks?.map((t) =>
-                                        t.id === task.id
-                                          ? { ...t, done: !t.done }
-                                          : t,
-                                      ),
-                                    }
-                                  : card,
-                              ),
-                            )
-                          }
-                        />
-                        <span>{task.text}</span>
-                      </label>
-                    ))}
-                  </div>
+                  editingCard === c.id ? (
+                    <TodoEditor
+                      tasks={c.tasks || []}
+                      initialTask={editingTask}
+                      onChange={(tasks) => changeTodo(c.id, tasks)}
+                      onFinish={(cancelled) => finishEditing(c.id, cancelled)}
+                    />
+                  ) : (
+                    <div
+                      className="todo-list"
+                      onDoubleClick={(e) => {
+                        if ((e.target as HTMLElement).closest("input"))
+                          e.stopPropagation();
+                      }}
+                    >
+                      {(c.tasks || []).map((task) => (
+                        <div
+                          key={task.id}
+                          data-task-id={task.id}
+                          className={`todo-row ${task.done ? "completed" : ""}`}
+                        >
+                          <input
+                            type="checkbox"
+                            aria-label={task.text}
+                            checked={task.done}
+                            onChange={() =>
+                              updateCards((cards) =>
+                                cards.map((card) =>
+                                  card.id === c.id
+                                    ? {
+                                        ...card,
+                                        tasks: card.tasks?.map((t) =>
+                                          t.id === task.id
+                                            ? { ...t, done: !t.done }
+                                            : t,
+                                        ),
+                                      }
+                                    : card,
+                                ),
+                              )
+                            }
+                          />
+                          <span>{task.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )
                 ) : c.kind === "image" ? (
                   <Attachment card={c} />
                 ) : (
@@ -2287,24 +2299,22 @@ function App() {
                     </div>
                   </>
                 )}
-                {c.kind !== "text" &&
-                  c.kind !== "image" &&
-                  !(c.kind === "file" && isTextFile(c)) && (
-                    <footer>
-                      <span>
-                        {c.group
-                          ? board.groups.find((g) => g.id === c.group)?.name
-                          : ""}
-                      </span>
-                      <span>
-                        {selection.includes(c.id) ? (
-                          <Check size={13} />
-                        ) : (
-                          <MoreHorizontal size={16} />
-                        )}
-                      </span>
-                    </footer>
-                  )}
+                {c.kind === "file" && !isTextFile(c) && (
+                  <footer>
+                    <span>
+                      {c.group
+                        ? board.groups.find((g) => g.id === c.group)?.name
+                        : ""}
+                    </span>
+                    <span>
+                      {selection.includes(c.id) ? (
+                        <Check size={13} />
+                      ) : (
+                        <MoreHorizontal size={16} />
+                      )}
+                    </span>
+                  </footer>
+                )}
                 {(c.kind === "todo" ? ["n", "s"] : ["n", "e", "s", "w"]).map(
                   (value) => {
                     const side = value as Side;
@@ -2687,101 +2697,6 @@ function App() {
             onChange={changeBackground}
           />
         </CanvasContextMenu>
-      )}
-      {todo && (
-        <div className="modal-backdrop">
-          <form
-            className="modal todo-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label={todo.id ? "编辑任务" : "新建任务"}
-            onSubmit={submitTodo}
-          >
-            <div className="modal-heading">
-              <span>
-                <ListTodo size={18} />
-                {todo.id ? "编辑任务" : "新建任务"}
-              </span>
-              <button
-                type="button"
-                aria-label="关闭"
-                onClick={() => setTodo(null)}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="task-editor">
-              {todo.tasks.map((task, index) => (
-                <div className="task-editor-row" key={task.id}>
-                  <input
-                    type="checkbox"
-                    aria-label={`完成任务 ${index + 1}`}
-                    checked={task.done}
-                    onChange={() =>
-                      setTodo({
-                        ...todo,
-                        tasks: todo.tasks.map((t) =>
-                          t.id === task.id ? { ...t, done: !t.done } : t,
-                        ),
-                      })
-                    }
-                  />
-                  <input
-                    autoFocus={index === 0}
-                    aria-label={`任务内容 ${index + 1}`}
-                    placeholder="任务"
-                    value={task.text}
-                    onChange={(e) =>
-                      setTodo({
-                        ...todo,
-                        tasks: todo.tasks.map((t) =>
-                          t.id === task.id ? { ...t, text: e.target.value } : t,
-                        ),
-                      })
-                    }
-                  />
-                  <button
-                    type="button"
-                    aria-label={`删除任务 ${index + 1}`}
-                    onClick={() =>
-                      setTodo({
-                        ...todo,
-                        tasks: todo.tasks.filter((t) => t.id !== task.id),
-                      })
-                    }
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="modal-bottom">
-              <button
-                type="button"
-                className="button"
-                onClick={() =>
-                  setTodo({
-                    ...todo,
-                    tasks: [
-                      ...todo.tasks,
-                      { id: uid(), text: "", done: false },
-                    ],
-                  })
-                }
-              >
-                <Plus size={16} />
-                添加任务
-              </button>
-              <button
-                type="submit"
-                className="primary"
-                disabled={!todo.tasks.some((t) => t.text.trim())}
-              >
-                保存任务
-              </button>
-            </div>
-          </form>
-        </div>
       )}
       {groupDialog && (
         <div className="modal-backdrop">

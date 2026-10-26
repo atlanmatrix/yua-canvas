@@ -902,7 +902,7 @@ main {
   flex: 1;
   overflow: auto;
 }
-.todo-list label {
+.todo-list .todo-row {
   display: flex;
   align-items: flex-start;
   gap: 9px;
@@ -925,29 +925,6 @@ main {
 .todo-list .completed span {
   color: #9199aa;
   text-decoration: line-through;
-}
-.task-editor {
-  max-height: 55dvh;
-  overflow: auto;
-  margin-bottom: 20px;
-}
-.task-editor-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-.task-editor-row input[type="text"],
-.task-editor-row input:not([type]) {
-  flex: 1;
-  min-width: 0;
-  border: 1px solid #ced4e2;
-  background: #f2f5fb;
-  border-radius: 5px;
-  padding: 10px;
-}
-.task-editor-row input[type="checkbox"] {
-  accent-color: var(--accent);
 }
 @media (max-width: 700px) {
   .toolbar {
@@ -1181,7 +1158,8 @@ main {
 .card {
   overflow: visible;
 }
-.connection-layer {
+.connection-layer,
+.connection-label-layer {
   position: absolute;
   left: 0;
   top: 0;
@@ -1522,7 +1500,7 @@ main {
   pointer-events: none;
 }
 
-.card-text.text-editing {
+.card.canvas-editing {
   z-index: 4;
 }
 .card-text .text-editor {
@@ -1543,8 +1521,62 @@ main {
   overflow-wrap: anywhere;
   cursor: text;
 }
-.card-text.text-editing
+.card.canvas-editing
   :is(.connection-port, .card-download, .text-display-toggle, .card-resize) {
   visibility: hidden;
   pointer-events: none;
+}
+
+.todo-editor {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 12px 15px;
+  gap: 6px;
+  cursor: default;
+}
+.todo-editor .todo-list {
+  padding: 0;
+  min-height: 0;
+}
+.todo-editor .todo-row {
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.todo-editor input:not([type="checkbox"]) {
+  flex: 1;
+  min-width: 0;
+  width: 0;
+  padding: 4px 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 22px;
+  user-select: text;
+  cursor: text;
+}
+.todo-editor input:not([type="checkbox"]):focus {
+  border-bottom-color: var(--accent);
+  outline: none;
+}
+.todo-editor input[type="checkbox"] {
+  margin: 0;
+}
+.todo-editor button {
+  padding: 3px;
+  flex-shrink: 0;
+  color: #8791a5;
+}
+.todo-editor .todo-add {
+  align-self: flex-start;
+  color: var(--accent);
+}
+.todo-editor .completed input:not([type="checkbox"]) {
+  text-decoration: line-through;
+  color: #9199aa;
 }
