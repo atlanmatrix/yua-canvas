@@ -1314,3 +1314,86 @@ main {
 .app.is-grabbing * {
   cursor: grabbing !important;
 }
+
+.search.has-query {
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+.search.search-collapsed {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  justify-content: center;
+}
+.search > button:first-child {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+.search.search-collapsed > button {
+  width: 100%;
+  height: 100%;
+}
+.minimap {
+  position: absolute;
+  left: 20px;
+  bottom: 22px;
+  width: 200px;
+  height: 132px;
+  z-index: 4;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #d5dae4;
+  border-radius: 10px;
+  background: #ffffffed;
+  box-shadow: 0 4px 20px #3e4d6c0a;
+}
+.minimap svg {
+  width: 100%;
+  height: 100%;
+}
+.minimap-group {
+  fill: #eff6ff66;
+  stroke: #93c5fd;
+}
+.minimap-card rect {
+  fill: #fff;
+  stroke: #aeb9c9;
+}
+.minimap-card.selected rect {
+  stroke: var(--accent);
+}
+.minimap-card line {
+  stroke: #cbd5e1;
+  stroke-width: 0.6;
+}
+.minimap-connection {
+  fill: none;
+  stroke: #94a3b8;
+  stroke-width: 0.8;
+}
+.minimap-viewport {
+  fill: #2563eb0a;
+  stroke: var(--accent);
+  stroke-width: 1;
+  pointer-events: none;
+}
+@media (max-width: 1050px) {
+  .minimap {
+    width: 160px;
+    height: 106px;
+    bottom: 87px;
+  }
+}
+@media (max-width: 700px) {
+  .minimap {
+    left: 12px;
+    bottom: 79px;
+    width: 136px;
+    height: 90px;
+  }
+  .search.search-collapsed {
+    width: 36px;
+    height: 39px;
+  }
+}

@@ -72,6 +72,7 @@ test("notes, grouping, persistence, attachments and portable backup", async ({
   });
   await page.getByRole("button", { name: "确认替换" }).click();
   await expect(page.getByTestId("card")).toHaveCount(4);
+  await page.getByRole("button", { name: "展开搜索" }).click();
   await page.getByRole("textbox", { name: "搜索画布" }).fill("周末去山里走走");
   await page
     .getByTestId("card")
@@ -121,6 +122,7 @@ test("moving cards, searching, zooming and rejecting invalid imports", async ({
   await page.mouse.up();
   const after = await card.boundingBox();
   expect(after!.x - before!.x).toBeCloseTo(100, 0);
+  await page.getByRole("button", { name: "展开搜索" }).click();
   await page.getByRole("textbox", { name: "搜索画布" }).fill("不存在的内容");
   await expect(page.getByTestId("card")).toHaveCount(0);
   await page.getByRole("button", { name: "查看全部内容" }).click();
@@ -253,6 +255,7 @@ test("pasted files support batches, preserve editable fields and ignore modal pa
   });
   await expect(page.getByTestId("card")).toHaveCount(2);
   await page.getByRole("button", { name: "关闭", exact: true }).click();
+  await page.getByRole("button", { name: "展开搜索" }).click();
   await page.getByRole("textbox", { name: "搜索画布" }).evaluate((el) => {
     const clipboardData = new DataTransfer();
     clipboardData.items.add(
@@ -457,6 +460,7 @@ test("group title drags every member at current zoom, including filtered cards",
     [0, 300],
   ]);
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "展开搜索" }).click();
   await page.getByRole("textbox", { name: "搜索画布" }).fill("组内一");
   await expect(page.getByTestId("card")).toHaveCount(1);
   await drag(60, 24);
@@ -670,6 +674,7 @@ test("Todo tasks can be created, completed, edited and restored from a backup", 
   await page.getByRole("textbox", { name: "任务内容 2" }).fill("提交最终报告");
   await page.getByRole("button", { name: "保存任务" }).click();
   await expect(card).toContainText("提交最终报告");
+  await page.getByRole("button", { name: "展开搜索" }).click();
   await page.getByRole("textbox", { name: "搜索画布" }).fill("提交最终");
   await expect(card).toHaveCount(1);
   await page.getByRole("button", { name: "清除搜索" }).click();

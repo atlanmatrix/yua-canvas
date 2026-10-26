@@ -125,6 +125,7 @@ test("right-button drag pans without modifying elements, while a stationary righ
   });
   await page.getByRole("button", { name: "确认替换" }).click();
   await expect(page.getByTestId("card")).toHaveCount(2);
+  await page.getByRole("button", { name: "关闭提示" }).click();
   const geometry = () =>
     page
       .locator(".card,.group-boundary")

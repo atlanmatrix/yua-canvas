@@ -146,6 +146,7 @@ test("toolbar note and Todo drag to exact positions, join groups and cancel outs
   await expect(
     membership(page.getByTestId("card").filter({ hasText: "拖入任务" })),
   ).toHaveAttribute("data-group-name", "外组");
+  await page.getByRole("button", { name: "展开侧栏" }).click();
   await drag(
     page,
     page.getByRole("button", { name: "添加笔记", exact: true }),

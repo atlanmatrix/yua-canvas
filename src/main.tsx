@@ -38,7 +38,6 @@ import {
   containingGroup,
   emptyBoard,
   readBoard,
-  saveBoard,
   exportBoard,
   importBoard,
 } from "./storage";
@@ -59,6 +58,8 @@ import {
 import { cardRect, textSize, TEXT_MAX_WIDTH, settleGroups } from "./geometry";
 import { cardDownload } from "./downloads";
 import { type Endpoint, type Side, endpointPoint, curve } from "./connections";
+import { useAutosave } from "./autosave";
+import { Minimap } from "./Minimap";
 import "./style.css";
 const uid = () => crypto.randomUUID();
 const colors = ["#ffffff"];
@@ -231,8 +232,9 @@ function App() {
     [view, setView] = useState({ x: 65, y: 55, z: 1 }),
     [tool, setTool] = useState<"select" | "hand">("select"),
     [query, setQuery] = useState(""),
+    [searchOpen, setSearchOpen] = useState(false),
     [filter, setFilter] = useState("all"),
-    [sidebar, setSidebar] = useState(() => window.innerWidth > 700),
+    [sidebar, setSidebar] = useState(false),
     [detail, setDetail] = useState<string>(),
     [note, setNote] = useState<{
       text: string;
@@ -264,7 +266,8 @@ function App() {
       w: number;
       h: number;
     } | null>(null);
-  const surface = useRef<HTMLDivElement>(null),
+  const searchInput = useRef<HTMLInputElement>(null),
+    surface = useRef<HTMLDivElement>(null),
     fileInput = useRef<HTMLInputElement>(null),
     imageInput = useRef<HTMLInputElement>(null),
     importInput = useRef<HTMLInputElement>(null),
@@ -291,8 +294,7 @@ function App() {
       startY: number;
       moved: boolean;
     } | null>(null),
-    space = useRef(false),
-    loaded = useRef(false);
+    space = useRef(false);
   const cancelGesture = () => {
     const g = gesture.current;
     gesture.current = null;
@@ -354,7 +356,6 @@ function App() {
       .then((b) => {
         if (b) reset(b);
         setReady(true);
-        loaded.current = true;
         setSaveStatus("已保存至本地");
       })
       .catch(() => {
@@ -362,19 +363,10 @@ function App() {
         notify("无法读取浏览器存储，请检查浏览器设置后刷新。");
       });
   }, []);
+  useAutosave(board, ready, setSaveStatus);
   useEffect(() => {
-    if (!loaded.current) return;
-    setSaveStatus("正在保存…");
-    const t = setTimeout(() => {
-      saveBoard(board)
-        .then(() => setSaveStatus("已保存至本地"))
-        .catch(() => {
-          setSaveStatus("保存失败");
-          notify("本地保存失败，可能空间不足。请及时导出备份。");
-        });
-    }, 250);
-    return () => clearTimeout(t);
-  }, [board]);
+    if (searchOpen) searchInput.current?.focus();
+  }, [searchOpen]);
   useEffect(() => {
     const el = surface.current;
     if (!el) return;
@@ -1164,7 +1156,7 @@ function App() {
         e.clientY >= r.top &&
         e.clientY <= r.bottom &&
         !hit?.closest(
-          '.toolbar,.floating-top,.zoom-controls,.selection-bar,.sidebar,[role="dialog"]',
+          '.toolbar,.floating-top,.zoom-controls,.selection-bar,.sidebar,.minimap,[role="dialog"]',
         )
       ) {
         const point = {
@@ -1307,6 +1299,7 @@ function App() {
           setCreatePreview(null);
         }
         setSelectedGroup(undefined);
+        setSearchOpen(false);
         setMenu(null);
         setEditingGroup(undefined);
         setNote(null);
@@ -1348,7 +1341,8 @@ function App() {
           setMenu(null);
         } else if (key === "k") {
           e.preventDefault();
-          document.querySelector<HTMLInputElement>(".search input")?.focus();
+          setSearchOpen(true);
+          searchInput.current?.focus();
         } else if (key === "a") {
           e.preventDefault();
           setSelectedConnection(undefined);
@@ -1574,20 +1568,35 @@ function App() {
               <PanelLeftOpen size={18} />
             )}
           </button>
-          <label className="search">
-            <Search size={16} />
+          <div
+            className={
+              "search " +
+              (!searchOpen ? "search-collapsed " : "") +
+              (query ? "has-query" : "")
+            }
+          >
+            <button
+              aria-label={searchOpen ? "收起搜索" : "展开搜索"}
+              title="搜索 (⌘/Ctrl K)"
+              aria-expanded={searchOpen}
+              onClick={() => setSearchOpen(!searchOpen)}
+            >
+              <Search size={16} />
+            </button>
             <input
               aria-label="搜索画布"
               placeholder="搜索"
+              hidden={!searchOpen}
+              ref={searchInput}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            {query && (
+            {searchOpen && query && (
               <button title="清除搜索" onClick={() => setQuery("")}>
                 <X size={14} />
               </button>
             )}
-          </label>
+          </div>
           <div className="floating-actions">
             <span
               className={
@@ -2102,6 +2111,21 @@ function App() {
             </div>
           )}
         </div>
+        <Minimap
+          board={board}
+          view={view}
+          surface={surface}
+          selection={selection}
+          offsets={taskOffsets}
+          onNavigate={(point) => {
+            const r = surface.current!.getBoundingClientRect();
+            setView((v) => ({
+              ...v,
+              x: r.width / 2 - point.x * v.z,
+              y: r.height / 2 - point.y * v.z,
+            }));
+          }}
+        />
         {selection.length > 0 && (
           <div className="selection-bar">
             <strong>已选 {selection.length} 项</strong>
