@@ -19,7 +19,6 @@ import {
   X,
   Trash2,
   FileText,
-  ChevronRight,
   MoreHorizontal,
   Unlink,
   PanelLeftClose,
@@ -34,6 +33,8 @@ import {
   exportBoard,
   importBoard,
 } from "./storage";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import "./style.css";
 const uid = () => crypto.randomUUID();
 const colors = ["#fffdf5", "#eaf0e8", "#f4e8e2", "#e8edf4", "#ede8f4"];
@@ -45,7 +46,9 @@ function Attachment({ card, large = false }: { card: Card; large?: boolean }) {
       large &&
       card.blob &&
       (card.mime?.startsWith("text/") ||
-        /\.(txt|md|json|csv|log|xml|yaml|yml)$/i.test(card.title))
+        /\.(txt|md|markdown|mdown|json|csv|log|xml|yaml|yml)$/i.test(
+          card.title,
+        ))
     ) {
       let active = true;
       card.blob
@@ -65,6 +68,28 @@ function Attachment({ card, large = false }: { card: Card; large?: boolean }) {
     setUrl(u);
     return () => URL.revokeObjectURL(u);
   }, [card.blob]);
+  if (
+    large &&
+    (/\.(md|markdown|mdown)$/i.test(card.title) ||
+      card.mime === "text/markdown")
+  )
+    return (
+      <div className="markdown">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          skipHtml
+          components={{
+            a: ({ children, ...props }) => (
+              <a {...props} target="_blank" rel="noopener noreferrer">
+                {children}
+              </a>
+            ),
+          }}
+        >
+          {fileText}
+        </ReactMarkdown>
+      </div>
+    );
   if (large && fileText)
     return (
       <pre className="file-text">
@@ -118,7 +143,6 @@ function App() {
       id?: string;
     } | null>(null),
     [toast, setToast] = useState(""),
-    [help, setHelp] = useState(false),
     [confirmImport, setConfirmImport] = useState<Board | null>(null),
     [marquee, setMarquee] = useState<{
       x: number;
@@ -194,67 +218,6 @@ function App() {
       setSelection([]);
     }
   };
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        document.querySelector<HTMLInputElement>(".search input")?.focus();
-        return;
-      }
-      if (e.key === "Escape") {
-        setNote(null);
-        setGroupDialog(null);
-        setDetail(undefined);
-        setHelp(false);
-        setConfirmImport(null);
-      }
-      if (
-        (e.target as HTMLElement).closest(
-          'input,textarea,button,[role="dialog"]',
-        )
-      )
-        return;
-      if (e.code === "Space") {
-        space.current = true;
-        e.preventDefault();
-      }
-      if (e.key === "Escape") {
-        setSelection([]);
-        setDetail(undefined);
-        setHelp(false);
-      }
-      if (e.key === "Delete" || e.key === "Backspace") {
-        e.preventDefault();
-        removeSelected();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
-        e.preventDefault();
-        setSelection(board.cards.map((c) => c.id));
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "g") {
-        e.preventDefault();
-        if (selection.length > 1) setGroupDialog({ name: "" });
-      }
-      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === "v")
-        setTool("select");
-      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === "h")
-        setTool("hand");
-    };
-    const up = (e: KeyboardEvent) => {
-      if (e.code === "Space") space.current = false;
-    };
-    const blur = () => {
-      space.current = false;
-    };
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    window.addEventListener("blur", blur);
-    return () => {
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
-      window.removeEventListener("blur", blur);
-    };
-  }, [selection, board.cards]);
   const center = () => {
     const r = surface.current!.getBoundingClientRect();
     const p = {
@@ -436,7 +399,7 @@ function App() {
       startY: y,
       moved: false,
     };
-    surface.current!.setPointerCapture(e.pointerId);
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
   const pointerMove = (e: React.PointerEvent) => {
     const g = gesture.current;
@@ -511,30 +474,159 @@ function App() {
       notify(e instanceof Error ? e.message : "导入失败");
     }
   };
-  const sample = () => {
-    const p = center();
-    updateCards((c) => [
-      ...c,
-      {
-        id: uid(),
-        kind: "text",
-        title: "让想法，自由发生。",
-        text: "一个念头、一张图片、一段摘录。\n\n把零散的灵感放在这里，慢慢看见它们之间的联系。\n\n拖动卡片整理思绪，按住空格探索更远的地方。",
-        color: "#eaf0e8",
-        x: p.x - 145,
-        y: p.y - 25,
-      },
-      {
-        id: uid(),
-        kind: "text",
-        title: "从这里开始 ↗",
-        text: "01  双击空白处，新建笔记\n02  拖入图片或文件\n03  按住 Shift 多选卡片\n04  把相关的想法分组\n\n你的灵感，只属于你。",
-        color: "#fffdf5",
-        x: p.x + 125,
-        y: p.y + 30,
-      },
-    ]);
-  };
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase(),
+        mod = e.ctrlKey || e.metaKey;
+      if (key === "escape") {
+        setNote(null);
+        setGroupDialog(null);
+        setDetail(undefined);
+        setConfirmImport(null);
+        setSelection([]);
+        (document.activeElement as HTMLElement)?.blur();
+        return;
+      }
+      const target = e.target instanceof HTMLElement ? e.target : null;
+      if (
+        target?.isContentEditable ||
+        target?.closest("input,textarea,select")
+      ) {
+        if (mod && key === "enter") {
+          const form = target.closest("form");
+          if (form) {
+            e.preventDefault();
+            form.requestSubmit();
+          }
+        }
+        return;
+      }
+      if (document.querySelector('[role="dialog"]') || !ready || e.altKey)
+        return;
+      if (mod) {
+        if (key === "k") {
+          e.preventDefault();
+          document.querySelector<HTMLInputElement>(".search input")?.focus();
+        } else if (key === "a") {
+          e.preventDefault();
+          setSelection(visible.map((c) => c.id));
+        } else if (key === "g") {
+          e.preventDefault();
+          if (e.shiftKey)
+            updateCards((cards) =>
+              cards.map((c) =>
+                selection.includes(c.id) ? { ...c, group: undefined } : c,
+              ),
+            );
+          else if (selection.length > 1) setGroupDialog({ name: "" });
+        } else if (key === "d") {
+          e.preventDefault();
+          const copies = board.cards
+            .filter((c) => selection.includes(c.id))
+            .map((c) => ({
+              ...c,
+              id: uid(),
+              x: c.x + 30,
+              y: c.y + 30,
+              group: undefined,
+            }));
+          if (copies.length) {
+            updateCards((cards) => [...cards, ...copies]);
+            setSelection(copies.map((c) => c.id));
+          }
+        } else if (key === "o") {
+          e.preventDefault();
+          importInput.current?.click();
+        } else if (key === "e" && e.shiftKey) {
+          e.preventDefault();
+          void exportAll();
+        }
+        return;
+      }
+      if (e.code === "Space" && !target?.closest("button")) {
+        e.preventDefault();
+        space.current = true;
+        return;
+      }
+      if (key === "delete" || key === "backspace") {
+        e.preventDefault();
+        removeSelected();
+      } else if (key === "v") setTool("select");
+      else if (key === "h") setTool("hand");
+      else if (key === "n" && !e.repeat) {
+        e.preventDefault();
+        addNote();
+      } else if (key === "i" && !e.repeat) {
+        e.preventDefault();
+        imageInput.current?.click();
+      } else if (key === "u" && !e.repeat) {
+        e.preventDefault();
+        fileInput.current?.click();
+      } else if (
+        key === "enter" &&
+        selection.length === 1 &&
+        !target?.closest("button")
+      ) {
+        e.preventDefault();
+        setDetail(selection[0]);
+      } else if (key === "+" || key === "=") {
+        e.preventDefault();
+        zoom(1.2);
+      } else if (key === "-") {
+        e.preventDefault();
+        zoom(1 / 1.2);
+      } else if (key === "0") {
+        e.preventDefault();
+        fit(visible);
+      } else if (key === "1") {
+        e.preventDefault();
+        zoom(1 / view.z);
+      } else if (
+        ["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key) &&
+        selection.length
+      ) {
+        e.preventDefault();
+        const step = e.shiftKey ? 10 : 1;
+        updateCards((cards) =>
+          cards.map((c) =>
+            selection.includes(c.id)
+              ? {
+                  ...c,
+                  x:
+                    c.x +
+                    (key === "arrowright"
+                      ? step
+                      : key === "arrowleft"
+                        ? -step
+                        : 0),
+                  y:
+                    c.y +
+                    (key === "arrowdown"
+                      ? step
+                      : key === "arrowup"
+                        ? -step
+                        : 0),
+                }
+              : c,
+          ),
+        );
+      }
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.code === "Space") space.current = false;
+    };
+    const blur = () => {
+      space.current = false;
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", blur);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", blur);
+    };
+  });
   const current = board.cards.find((c) => c.id === detail);
   return (
     <div className="app">
@@ -545,24 +637,6 @@ function App() {
             yua<span className="brand-light"> canvas</span>
           </span>
         </a>
-        <div className="workspace-label">
-          个人工作空间 <span>LOCAL</span>
-        </div>
-        <button
-          className="board-nav"
-          onClick={() => {
-            setFilter("all");
-            setQuery("");
-          }}
-        >
-          <span className="nav-icon">
-            <Layers size={17} />
-          </span>
-          <span>
-            我的灵感画布<small>{board.cards.length} 个灵感，等待连接</small>
-          </span>
-          <ChevronRight size={15} />
-        </button>
         <div className="section-label">素材库</div>
         <nav>
           {[
@@ -591,116 +665,92 @@ function App() {
           我的分组 <span>{board.groups.length}</span>
         </div>
         <div className="groups-list">
-          {board.groups.length ? (
-            board.groups.map((g) => (
-              <div className="group-row" key={g.id}>
-                <button
-                  className={"nav-item " + (filter === g.id ? "active" : "")}
-                  onClick={() => {
-                    setFilter(g.id);
-                    fit(board.cards.filter((c) => c.group === g.id));
-                  }}
-                >
-                  <Folder size={16} />
-                  <span>{g.name}</span>
-                  <small>
-                    {board.cards.filter((c) => c.group === g.id).length}
-                  </small>
-                </button>
-                <button
-                  title="重命名分组"
-                  className="group-more"
-                  onClick={() => setGroupDialog({ id: g.id, name: g.name })}
-                >
-                  <MoreHorizontal size={15} />
-                </button>
-              </div>
-            ))
-          ) : (
-            <div className="group-placeholder">
-              <Folder size={20} />
-              <p>把有联系的灵感放在一起</p>
-              <small>选择多个卡片，即可创建分组</small>
-            </div>
-          )}
-        </div>
-        <div className="local-info">
-          <span className="local-dot" />
-          <div>
-            只在你的浏览器中<small>无需账号，灵感私有</small>
-          </div>
-        </div>
-        <button className="help-button" onClick={() => setHelp(true)}>
-          <span>?</span>画布使用指南
-          <ArrowUpRight size={14} />
-        </button>
-        <div className="sidebar-footer">
-          MADE FOR YOUR IDEAS <span>✳</span>
+          {board.groups.length
+            ? board.groups.map((g) => (
+                <div className="group-row" key={g.id}>
+                  <button
+                    className={"nav-item " + (filter === g.id ? "active" : "")}
+                    onClick={() => {
+                      setFilter(g.id);
+                      fit(board.cards.filter((c) => c.group === g.id));
+                    }}
+                  >
+                    <Folder size={16} />
+                    <span>{g.name}</span>
+                    <small>
+                      {board.cards.filter((c) => c.group === g.id).length}
+                    </small>
+                  </button>
+                  <button
+                    title="重命名分组"
+                    className="group-more"
+                    onClick={() => setGroupDialog({ id: g.id, name: g.name })}
+                  >
+                    <MoreHorizontal size={15} />
+                  </button>
+                </div>
+              ))
+            : null}
         </div>
       </aside>
       <main>
-        <header>
-          <div className="breadcrumbs">
-            <button
-              className="icon-button"
-              title={sidebar ? "收起侧栏" : "展开侧栏"}
-              onClick={() => setSidebar(!sidebar)}
-            >
-              {sidebar ? (
-                <PanelLeftClose size={18} />
-              ) : (
-                <PanelLeftOpen size={18} />
-              )}
-            </button>
-            <span>工作空间</span>
-            <ChevronRight size={13} />
-            <strong>我的灵感画布</strong>
-          </div>
-          <div className="header-actions">
-            <span
-              className={"saved " + (saveStatus === "保存失败" ? "error" : "")}
-            >
-              <span />
-              {saveStatus}
-            </span>
-            <button
-              className="button subtle"
-              disabled={!ready}
-              onClick={() => importInput.current?.click()}
-            >
-              <Upload size={15} />
-              导入
-            </button>
-            <button className="button" disabled={!ready} onClick={exportAll}>
-              <Download size={15} />
-              导出画布
-            </button>
-          </div>
-        </header>
-        <div className="canvas-bar">
-          <div>
-            <div className="eyebrow">A LITTLE SPACE FOR BIG IDEAS</div>
-            <h1>
-              我的灵感画布 <span>✳</span>
-            </h1>
-            <p>收集碎片，连接想法，让灵感生长。</p>
-          </div>
+        <div className="floating-top">
+          <button
+            className="floating-button"
+            aria-label={sidebar ? "收起侧栏" : "展开侧栏"}
+            title={sidebar ? "收起侧栏" : "展开侧栏"}
+            onClick={() => setSidebar(!sidebar)}
+          >
+            {sidebar ? (
+              <PanelLeftClose size={18} />
+            ) : (
+              <PanelLeftOpen size={18} />
+            )}
+          </button>
           <label className="search">
             <Search size={16} />
             <input
               aria-label="搜索画布"
-              placeholder="寻找一个灵感…"
+              placeholder="搜索"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            {query ? (
+            {query && (
               <button title="清除搜索" onClick={() => setQuery("")}>
                 <X size={14} />
               </button>
-            ) : (
-              <kbd>⌘ K</kbd>
             )}
           </label>
+          <div className="floating-actions">
+            <span
+              className={
+                "save-indicator " + (saveStatus === "保存失败" ? "error" : "")
+              }
+              data-state={saveStatus}
+              title={saveStatus}
+              aria-label={saveStatus}
+            >
+              <span />
+            </span>
+            <button
+              className="floating-button"
+              aria-label="导入"
+              title="导入 (⌘/Ctrl O)"
+              disabled={!ready}
+              onClick={() => importInput.current?.click()}
+            >
+              <Upload size={18} />
+            </button>
+            <button
+              className="floating-button"
+              aria-label="导出画布"
+              title="导出 (⌘/Ctrl Shift E)"
+              disabled={!ready}
+              onClick={exportAll}
+            >
+              <Download size={18} />
+            </button>
+          </div>
         </div>
         <div
           className={"canvas " + (tool === "hand" ? "hand-tool" : "")}
@@ -810,13 +860,6 @@ function App() {
                         ? "IMAGE"
                         : "FILE"}
                   </span>
-                  <button
-                    className="card-open"
-                    title={`查看 ${c.title}`}
-                    onClick={() => setDetail(c.id)}
-                  >
-                    <ArrowUpRight size={17} />
-                  </button>
                 </div>
                 {c.kind === "text" ? (
                   <div className="note-body">
@@ -833,7 +876,7 @@ function App() {
                   <span>
                     {c.group
                       ? board.groups.find((g) => g.id === c.group)?.name
-                      : "灵感碎片"}
+                      : ""}
                   </span>
                   <span>
                     {selection.includes(c.id) ? (
@@ -857,58 +900,9 @@ function App() {
               />
             )}
           </div>
-          {!board.cards.length && ready && (
-            <div className="empty-state">
-              <div className="empty-art">
-                <div className="art-back">
-                  <span>✳</span>
-                </div>
-                <div className="art-note">
-                  <span />
-                  <span />
-                  <span />
-                  <i>ideas start here.</i>
-                </div>
-                <div className="art-dot">+</div>
-                <svg viewBox="0 0 110 75">
-                  <path d="M5 66Q72 78 81 17m-16 5 17-12 13 17" />
-                </svg>
-              </div>
-              <span className="empty-tag">无限可能，从一片空白开始</span>
-              <h2>
-                给灵感一个
-                <br />
-                <em>自由生长</em>的地方。
-              </h2>
-              <p>
-                文字、图片、文件，随手放进来。
-                <br />
-                在无限画布上，找到想法之间的连接。
-              </p>
-              <button className="primary" onClick={addNote}>
-                <Plus size={18} />
-                创建第一个灵感
-              </button>
-              <button className="sample-button" onClick={sample}>
-                或者，先放两张示例笔记 <ArrowUpRight size={13} />
-              </button>
-              <div className="empty-hints">
-                <span>
-                  <ImagePlus size={14} />
-                  拖入图片和文件
-                </span>
-                <i />
-                <span>
-                  <MousePointer2 size={14} />
-                  双击空白创建笔记
-                </span>
-              </div>
-            </div>
-          )}
           {board.cards.length > 0 && !visible.length && (
             <div className="no-results">
               <Search size={28} />
-              <h3>这里还没有匹配的灵感</h3>
               <button
                 className="button"
                 onClick={() => {
@@ -920,19 +914,6 @@ function App() {
               </button>
             </div>
           )}
-          <div className="canvas-corner">
-            {filter === "all"
-              ? "无限画布"
-              : filter === "text"
-                ? "文字笔记"
-                : filter === "image"
-                  ? "图片"
-                  : filter === "file"
-                    ? "文件"
-                    : board.groups.find((g) => g.id === filter)?.name}
-            <span>·</span>
-            {visible.length} 个内容
-          </div>
         </div>
         {selection.length > 0 && (
           <div className="selection-bar">
@@ -987,7 +968,7 @@ function App() {
             </button>
             <i />
             <button
-              title="添加笔记"
+              title="添加笔记 (N)"
               aria-label="添加笔记"
               disabled={!ready}
               onClick={addNote}
@@ -995,7 +976,7 @@ function App() {
               <StickyNote size={20} />
             </button>
             <button
-              title="上传图片"
+              title="上传图片 (I)"
               aria-label="上传图片"
               disabled={!ready}
               onClick={() => imageInput.current?.click()}
@@ -1003,7 +984,7 @@ function App() {
               <ImagePlus size={20} />
             </button>
             <button
-              title="上传文件"
+              title="上传文件 (U)"
               aria-label="上传文件"
               disabled={!ready}
               onClick={() => fileInput.current?.click()}
@@ -1020,20 +1001,27 @@ function App() {
               <Plus size={21} />
             </button>
           </div>
-          <div className="tool-caption">所有好想法，都值得被留下。</div>
         </div>
         <div className="zoom-controls">
-          <button aria-label="缩小" onClick={() => zoom(1 / 1.2)}>
+          <button
+            title="缩小 (-)"
+            aria-label="缩小"
+            onClick={() => zoom(1 / 1.2)}
+          >
             <Minus size={16} />
           </button>
-          <button title="重置缩放" onClick={() => zoom(1 / view.z)}>
+          <button title="重置缩放 (1)" onClick={() => zoom(1 / view.z)}>
             {Math.round(view.z * 100)}%
           </button>
-          <button aria-label="放大" onClick={() => zoom(1.2)}>
+          <button title="放大 (+)" aria-label="放大" onClick={() => zoom(1.2)}>
             <Plus size={16} />
           </button>
           <i />
-          <button aria-label="适应所有内容" onClick={() => fit()}>
+          <button
+            title="适应内容 (0)"
+            aria-label="适应所有内容"
+            onClick={() => fit()}
+          >
             <Maximize size={16} />
           </button>
         </div>
@@ -1084,7 +1072,7 @@ function App() {
             <div className="modal-heading">
               <span>
                 <StickyNote size={18} />
-                {note.id ? "编辑笔记" : "一个新的灵感"}
+                {note.id ? "编辑笔记" : "新建笔记"}
               </span>
               <button
                 type="button"
@@ -1097,14 +1085,14 @@ function App() {
             <input
               autoFocus
               aria-label="笔记标题"
-              placeholder="给这个想法起个名字…"
+              placeholder="标题"
               maxLength={200}
               value={note.title}
               onChange={(e) => setNote({ ...note, title: e.target.value })}
             />
             <textarea
               aria-label="笔记内容"
-              placeholder="写下此刻的想法，不必完整，也不必完美。"
+              placeholder="内容"
               value={note.text}
               onChange={(e) => setNote({ ...note, text: e.target.value })}
             />
@@ -1165,7 +1153,7 @@ function App() {
             <div className="modal-heading">
               <span>
                 <Folder size={18} />
-                {groupDialog.id ? "重命名分组" : "把灵感连接起来"}
+                {groupDialog.id ? "重命名分组" : "创建分组"}
               </span>
               <button
                 type="button"
@@ -1181,7 +1169,7 @@ function App() {
                 autoFocus
                 aria-label="分组名称"
                 maxLength={200}
-                placeholder="例如：下一次旅行"
+                placeholder="名称"
                 value={groupDialog.name}
                 onChange={(e) =>
                   setGroupDialog({ ...groupDialog, name: e.target.value })
@@ -1208,9 +1196,7 @@ function App() {
                 >
                   解散分组
                 </button>
-              ) : (
-                <small>{selection.length} 个灵感将归入此分组</small>
-              )}
+              ) : null}
               <button className="primary" disabled={!groupDialog.name.trim()}>
                 保存分组
               </button>
@@ -1274,45 +1260,6 @@ function App() {
           </div>
         </div>
       )}
-      {help && (
-        <div className="modal-backdrop">
-          <div
-            className="modal compact help-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="使用指南"
-          >
-            <div className="modal-heading">
-              <span>在这里，让想法自由发生</span>
-              <button aria-label="关闭指南" onClick={() => setHelp(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            <p>
-              点击工具栏添加笔记、图片和文件，也可以直接拖入文件，或按 Cmd/Ctrl
-              + V 粘贴剪贴板中的图片和文件。点击卡片右上角箭头查看完整内容。
-            </p>
-            <dl>
-              <dt>移动画布</dt>
-              <dd>空格 + 拖动 / H / 滚轮</dd>
-              <dt>缩放</dt>
-              <dd>Ctrl / ⌘ + 滚轮，或右下角按钮</dd>
-              <dt>多选</dt>
-              <dd>Shift + 点击 / 空白处框选</dd>
-              <dt>全部选择</dt>
-              <dd>Ctrl / ⌘ + A</dd>
-              <dt>创建分组</dt>
-              <dd>多选后点击「创建分组」</dd>
-              <dt>删除所选</dt>
-              <dd>Delete / Backspace</dd>
-            </dl>
-            <p className="privacy-note">
-              数据与附件保存在当前浏览器的 IndexedDB
-              中。清理网站数据、更换设备或使用隐私模式可能导致数据丢失，请定期导出备份。导入会替换当前画布。
-            </p>
-          </div>
-        </div>
-      )}
       {confirmImport && (
         <div className="modal-backdrop">
           <div
@@ -1324,11 +1271,7 @@ function App() {
             <div className="modal-heading">
               <span>导入画布</span>
             </div>
-            <p>
-              将导入 {confirmImport.cards.length} 个内容和{" "}
-              {confirmImport.groups.length}{" "}
-              个分组，并替换当前画布。建议先导出当前内容。
-            </p>
+            <p>替换当前画布？（{confirmImport.cards.length} 项）</p>
             <div className="modal-bottom">
               <button className="button" onClick={() => setConfirmImport(null)}>
                 取消
