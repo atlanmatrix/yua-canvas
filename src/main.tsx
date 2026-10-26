@@ -31,6 +31,7 @@ import {
   type Task,
   type Rect,
   groupBounds,
+  containingGroup,
   emptyBoard,
   readBoard,
   saveBoard,
@@ -140,15 +141,22 @@ function App() {
       text: string;
       id?: string;
       color: string;
+      point?: { x: number; y: number };
     } | null>(null),
     [todo, setTodo] = useState<{
       id?: string;
       tasks: Task[];
       color: string;
+      point?: { x: number; y: number };
     } | null>(null),
     [groupDialog, setGroupDialog] = useState<{
       name: string;
       id?: string;
+    } | null>(null),
+    [createPreview, setCreatePreview] = useState<{
+      kind: Card["kind"];
+      x: number;
+      y: number;
     } | null>(null),
     [toast, setToast] = useState(""),
     [confirmImport, setConfirmImport] = useState<Board | null>(null),
@@ -162,8 +170,11 @@ function App() {
     fileInput = useRef<HTMLInputElement>(null),
     imageInput = useRef<HTMLInputElement>(null),
     importInput = useRef<HTMLInputElement>(null),
+    pendingUpload = useRef<{ x: number; y: number } | undefined>(undefined),
+    suppressToolbarClick = useRef(false),
     gesture = useRef<{
-      kind: "pan" | "move" | "select" | "resize";
+      kind: "pan" | "move" | "select" | "resize" | "create";
+      createKind?: Card["kind"];
       groupId?: string;
       bounds?: Rect;
       edge?: string;
@@ -221,6 +232,15 @@ function App() {
     el.addEventListener("wheel", wheel, { passive: false });
     return () => el.removeEventListener("wheel", wheel);
   }, []);
+  useEffect(() => {
+    const inputs = [fileInput.current, imageInput.current];
+    const cancel = () => {
+      pendingUpload.current = undefined;
+    };
+    inputs.forEach((input) => input?.addEventListener("cancel", cancel));
+    return () =>
+      inputs.forEach((input) => input?.removeEventListener("cancel", cancel));
+  }, []);
   const updateCards = (fn: (cards: Card[]) => Card[]) =>
     setBoard((b) => ({ ...b, cards: fn(b.cards) }));
   const removeSelected = () => {
@@ -267,7 +287,13 @@ function App() {
       blob: f,
       mime: f.type,
     }));
-    updateCards((c) => [...c, ...next]);
+    setBoard((b) => ({
+      ...b,
+      cards: [
+        ...b.cards,
+        ...next.map((c) => ({ ...c, group: containingGroup(c, b.groups) })),
+      ],
+    }));
     setSelection(next.map((c) => c.id));
     notify(`已添加 ${next.length} 个文件`);
   };
@@ -300,7 +326,8 @@ function App() {
     window.addEventListener("paste", paste);
     return () => window.removeEventListener("paste", paste);
   }, [ready, addFiles]);
-  const addNote = () => setNote({ text: "", color: colors[0] });
+  const addNote = (point?: { x: number; y: number }) =>
+    setNote({ text: "", color: colors[0], point });
   const openCard = (card: Card) => {
     if (card.kind === "text")
       setNote({ id: card.id, text: card.text, color: card.color });
@@ -312,8 +339,9 @@ function App() {
       });
     else setDetail(card.id);
   };
-  const addTodo = () =>
+  const addTodo = (point?: { x: number; y: number }) =>
     setTodo({
+      point,
       tasks: [{ id: uid(), text: "", done: false }],
       color: colors[0],
     });
@@ -332,18 +360,24 @@ function App() {
       );
     else {
       const id = uid();
-      updateCards((cards) => [
-        ...cards,
-        {
-          id,
-          kind: "todo",
-          title: "",
-          text: "",
-          tasks,
-          color: todo.color,
-          ...center(),
-        },
-      ]);
+      setBoard((b) => {
+        const cards = b.cards;
+        const next: Card[] = [
+          ...cards,
+          {
+            id,
+            kind: "todo",
+            title: "",
+            text: "",
+            tasks,
+            color: todo.color,
+            ...(todo.point || center()),
+          },
+        ];
+        const card = next[next.length - 1];
+        card.group = containingGroup(card, b.groups);
+        return { ...b, cards: next };
+      });
       setSelection([id]);
     }
     setTodo(null);
@@ -366,17 +400,23 @@ function App() {
       );
     else {
       const id = uid();
-      updateCards((cards) => [
-        ...cards,
-        {
-          id,
-          kind: "text",
-          title: "",
-          text: n.text,
-          color: n.color,
-          ...center(),
-        },
-      ]);
+      setBoard((b) => {
+        const cards = b.cards;
+        const next: Card[] = [
+          ...cards,
+          {
+            id,
+            kind: "text",
+            title: "",
+            text: n.text,
+            color: n.color,
+            ...(n.point || center()),
+          },
+        ];
+        const card = next[next.length - 1];
+        card.group = containingGroup(card, b.groups);
+        return { ...b, cards: next };
+      });
       setSelection([id]);
     }
     setNote(null);
@@ -454,7 +494,7 @@ function App() {
     let ids = selection;
     if (groupId && !pan) {
       ids = board.cards.filter((c) => c.group === groupId).map((c) => c.id);
-      setSelection(ids);
+      setSelection([]);
     } else if (id && !pan) {
       if (e.shiftKey) {
         ids = selection.includes(id)
@@ -507,12 +547,37 @@ function App() {
     };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
+  const startToolbarDrag = (e: React.PointerEvent, kind: Card["kind"]) => {
+    if (e.button !== 0 || !ready) return;
+    suppressToolbarClick.current = false;
+    gesture.current = {
+      kind: "create",
+      createKind: kind,
+      x: e.clientX,
+      y: e.clientY,
+      view,
+      cards: board.cards,
+      ids: [],
+      startX: 0,
+      startY: 0,
+      moved: false,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const toolbarClick = (action: () => void) => {
+    if (!suppressToolbarClick.current) action();
+    suppressToolbarClick.current = false;
+  };
   const pointerMove = (e: React.PointerEvent) => {
     const g = gesture.current;
     if (!g) return;
     const dx = e.clientX - g.x,
       dy = e.clientY - g.y;
     if (Math.abs(dx) + Math.abs(dy) > 4) g.moved = true;
+    if (g.kind === "create" && g.moved) {
+      suppressToolbarClick.current = true;
+      setCreatePreview({ kind: g.createKind!, x: e.clientX, y: e.clientY });
+    }
     if (g.kind === "pan")
       setView({ ...g.view, x: g.view.x + dx, y: g.view.y + dy });
     if (g.kind === "resize" && g.bounds) {
@@ -598,10 +663,44 @@ function App() {
     }
   };
   const pointerUp = (e: React.PointerEvent) => {
+    const g = gesture.current;
     gesture.current = null;
     setMarquee(null);
-    if (surface.current?.hasPointerCapture(e.pointerId))
-      surface.current.releasePointerCapture(e.pointerId);
+    setCreatePreview(null);
+    if (g?.kind === "create" && g.moved && e.type !== "pointercancel") {
+      const r = surface.current!.getBoundingClientRect();
+      const hit = document.elementFromPoint(e.clientX, e.clientY);
+      if (
+        e.clientX >= r.left &&
+        e.clientX <= r.right &&
+        e.clientY >= r.top &&
+        e.clientY <= r.bottom &&
+        !hit?.closest(
+          '.toolbar,.floating-top,.zoom-controls,.selection-bar,.sidebar,[role="dialog"]',
+        )
+      ) {
+        const point = {
+          x: (e.clientX - r.left - view.x) / view.z - 120,
+          y: (e.clientY - r.top - view.y) / view.z - 125,
+        };
+        if (g.createKind === "text") addNote(point);
+        else if (g.createKind === "todo") addTodo(point);
+        else {
+          pendingUpload.current = point;
+          (g.createKind === "image" ? imageInput : fileInput).current?.click();
+        }
+      }
+    }
+    if (g?.kind === "move" && g.moved && !g.groupId) {
+      setBoard((b) => ({
+        ...b,
+        cards: b.cards.map((c) =>
+          g.ids.includes(c.id)
+            ? { ...c, group: containingGroup(c, b.groups) }
+            : c,
+        ),
+      }));
+    }
   };
   const download = (blob: Blob, name: string) => {
     const url = URL.createObjectURL(blob);
@@ -635,6 +734,11 @@ function App() {
       const key = e.key.toLowerCase(),
         mod = e.ctrlKey || e.metaKey;
       if (key === "escape") {
+        if (gesture.current?.kind === "create") {
+          gesture.current = null;
+          suppressToolbarClick.current = true;
+          setCreatePreview(null);
+        }
         setNote(null);
         setTodo(null);
         setGroupDialog(null);
@@ -792,7 +896,12 @@ function App() {
     (c) => c.id === detail && (c.kind === "image" || c.kind === "file"),
   );
   return (
-    <div className="app">
+    <div
+      className="app"
+      onPointerMove={pointerMove}
+      onPointerUp={pointerUp}
+      onPointerCancel={pointerUp}
+    >
       <aside className={"sidebar " + (!sidebar ? "collapsed" : "")}>
         <a className="brand" href="#" onClick={(e) => e.preventDefault()}>
           <span className="brand-icon">y</span>
@@ -924,9 +1033,6 @@ function App() {
             backgroundSize: `${24 * view.z}px ${24 * view.z}px`,
           }}
           onPointerDown={(e) => pointerDown(e)}
-          onPointerMove={pointerMove}
-          onPointerUp={pointerUp}
-          onPointerCancel={pointerUp}
           onWheel={(e) => {
             if (e.ctrlKey || e.metaKey) {
               const r = surface.current!.getBoundingClientRect(),
@@ -967,7 +1073,11 @@ function App() {
           >
             {board.groups.map((g) => {
               const cards = visible.filter((c) => c.group === g.id);
-              if (!cards.length) return null;
+              if (
+                !cards.length &&
+                (query || (filter !== "all" && filter !== g.id))
+              )
+                return null;
               const bounds = g.bounds!;
               return (
                 <div
@@ -1197,7 +1307,8 @@ function App() {
               title="添加笔记 (N)"
               aria-label="添加笔记"
               disabled={!ready}
-              onClick={addNote}
+              onPointerDown={(e) => startToolbarDrag(e, "text")}
+              onClick={() => toolbarClick(() => addNote())}
             >
               <StickyNote size={20} />
             </button>
@@ -1205,7 +1316,8 @@ function App() {
               title="添加任务 (T)"
               aria-label="添加任务"
               disabled={!ready}
-              onClick={addTodo}
+              onPointerDown={(e) => startToolbarDrag(e, "todo")}
+              onClick={() => toolbarClick(() => addTodo())}
             >
               <ListTodo size={20} />
             </button>
@@ -1213,7 +1325,13 @@ function App() {
               title="上传图片 (I)"
               aria-label="上传图片"
               disabled={!ready}
-              onClick={() => imageInput.current?.click()}
+              onPointerDown={(e) => startToolbarDrag(e, "image")}
+              onClick={() =>
+                toolbarClick(() => {
+                  pendingUpload.current = undefined;
+                  imageInput.current?.click();
+                })
+              }
             >
               <ImagePlus size={20} />
             </button>
@@ -1221,7 +1339,13 @@ function App() {
               title="上传文件 (U)"
               aria-label="上传文件"
               disabled={!ready}
-              onClick={() => fileInput.current?.click()}
+              onPointerDown={(e) => startToolbarDrag(e, "file")}
+              onClick={() =>
+                toolbarClick(() => {
+                  pendingUpload.current = undefined;
+                  fileInput.current?.click();
+                })
+              }
             >
               <FileUp size={20} />
             </button>
@@ -1230,7 +1354,8 @@ function App() {
               className="add-button"
               aria-label="新建内容"
               disabled={!ready}
-              onClick={addNote}
+              onPointerDown={(e) => startToolbarDrag(e, "text")}
+              onClick={() => toolbarClick(() => addNote())}
             >
               <Plus size={21} />
             </button>
@@ -1267,7 +1392,8 @@ function App() {
         multiple
         hidden
         onChange={(e) => {
-          void addFiles(e.target.files);
+          void addFiles(e.target.files, pendingUpload.current);
+          pendingUpload.current = undefined;
           e.target.value = "";
         }}
       />
@@ -1279,7 +1405,8 @@ function App() {
         multiple
         hidden
         onChange={(e) => {
-          void addFiles(e.target.files);
+          void addFiles(e.target.files, pendingUpload.current);
+          pendingUpload.current = undefined;
           e.target.value = "";
         }}
       />
@@ -1601,6 +1728,28 @@ function App() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {createPreview && (
+        <div
+          className="creation-preview"
+          aria-hidden="true"
+          style={{
+            left: createPreview.x - 120 * view.z,
+            top: createPreview.y - 125 * view.z,
+            width: 240 * view.z,
+            height: 250 * view.z,
+          }}
+        >
+          {createPreview.kind === "text" ? (
+            <StickyNote />
+          ) : createPreview.kind === "todo" ? (
+            <ListTodo />
+          ) : createPreview.kind === "image" ? (
+            <ImagePlus />
+          ) : (
+            <FileText />
+          )}
         </div>
       )}
       {toast && (

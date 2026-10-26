@@ -25,6 +25,25 @@ export function groupBounds(cards: Card[]): Rect {
     height: Math.max(...cards.map((c) => c.y + 250)) + 20 - y,
   };
 }
+// A card belongs to the smallest frame that fully contains its bounds.
+export function containingGroup(
+  card: Pick<Card, "x" | "y">,
+  groups: Group[],
+): string | undefined {
+  return groups
+    .filter(
+      (g) =>
+        g.bounds &&
+        card.x >= g.bounds.x &&
+        card.y >= g.bounds.y &&
+        card.x + 240 <= g.bounds.x + g.bounds.width &&
+        card.y + 250 <= g.bounds.y + g.bounds.height,
+    )
+    .sort(
+      (a, b) =>
+        a.bounds!.width * a.bounds!.height - b.bounds!.width * b.bounds!.height,
+    )[0]?.id;
+}
 export function initializeGroups(board: Board): Board {
   return {
     ...board,

@@ -1014,3 +1014,25 @@ main {
     margin: 0 2px;
   }
 }
+.toolbar button {
+  touch-action: none;
+}
+.creation-preview {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  border: 2px dashed #819566;
+  border-radius: 9px;
+  background: #f5f8ecbb;
+  color: #819566;
+  box-shadow: 0 8px 24px #42513715;
+}
+/* Keep frame handles behind cards that overlap a group boundary. */
+.group-boundary {
+  z-index: 0;
+}
+.card {
+  z-index: 1;
+}

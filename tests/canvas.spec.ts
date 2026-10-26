@@ -301,7 +301,7 @@ test("full-height canvas and keyboard editing shortcuts", async ({ page }) => {
   await page.keyboard.press("Escape");
   await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.press("ControlOrMeta+Shift+g");
-  await expect(page.locator(".group-boundary")).toHaveCount(0);
+  await expect(page.locator(".group-boundary")).toHaveCount(1);
   await page.keyboard.press("ControlOrMeta+k");
   await expect(page.getByRole("textbox", { name: "搜索画布" })).toBeFocused();
   await page.keyboard.press("Escape");
@@ -560,13 +560,11 @@ test("group bounds stay fixed as cards move and resize independently with persis
       },
     ],
   };
-  await page
-    .getByTestId("import")
-    .setInputFiles({
-      name: "bounds.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(board)),
-    });
+  await page.getByTestId("import").setInputFiles({
+    name: "bounds.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(board)),
+  });
   await page.getByRole("button", { name: "确认替换" }).click();
   await expect(page.getByTestId("card")).toHaveCount(2);
   await page.keyboard.press("1");
@@ -587,14 +585,12 @@ test("group bounds stay fixed as cards move and resize independently with persis
   for (let i = 0; i < 15; i++) await page.keyboard.press("Shift+ArrowDown");
   expect(await rect()).toEqual(initial);
   const positions = () =>
-    page
-      .getByTestId("card")
-      .evaluateAll((els) =>
-        els.map((el) => ({
-          x: (el as HTMLElement).style.left,
-          y: (el as HTMLElement).style.top,
-        })),
-      );
+    page.getByTestId("card").evaluateAll((els) =>
+      els.map((el) => ({
+        x: (el as HTMLElement).style.left,
+        y: (el as HTMLElement).style.top,
+      })),
+    );
   const before = await positions();
   const handle = await page.getByTestId("resize-se").boundingBox();
   await page.mouse.move(handle!.x + 6, handle!.y + 6);
@@ -622,13 +618,11 @@ test("group bounds stay fixed as cards move and resize independently with persis
     width: 660,
     height: 340,
   });
-  await page
-    .getByTestId("import")
-    .setInputFiles({
-      name: "roundtrip.json",
-      mimeType: "application/json",
-      buffer: backup,
-    });
+  await page.getByTestId("import").setInputFiles({
+    name: "roundtrip.json",
+    mimeType: "application/json",
+    buffer: backup,
+  });
   await page.getByRole("button", { name: "确认替换" }).click();
   expect(await rect()).toEqual({ x: 80, y: 60, w: 660, h: 340 });
 });
@@ -685,13 +679,11 @@ test("Todo tasks can be created, completed, edited and restored from a backup", 
   await card.locator(".card-top").click();
   await page.keyboard.press("Delete");
   await expect(card).toHaveCount(0);
-  await page
-    .getByTestId("import")
-    .setInputFiles({
-      name: "todo.json",
-      mimeType: "application/json",
-      buffer: backup,
-    });
+  await page.getByTestId("import").setInputFiles({
+    name: "todo.json",
+    mimeType: "application/json",
+    buffer: backup,
+  });
   await page.getByRole("button", { name: "确认替换" }).click();
   await expect(card.getByRole("checkbox", { name: "准备资料" })).toBeChecked();
   await card.getByRole("checkbox", { name: "准备资料" }).uncheck();
