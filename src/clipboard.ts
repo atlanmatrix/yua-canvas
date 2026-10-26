@@ -10,6 +10,15 @@ const isTextFile = (card: Card) =>
   /\.(txt|md|markdown|mdown|csv|json|xml|yaml|yml|log|js|ts|tsx|jsx|css|html|svg)$/i.test(
     card.title,
   );
+export async function fileText(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  if (bytes[0] === 0xff && bytes[1] === 0xfe)
+    return new TextDecoder("utf-16le", { fatal: true }).decode(bytes);
+  if (bytes[0] === 0xfe && bytes[1] === 0xff)
+    return new TextDecoder("utf-16be", { fatal: true }).decode(bytes);
+  // Do not silently replace undecodable bytes: the original download is lossless.
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+}
 async function png(blob: Blob): Promise<Blob> {
   if (blob.type === "image/png") return blob;
   const url = URL.createObjectURL(blob);
@@ -53,7 +62,7 @@ export function clipboardCopy(cards: Card[]): ClipboardCopy {
     cards.map((c) => {
       if (c.kind === "file") {
         if (!c.blob) throw Error("文件数据不可用");
-        return c.blob.text();
+        return fileText(c.blob);
       }
       if (c.kind === "todo")
         return (c.tasks || [])
@@ -65,7 +74,7 @@ export function clipboardCopy(cards: Card[]): ClipboardCopy {
   return {
     items: [new ClipboardItem({ "text/plain": text })],
     message: cards.some((c) => c.kind === "file")
-      ? "已复制文件文本（可粘贴到编辑器）"
+      ? "已复制文件文本（仅供编辑器粘贴，不能粘贴为系统文件）"
       : "已复制",
   };
 }
@@ -96,9 +105,12 @@ export function canvasClipboard(
             reader.readAsDataURL(blob);
           }),
       )
-    : Promise.resolve(
-        `<span data-yua-copy="${token}" style="white-space:pre-wrap">${escape(text)}</span>`,
-      );
+    : Promise.resolve(data["text/plain"])
+        .then((blob) => blob.text())
+        .then(
+          (value) =>
+            `<span data-yua-copy="${token}" style="white-space:pre-wrap">${escape(value)}</span>`,
+        );
   data["text/html"] = html.then(
     (value) => new Blob([value], { type: "text/html" }),
   );

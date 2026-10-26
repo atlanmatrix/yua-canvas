@@ -113,6 +113,7 @@ test("text attachments copy file contents and binary attachments offer the origi
   await expect(page.locator('.card[aria-label="readme.md"]')).toBeVisible();
   await page.keyboard.press("ControlOrMeta+c");
   await expect(page.getByRole("status")).toContainText("已复制文件文本");
+  await expect(page.getByRole("status")).toContainText("不能粘贴为系统文件");
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     "# 文件内容\n\n正文",
   );
@@ -154,4 +155,66 @@ test("clipboard denial shows failure instead of a copied notification", async ({
     "复制失败，请允许此网站访问剪贴板后重试",
   );
   await expect(page.getByRole("status")).not.toContainText("已复制");
+});
+
+test("text attachments copy identical plain and rich content, and download original bytes", async ({
+  page,
+  context,
+}) => {
+  await setup(page, context);
+  const body = '# 标题\r\n正文 <tag> & "引号"\r\n';
+  const bytes = Buffer.from(body, "utf8");
+  await page.getByTestId("files").setInputFiles({
+    name: "源文件.md",
+    mimeType: "text/markdown",
+    buffer: bytes,
+  });
+  await expect(page.locator('.card[aria-label="源文件.md"]')).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+c");
+  await expect(page.getByRole("status")).toContainText("已复制文件文本");
+  const formats = await page.evaluate(async () => {
+    const items = await navigator.clipboard.read();
+    const plain = await (await items[0].getType("text/plain")).text(),
+      html = await (await items[0].getType("text/html")).text();
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    return { plain, rich: doc.querySelector("[data-yua-copy]")!.textContent };
+  });
+  expect(formats.plain).toBe(body);
+  expect(formats.rich).toBe(body.replaceAll("\r\n", "\n"));
+  const event = page.waitForEvent("download");
+  await page.getByRole("button", { name: "下载原文件", exact: true }).click();
+  const d = await event;
+  expect(d.suggestedFilename()).toBe("源文件.md");
+  const stream = await d.createReadStream(),
+    chunks: Buffer[] = [];
+  for await (const c of stream!) chunks.push(c);
+  expect(Buffer.concat(chunks)).toEqual(bytes);
+});
+test("UTF-16 text files copy readable content and retain their original encoding on download", async ({
+  page,
+  context,
+}) => {
+  await setup(page, context);
+  const text = "中文 UTF-16\r\n第二行";
+  const bytes = Buffer.concat([
+    Buffer.from([255, 254]),
+    Buffer.from(text, "utf16le"),
+  ]);
+  await page.getByTestId("files").setInputFiles({
+    name: "utf16.txt",
+    mimeType: "text/plain",
+    buffer: bytes,
+  });
+  await expect(page.locator('.card[aria-label="utf16.txt"]')).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+c");
+  await expect(page.getByRole("status")).toContainText("已复制文件文本");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(text);
+  const event = page.waitForEvent("download");
+  await page.getByRole("button", { name: "下载原文件", exact: true }).click();
+  const d = await event,
+    stream = await d.createReadStream(),
+    chunks: Buffer[] = [];
+  for await (const c of stream!) chunks.push(c);
+  expect(d.suggestedFilename()).toBe("utf16.txt");
+  expect(Buffer.concat(chunks)).toEqual(bytes);
 });

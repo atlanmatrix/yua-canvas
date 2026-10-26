@@ -1017,8 +1017,11 @@ function App() {
     const a = document.createElement("a");
     a.href = url;
     a.download = name;
+    a.hidden = true;
+    document.body.append(a);
     a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
   const copySelected = async () => {
     const fragment = selectedFragment(board, selection, selectedGroup);
@@ -1048,7 +1051,19 @@ function App() {
       if (unsupported.length) {
         notify("已复制，可在画布中粘贴；系统文件请下载原文件");
         setCopyFiles(unsupported);
-      } else notify(selectedGroup ? "已复制分组" : copy?.message || "已复制");
+      } else {
+        const files = fragment.cards.filter((c) => c.kind === "file" && c.blob);
+        notify(
+          selectedGroup
+            ? "已复制分组"
+            : copy?.message
+              ? files.length
+                ? `${copy.message}；保存文件请下载原文件`
+                : copy.message
+              : "已复制",
+        );
+        if (files.length) setCopyFiles(files);
+      }
     } catch (error) {
       internalCopy.current = null;
       if (
@@ -1056,12 +1071,17 @@ function App() {
         (error.name === "NotAllowedError" || error.name === "SecurityError")
       )
         notify("复制失败，请允许此网站访问剪贴板后重试");
-      else
+      else {
+        const files = fragment.cards.filter((c) => c.kind === "file" && c.blob);
         notify(
-          error instanceof Error
-            ? `复制失败：${error.message}`
-            : "复制失败，请重试",
+          files.length
+            ? "无法复制文件正文（编码或格式不支持），请下载原文件"
+            : error instanceof Error
+              ? `复制失败：${error.message}`
+              : "复制失败，请重试",
         );
+        if (files.length) setCopyFiles(files);
+      }
     }
   };
   const exportAll = async () => {
