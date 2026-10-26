@@ -58,7 +58,9 @@ export function attachParents(groups: Group[]): Group[] {
           .sort(
             (a, b) =>
               a.bounds!.width * a.bounds!.height -
-                b.bounds!.width * b.bounds!.height || a.id.localeCompare(b.id),
+                b.bounds!.width * b.bounds!.height ||
+              Number(b.id === group.parent) - Number(a.id === group.parent) ||
+              a.id.localeCompare(b.id),
           )[0]?.id
       : undefined;
     return { ...group, parent };
@@ -193,6 +195,7 @@ export async function importBoard(raw: string): Promise<Board> {
     return {
       id: g.id,
       name: g.name.slice(0, 200),
+      parent: typeof g.parent === "string" ? g.parent : undefined,
       bounds: g.bounds
         ? {
             x: g.bounds.x,

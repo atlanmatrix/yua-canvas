@@ -69,3 +69,38 @@ export function clipboardCopy(cards: Card[]): ClipboardCopy {
       : "已复制",
   };
 }
+
+export function canvasClipboard(
+  copy: ClipboardCopy | undefined,
+  token: string,
+  text: string,
+): ClipboardItem[] {
+  const escape = (value: string) =>
+    value
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll('"', "&quot;");
+  const item = copy?.items[0];
+  const data: Record<string, Blob | Promise<Blob>> = {};
+  if (item) for (const type of item.types) data[type] = item.getType(type);
+  if (!data["text/plain"])
+    data["text/plain"] = new Blob([text], { type: "text/plain" });
+  const html = item?.types.includes("image/png")
+    ? item.getType("image/png").then(
+        (blob) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () =>
+              resolve(`<img data-yua-copy="${token}" src="${reader.result}">`);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(blob);
+          }),
+      )
+    : Promise.resolve(
+        `<span data-yua-copy="${token}" style="white-space:pre-wrap">${escape(text)}</span>`,
+      );
+  data["text/html"] = html.then(
+    (value) => new Blob([value], { type: "text/html" }),
+  );
+  return [new ClipboardItem(data)];
+}

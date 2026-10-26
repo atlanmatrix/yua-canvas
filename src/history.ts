@@ -1,0 +1,55 @@
+import { useRef, useState } from "react";
+import { emptyBoard, type Board } from "./storage";
+export function useBoardHistory() {
+  const [board, setState] = useState<Board>(emptyBoard);
+  const current = useRef(board),
+    past = useRef<Board[]>([]),
+    future = useRef<Board[]>([]),
+    transaction = useRef<Board | null>(null);
+  const push = (b: Board) => {
+    past.current = [...past.current.slice(-99), b];
+    future.current = [];
+  };
+  const setBoard = (action: Board | ((b: Board) => Board)) => {
+    const previous = current.current,
+      next = typeof action === "function" ? action(previous) : action;
+    if (next === previous) return;
+    if (!transaction.current) push(previous);
+    current.current = next;
+    setState(next);
+  };
+  const begin = () => {
+    if (!transaction.current) transaction.current = current.current;
+  };
+  const end = () => {
+    const start = transaction.current;
+    transaction.current = null;
+    if (start && start !== current.current) push(start);
+  };
+  const reset = (b: Board) => {
+    past.current = [];
+    future.current = [];
+    transaction.current = null;
+    current.current = b;
+    setState(b);
+  };
+  const undo = () => {
+    end();
+    const b = past.current.pop();
+    if (b) {
+      future.current.push(current.current);
+      current.current = b;
+      setState(b);
+    }
+  };
+  const redo = () => {
+    end();
+    const b = future.current.pop();
+    if (b) {
+      past.current.push(current.current);
+      current.current = b;
+      setState(b);
+    }
+  };
+  return { board, setBoard, reset, begin, end, undo, redo };
+}

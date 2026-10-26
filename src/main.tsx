@@ -44,7 +44,17 @@ import {
 } from "./storage";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { clipboardCopy, FileClipboardUnsupported } from "./clipboard";
+import {
+  clipboardCopy,
+  canvasClipboard,
+  FileClipboardUnsupported,
+} from "./clipboard";
+import { useBoardHistory } from "./history";
+import {
+  selectedFragment,
+  duplicateFragment,
+  type Fragment,
+} from "./fragments";
 import "./style.css";
 const uid = () => crypto.randomUUID();
 const colors = ["#fffdf5", "#eaf0e8", "#f4e8e2", "#e8edf4", "#ede8f4"];
@@ -131,9 +141,63 @@ function Attachment({ card, large = false }: { card: Card; large?: boolean }) {
     </div>
   );
 }
+function GroupNameEditor({
+  name,
+  onSave,
+  onCancel,
+}: {
+  name: string;
+  onSave: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(name),
+    finished = useRef(false);
+  const save = () => {
+    if (finished.current) return;
+    finished.current = true;
+    if (value.trim()) onSave(value.trim());
+    else onCancel();
+  };
+  return (
+    <input
+      className="group-name-editor"
+      aria-label="分组名称"
+      autoFocus
+      maxLength={200}
+      value={value}
+      onFocus={(e) => e.target.select()}
+      onChange={(e) => setValue(e.target.value)}
+      onPointerDown={(e) => e.stopPropagation()}
+      onBlur={save}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") {
+          e.preventDefault();
+          save();
+        } else if (e.key === "Escape") {
+          finished.current = true;
+          onCancel();
+        }
+      }}
+    />
+  );
+}
 function App() {
-  const [board, setBoard] = useState<Board>(emptyBoard),
-    [ready, setReady] = useState(false),
+  const { board, setBoard, reset, begin, end, undo, redo } = useBoardHistory();
+  const [selectedGroup, setSelectedGroup] = useState<string>(),
+    [editingGroup, setEditingGroup] = useState<string>(),
+    [menu, setMenu] = useState<{
+      x: number;
+      y: number;
+      id: string;
+      kind: "card" | "group";
+    } | null>(null);
+  const internalCopy = useRef<{
+    token: string;
+    fragment: Fragment;
+    offset: number;
+  } | null>(null);
+  const [ready, setReady] = useState(false),
     [saveStatus, setSaveStatus] = useState("正在读取"),
     [selection, setSelection] = useState<string[]>([]),
     [view, setView] = useState({ x: 65, y: 55, z: 1 }),
@@ -209,7 +273,7 @@ function App() {
   useEffect(() => {
     readBoard()
       .then((b) => {
-        if (b) setBoard(b);
+        if (b) reset(b);
         setReady(true);
         loaded.current = true;
         setSaveStatus("已保存至本地");
@@ -250,9 +314,42 @@ function App() {
     return () =>
       inputs.forEach((input) => input?.removeEventListener("cancel", cancel));
   }, []);
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: PointerEvent) => {
+      if (!(e.target as HTMLElement).closest(".context-menu")) setMenu(null);
+    };
+    window.addEventListener("pointerdown", close);
+    return () => window.removeEventListener("pointerdown", close);
+  }, [menu]);
+  const dissolveGroup = (id: string) => {
+    setBoard((b) => {
+      const parent = b.groups.find((g) => g.id === id)?.parent;
+      return {
+        ...b,
+        groups: attachParents(b.groups.filter((g) => g.id !== id)),
+        cards: b.cards.map((c) =>
+          c.group === id ? { ...c, group: parent } : c,
+        ),
+      };
+    });
+    setSelectedGroup(undefined);
+    setMenu(null);
+    setFilter("all");
+  };
   const updateCards = (fn: (cards: Card[]) => Card[]) =>
     setBoard((b) => ({ ...b, cards: fn(b.cards) }));
   const removeSelected = () => {
+    if (selectedGroup) {
+      const family = groupTreeIds(board.groups, selectedGroup);
+      setBoard((b) => ({
+        ...b,
+        groups: b.groups.filter((g) => !family.has(g.id)),
+        cards: b.cards.filter((c) => !c.group || !family.has(c.group)),
+      }));
+      setSelectedGroup(undefined);
+      return;
+    }
     if (selection.length) {
       updateCards((cards) => cards.filter((c) => !selection.includes(c.id)));
       setSelection([]);
@@ -304,6 +401,7 @@ function App() {
       ],
     }));
     setSelection(next.map((c) => c.id));
+    setSelectedGroup(undefined);
     notify(`已添加 ${next.length} 个文件`);
   };
   useEffect(() => {
@@ -321,6 +419,24 @@ function App() {
         return;
       const clipboard = event.clipboardData;
       if (!clipboard) return;
+      const marker = new DOMParser()
+        .parseFromString(clipboard.getData("text/html"), "text/html")
+        .querySelector("[data-yua-copy]")
+        ?.getAttribute("data-yua-copy");
+      if (internalCopy.current && marker === internalCopy.current.token) {
+        event.preventDefault();
+        const result = duplicateFragment(
+          board,
+          internalCopy.current.fragment,
+          internalCopy.current.offset,
+        );
+        internalCopy.current.offset += 30;
+        setBoard(result.board);
+        setSelection(result.group ? [] : result.cards);
+        setSelectedGroup(result.group);
+        notify("已粘贴");
+        return;
+      }
       // Prefer files: browsers can expose the same attachment through both lists.
       const files = clipboard.files.length
         ? Array.from(clipboard.files)
@@ -334,9 +450,11 @@ function App() {
     };
     window.addEventListener("paste", paste);
     return () => window.removeEventListener("paste", paste);
-  }, [ready, addFiles]);
-  const addNote = (point?: { x: number; y: number }) =>
+  }, [ready, addFiles, board]);
+  const addNote = (point?: { x: number; y: number }) => {
+    setSelectedGroup(undefined);
     setNote({ text: "", color: colors[0], point });
+  };
   const openCard = (card: Card) => {
     if (card.kind === "text")
       setNote({ id: card.id, text: card.text, color: card.color });
@@ -348,12 +466,14 @@ function App() {
       });
     else setDetail(card.id);
   };
-  const addTodo = (point?: { x: number; y: number }) =>
+  const addTodo = (point?: { x: number; y: number }) => {
+    setSelectedGroup(undefined);
     setTodo({
       point,
       tasks: [{ id: uid(), text: "", done: false }],
       color: colors[0],
     });
+  };
   const submitTodo = (e: React.FormEvent) => {
     e.preventDefault();
     if (!todo) return;
@@ -523,14 +643,19 @@ function App() {
         .filter((c) => c.group && family!.has(c.group))
         .map((c) => c.id);
       setSelection([]);
+      setSelectedGroup(groupId);
     } else if (id && !pan) {
+      setSelectedGroup(undefined);
       if (e.shiftKey) {
         ids = selection.includes(id)
           ? selection.filter((v) => v !== id)
           : [...selection, id];
       } else if (!selection.includes(id)) ids = [id];
       setSelection(ids);
-    } else if (!pan && !e.shiftKey) setSelection([]);
+    } else if (!pan && !e.shiftKey) {
+      setSelection([]);
+      setSelectedGroup(undefined);
+    }
     const x = (e.clientX - r.left - view.x) / view.z,
       y = (e.clientY - r.top - view.y) / view.z;
     gesture.current = {
@@ -550,6 +675,7 @@ function App() {
         ? board.groups.find((g) => g.id === groupId)?.bounds
         : undefined,
     };
+    if (!pan && (id || groupId)) begin();
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const resizeGroup = (
@@ -561,6 +687,7 @@ function App() {
     if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
+    begin();
     gesture.current = {
       kind: "resize",
       groupId,
@@ -736,6 +863,7 @@ function App() {
         ),
       }));
     }
+    end();
   };
   const fitGroup = (id: string) =>
     setBoard((b) => {
@@ -763,23 +891,36 @@ function App() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   const copySelected = async () => {
-    const cards = selection
-      .map((id) => board.cards.find((c) => c.id === id))
-      .filter((c): c is Card => !!c);
-    if (!cards.length) return;
+    const fragment = selectedFragment(board, selection, selectedGroup);
+    if (!fragment.cards.length && !fragment.groups.length) return;
+    const token = uid();
+    internalCopy.current = { token, fragment, offset: 30 };
     try {
       if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined")
-        throw Error(
-          "当前浏览器不支持系统剪贴板，请使用 HTTPS 页面和较新的浏览器",
-        );
-      const copy = clipboardCopy(cards);
-      await navigator.clipboard.write(copy.items);
-      notify(copy.message);
+        throw Error("当前浏览器不支持系统剪贴板");
+      let copy;
+      let unsupported: Card[] = [];
+      try {
+        if (!selectedGroup) copy = clipboardCopy(fragment.cards);
+      } catch (error) {
+        if (error instanceof FileClipboardUnsupported)
+          unsupported = error.files;
+        else if (fragment.cards.length <= 1) throw error;
+      }
+      const text = fragment.cards
+        .map(
+          (c) =>
+            c.text || c.title || (c.tasks || []).map((t) => t.text).join("\n"),
+        )
+        .join("\n\n");
+      await navigator.clipboard.write(canvasClipboard(copy, token, text));
+      if (unsupported.length) {
+        notify("已复制，可在画布中粘贴；系统文件请下载原文件");
+        setCopyFiles(unsupported);
+      } else notify(selectedGroup ? "已复制分组" : copy?.message || "已复制");
     } catch (error) {
-      if (error instanceof FileClipboardUnsupported) {
-        notify(error.message);
-        setCopyFiles(error.files);
-      } else if (
+      internalCopy.current = null;
+      if (
         error instanceof DOMException &&
         (error.name === "NotAllowedError" || error.name === "SecurityError")
       )
@@ -821,6 +962,9 @@ function App() {
           suppressToolbarClick.current = true;
           setCreatePreview(null);
         }
+        setSelectedGroup(undefined);
+        setMenu(null);
+        setEditingGroup(undefined);
         setNote(null);
         setTodo(null);
         setGroupDialog(null);
@@ -847,15 +991,24 @@ function App() {
       if (document.querySelector('[role="dialog"]') || !ready || e.altKey)
         return;
       if (mod) {
-        if (key === "c" && selection.length) {
+        if (key === "c" && (selection.length || selectedGroup)) {
           e.preventDefault();
           void copySelected();
+        } else if (key === "z" || key === "y") {
+          e.preventDefault();
+          if (gesture.current) return;
+          if (key === "y" || e.shiftKey) redo();
+          else undo();
+          setSelection([]);
+          setSelectedGroup(undefined);
+          setMenu(null);
         } else if (key === "k") {
           e.preventDefault();
           document.querySelector<HTMLInputElement>(".search input")?.focus();
         } else if (key === "a") {
           e.preventDefault();
           setSelection(visible.map((c) => c.id));
+          setSelectedGroup(undefined);
         } else if (key === "g") {
           e.preventDefault();
           if (e.shiftKey)
@@ -867,18 +1020,12 @@ function App() {
           else if (selection.length > 1) setGroupDialog({ name: "" });
         } else if (key === "d") {
           e.preventDefault();
-          const copies = board.cards
-            .filter((c) => selection.includes(c.id))
-            .map((c) => ({
-              ...c,
-              id: uid(),
-              x: c.x + 30,
-              y: c.y + 30,
-              group: undefined,
-            }));
-          if (copies.length) {
-            updateCards((cards) => [...cards, ...copies]);
-            setSelection(copies.map((c) => c.id));
+          const fragment = selectedFragment(board, selection, selectedGroup);
+          if (fragment.cards.length || fragment.groups.length) {
+            const result = duplicateFragment(board, fragment, 30);
+            setBoard(result.board);
+            setSelection(result.group ? [] : result.cards);
+            setSelectedGroup(result.group);
           }
         } else if (key === "o") {
           e.preventDefault();
@@ -1201,7 +1348,10 @@ function App() {
                 return (
                   <div
                     key={g.id}
-                    className="group-boundary"
+                    className={
+                      "group-boundary " +
+                      (selectedGroup === g.id ? "group-selected" : "")
+                    }
                     data-group-id={g.id}
                     data-parent={g.parent || ""}
                     style={{
@@ -1211,28 +1361,58 @@ function App() {
                       height: bounds.height,
                     }}
                   >
-                    <button
-                      className="group-title"
-                      aria-label={`拖动分组 ${g.name}`}
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                        pointerDown(e, undefined, g.id);
-                      }}
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        setGroupDialog({ id: g.id, name: g.name });
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
+                    {editingGroup === g.id ? (
+                      <GroupNameEditor
+                        name={g.name}
+                        onSave={(name) => {
+                          setBoard((b) => ({
+                            ...b,
+                            groups: b.groups.map((group) =>
+                              group.id === g.id && group.name !== name
+                                ? { ...group, name }
+                                : group,
+                            ),
+                          }));
+                          setEditingGroup(undefined);
+                        }}
+                        onCancel={() => setEditingGroup(undefined)}
+                      />
+                    ) : (
+                      <button
+                        className="group-title"
+                        aria-label={`拖动分组 ${g.name}`}
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          pointerDown(e, undefined, g.id);
+                        }}
+                        onContextMenu={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          setGroupDialog({ id: g.id, name: g.name });
-                        }
-                      }}
-                    >
-                      <Folder size={13} />
-                      {g.name}
-                    </button>
+                          setSelectedGroup(g.id);
+                          setSelection([]);
+                          setMenu({
+                            x: e.clientX,
+                            y: e.clientY,
+                            id: g.id,
+                            kind: "group",
+                          });
+                        }}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setEditingGroup(g.id);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setEditingGroup(g.id);
+                          }
+                        }}
+                      >
+                        <Folder size={13} />
+                        {g.name}
+                      </button>
+                    )}
                     <button
                       className="group-fit"
                       aria-label={`自适应分组 ${g.name}`}
@@ -1262,6 +1442,18 @@ function App() {
               <article
                 key={c.id}
                 data-testid="card"
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setSelectedGroup(undefined);
+                  if (!selection.includes(c.id)) setSelection([c.id]);
+                  setMenu({
+                    x: e.clientX,
+                    y: e.clientY,
+                    id: c.id,
+                    kind: "card",
+                  });
+                }}
                 className={
                   "card " + (selection.includes(c.id) ? "selected" : "")
                 }
@@ -1556,6 +1748,33 @@ function App() {
           e.target.value = "";
         }}
       />
+      {menu && (
+        <div
+          className="context-menu"
+          role="menu"
+          style={{
+            left: Math.min(menu.x, window.innerWidth - 185),
+            top: Math.min(menu.y, window.innerHeight - 70),
+          }}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          {menu.kind === "card" ? (
+            <button
+              role="menuitem"
+              onClick={() => {
+                setMenu(null);
+                setGroupDialog({ name: "" });
+              }}
+            >
+              创建分组
+            </button>
+          ) : (
+            <button role="menuitem" onClick={() => dissolveGroup(menu.id)}>
+              解散分组
+            </button>
+          )}
+        </div>
+      )}
       {note && (
         <div className="modal-backdrop">
           <form
