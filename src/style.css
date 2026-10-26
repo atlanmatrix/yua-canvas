@@ -1,4 +1,5 @@
 :root {
+  --element-radius: 16px;
   --accent: #2563eb;
   --accent-strong: #1d4ed8;
   --accent-soft: #eff6ff;
@@ -241,7 +242,7 @@ main {
   width: 240px;
   height: 250px;
   border: 1px solid #cfd4df;
-  border-radius: 9px;
+  border-radius: var(--element-radius);
   box-shadow:
     0 3px 4px #373f5105,
     0 12px 20px #373f5104;
@@ -351,7 +352,7 @@ main {
 .group-boundary {
   position: absolute;
   border: 1px dashed var(--accent-border);
-  border-radius: 12px;
+  border-radius: var(--element-radius);
   background: #dfe4f030;
   pointer-events: none;
 }
@@ -846,7 +847,8 @@ main {
   justify-content: flex-start;
   cursor: grab;
   touch-action: none;
-  border-radius: 11px 11px 0 0;
+  border-radius: calc(var(--element-radius) - 1px)
+    calc(var(--element-radius) - 1px) 0 0;
   background: #dbe1ed80;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1007,7 +1009,7 @@ main {
   display: grid;
   place-items: center;
   border: 2px dashed var(--accent);
-  border-radius: 9px;
+  border-radius: var(--element-radius);
   background: #ecf0f8bb;
   color: var(--accent);
   box-shadow: 0 8px 24px #373f5115;
@@ -1089,13 +1091,14 @@ main {
 .card-image {
   box-shadow: none;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: var(--element-radius);
   overflow: visible;
 }
 .card-text {
   background: #ffffff !important;
 }
 .card-text .note-body {
+  border-radius: calc(var(--element-radius) - 1px);
   padding: 12px;
   height: 100%;
   width: 100%;
@@ -1117,7 +1120,7 @@ main {
   height: 100%;
   margin: 0;
   object-fit: contain;
-  border-radius: 3px;
+  border-radius: calc(var(--element-radius) - 1px);
 }
 .card .card-resize {
   z-index: 3;
@@ -1131,7 +1134,7 @@ main {
 }
 .text-file-card {
   border: 1px solid #e4e4e7;
-  border-radius: 16px;
+  border-radius: var(--element-radius);
   box-shadow: 0 1px 2px #00000004;
 }
 .file-content-thumbnail {
@@ -1203,7 +1206,8 @@ main {
   position: absolute;
   inset: 0 0 auto;
   height: 35px;
-  border-radius: 11px 11px 0 0;
+  border-radius: calc(var(--element-radius) - 1px)
+    calc(var(--element-radius) - 1px) 0 0;
   background: var(--accent-soft);
   pointer-events: none;
 }
@@ -1353,10 +1357,12 @@ main {
   height: 100%;
 }
 .minimap-group {
+  rx: var(--element-radius);
   fill: #eff6ff66;
   stroke: #93c5fd;
 }
 .minimap-card rect {
+  rx: var(--element-radius);
   fill: #fff;
   stroke: #aeb9c9;
 }
@@ -1521,4 +1527,8 @@ main {
 .text-display-toggle[aria-pressed="true"] {
   color: var(--accent);
   background: var(--accent-soft);
+}
+
+.minimap-card image {
+  clip-path: inset(0 round var(--element-radius));
 }
