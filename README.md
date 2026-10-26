@@ -60,6 +60,14 @@ npm run preview -- --base /yua-canvas/ --port 4173 --strictPort
 
 技术栈：React、TypeScript、Vite、Lucide；端到端测试使用 Playwright。
 
+## 系统剪贴板复制
+
+选中卡片后按 Cmd/Ctrl + C，成功后显示「已复制」。文字笔记可多选合并为纯文本；Todo 复制为任务清单；文本附件复制文件正文。图片复制为 PNG，可粘贴到支持图片的本地应用或编辑器。非 PNG 图片会转换为 PNG，动图仅复制静态画面；图片需逐张复制。
+
+网页无法把任意附件写入 Finder/资源管理器的系统文件剪贴板。二进制附件复制时会明确提示，并提供「下载原文件」按钮；下载保留文件名和原始字节。不把文件链接或 Base64 当作原文件复制。文本附件在编辑器中粘贴为正文，不能在文件管理器里粘贴成原文件。
+
+剪贴板功能需要 HTTPS（或 localhost）及浏览器授权；权限被拒绝会提示失败。编辑框内使用原生复制，不会复制画布选中卡片。
+
 ## 快捷键
 
 输入框内保留系统快捷键；弹窗中可用 Esc 关闭，笔记和分组表单可用 Cmd/Ctrl + Enter 保存。
@@ -70,6 +78,7 @@ npm run preview -- --base /yua-canvas/ --port 4173 --strictPort
 | 空格 / Ctrl / ⌘ + 左键拖动 | 临时平移                       |
 | N / I / U                  | 新建笔记 / 上传图片 / 上传文件 |
 | T                          | 新建 Todo                      |
+| Cmd/Ctrl + C               | 复制选中内容到系统剪贴板       |
 | Cmd/Ctrl + V               | 粘贴图片与文件                 |
 | Cmd/Ctrl + K               | 搜索                           |
 | Cmd/Ctrl + A               | 选择当前可见内容               |

@@ -44,6 +44,7 @@ import {
 } from "./storage";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { clipboardCopy, FileClipboardUnsupported } from "./clipboard";
 import "./style.css";
 const uid = () => crypto.randomUUID();
 const colors = ["#fffdf5", "#eaf0e8", "#f4e8e2", "#e8edf4", "#ede8f4"];
@@ -162,6 +163,7 @@ function App() {
       x: number;
       y: number;
     } | null>(null),
+    [copyFiles, setCopyFiles] = useState<Card[]>([]),
     [toast, setToast] = useState(""),
     [confirmImport, setConfirmImport] = useState<Board | null>(null),
     [marquee, setMarquee] = useState<{
@@ -196,13 +198,14 @@ function App() {
     space = useRef(false),
     loaded = useRef(false);
   const notify = (message: string) => {
+    setCopyFiles([]);
     setToast(message);
   };
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(""), 4000);
+    const t = setTimeout(() => setToast(""), copyFiles.length ? 15000 : 4000);
     return () => clearTimeout(t);
-  }, [toast]);
+  }, [toast, copyFiles.length]);
   useEffect(() => {
     readBoard()
       .then((b) => {
@@ -759,6 +762,36 @@ function App() {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
+  const copySelected = async () => {
+    const cards = selection
+      .map((id) => board.cards.find((c) => c.id === id))
+      .filter((c): c is Card => !!c);
+    if (!cards.length) return;
+    try {
+      if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined")
+        throw Error(
+          "当前浏览器不支持系统剪贴板，请使用 HTTPS 页面和较新的浏览器",
+        );
+      const copy = clipboardCopy(cards);
+      await navigator.clipboard.write(copy.items);
+      notify(copy.message);
+    } catch (error) {
+      if (error instanceof FileClipboardUnsupported) {
+        notify(error.message);
+        setCopyFiles(error.files);
+      } else if (
+        error instanceof DOMException &&
+        (error.name === "NotAllowedError" || error.name === "SecurityError")
+      )
+        notify("复制失败，请允许此网站访问剪贴板后重试");
+      else
+        notify(
+          error instanceof Error
+            ? `复制失败：${error.message}`
+            : "复制失败，请重试",
+        );
+    }
+  };
   const exportAll = async () => {
     try {
       download(
@@ -814,7 +847,10 @@ function App() {
       if (document.querySelector('[role="dialog"]') || !ready || e.altKey)
         return;
       if (mod) {
-        if (key === "k") {
+        if (key === "c" && selection.length) {
+          e.preventDefault();
+          void copySelected();
+        } else if (key === "k") {
           e.preventDefault();
           document.querySelector<HTMLInputElement>(".search input")?.focus();
         } else if (key === "a") {
@@ -1862,6 +1898,20 @@ function App() {
         <div className="toast" role="status">
           <Check size={16} />
           {toast}
+          {copyFiles.length > 0 && (
+            <button
+              className="copy-download"
+              onClick={() => {
+                copyFiles.forEach((c) => {
+                  if (c.blob) download(c.blob, c.title);
+                });
+                setCopyFiles([]);
+                setToast("");
+              }}
+            >
+              下载原文件
+            </button>
+          )}
           <button aria-label="关闭提示" onClick={() => setToast("")}>
             <X size={14} />
           </button>

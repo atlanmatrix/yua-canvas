@@ -1057,3 +1057,10 @@ main {
   width: calc(100% - 38px);
   padding-right: 8px;
 }
+.toast .copy-download {
+  color: #fff;
+  border: 1px solid #a5b398;
+  border-radius: 4px;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
