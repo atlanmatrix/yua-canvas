@@ -1488,3 +1488,37 @@ main {
   text-underline-offset: 3px;
   cursor: pointer;
 }
+
+.card-text .note-body p {
+  word-break: break-all;
+  tab-size: 4;
+}
+.card-text .note-body.text-scroll p,
+.card-text .note-body.text-scroll .note-link {
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.text-display-toggle {
+  position: absolute;
+  right: 42px;
+  top: 8px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #e2e6ec;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink);
+  opacity: 0;
+  z-index: 5;
+}
+.card:hover .text-display-toggle,
+.text-display-toggle:focus-visible {
+  opacity: 1;
+}
+
+.text-display-toggle[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}

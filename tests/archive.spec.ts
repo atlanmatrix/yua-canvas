@@ -1,3 +1,4 @@
+import { openNoteEditor } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
 const META = "yua-canvas.metadata.json";
@@ -238,7 +239,7 @@ test("damaged archives and missing metadata files leave existing content untouch
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "添加笔记", exact: true }).click();
+  await openNoteEditor(page);
   await page.getByRole("textbox", { name: "笔记内容" }).fill("保留内容");
   await page.getByRole("button", { name: "保存笔记" }).click();
   await page.getByTestId("files").setInputFiles({

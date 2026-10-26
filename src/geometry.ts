@@ -1,5 +1,20 @@
 import { type Board, type Card, type Rect, attachParents } from "./storage";
-export const TEXT_MAX_WIDTH = 648;
+const textContext = document.createElement("canvas").getContext("2d")!;
+textContext.font = "13px monospace";
+export const TEXT_MAX_WIDTH =
+  Math.ceil(textContext.measureText("0").width * 80) + 26;
+export const TEXT_MAX_LINES = 20;
+let scrollbar: number | undefined;
+function scrollbarSize() {
+  if (scrollbar !== undefined) return scrollbar;
+  const element = document.createElement("div");
+  element.style.cssText =
+    "position:fixed;visibility:hidden;width:100px;height:100px;overflow:scroll;border:0;padding:0";
+  document.body.append(element);
+  scrollbar = element.offsetHeight - element.clientHeight;
+  element.remove();
+  return scrollbar;
+}
 export const cardRect = (
   c: Pick<Card, "x" | "y" | "width" | "height">,
 ): Rect => ({ x: c.x, y: c.y, width: c.width || 240, height: c.height || 250 });
@@ -13,41 +28,52 @@ export const contains = (a: Rect, b: Rect) =>
   b.y >= a.y - 0.001 &&
   b.x + b.width <= a.x + a.width + 0.001 &&
   b.y + b.height <= a.y + a.height + 0.001;
-export function textSize(text: string) {
-  const canvas = document.createElement("canvas"),
-    ctx = canvas.getContext("2d")!;
-  ctx.font = "13px monospace";
-  // Account for 12px padding and the 1px border on each side. Round up
-  // measured widths so subpixel layout cannot send the last character below.
-  const inset = 26;
+export function textSize(
+  text: string,
+  mode: "wrap" | "scroll" = "wrap",
+  requestedWidth = TEXT_MAX_WIDTH,
+) {
+  const ctx = textContext,
+    inset = 26;
+  const width = Math.max(64, Math.min(TEXT_MAX_WIDTH, requestedWidth));
+  const contentWidth = width - inset;
   const lines = text.split("\n");
-  const width = Math.min(
-    TEXT_MAX_WIDTH,
-    Math.max(
-      120,
-      ...lines.map((line) => Math.ceil(ctx.measureText(line).width) + inset),
-    ),
-  );
   const advances = new Map<string, number>();
+  let longest = 0;
+  const tab = ctx.measureText("0").width * 4;
   const rows = lines.reduce((sum, line) => {
     let count = 1,
-      used = 0;
+      used = 0,
+      lineWidth = 0;
     for (const character of line) {
       let advance = advances.get(character);
       if (advance === undefined) {
         advance = ctx.measureText(character).width;
         advances.set(character, advance);
       }
-      if (used > 0 && used + advance > width - inset) {
+      const actual = character === "\t" ? tab - (used % tab) : advance;
+      if (mode === "wrap" && used > 0 && used + actual > contentWidth) {
         count++;
         used = 0;
       }
-      used += advance;
+      used += character === "\t" ? tab - (used % tab) : advance;
+      lineWidth += character === "\t" ? tab - (lineWidth % tab) : advance;
     }
+    longest = Math.max(longest, lineWidth);
     return sum + count;
   }, 0);
-  return { width, height: Math.max(48, rows * 24 + inset) };
+  const horizontal =
+    mode === "scroll" &&
+    longest > contentWidth - (rows > TEXT_MAX_LINES ? scrollbarSize() : 0);
+  return {
+    width,
+    height:
+      Math.min(TEXT_MAX_LINES, rows) * 24 +
+      inset +
+      (horizontal ? scrollbarSize() : 0),
+  };
 }
+
 export function settleGroups(board: Board, moved: string[]): Board {
   let groups = board.groups.map((g) => ({
     ...g,

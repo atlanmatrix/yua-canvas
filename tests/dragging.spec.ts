@@ -116,19 +116,19 @@ test("dragging into, between and out of groups uses full containment at zoom", a
   expect(after!.y - before!.y).toBeCloseTo(20, 0);
   await expect(page.locator(".card.selected")).toHaveCount(0);
 });
-test("toolbar note and Todo drag to exact positions, join groups and cancel outside canvas", async ({
+test("toolbar Todo cards drag to exact positions, join groups and cancel outside canvas", async ({
   page,
 }) => {
   await setup(page);
   await drag(
     page,
-    page.getByRole("button", { name: "添加笔记", exact: true }),
+    page.getByRole("button", { name: "添加任务", exact: true }),
     await point(page, 170, 225),
   );
-  await expect(page.getByRole("dialog", { name: "新建笔记" })).toBeVisible();
-  await page.getByRole("textbox", { name: "笔记内容" }).fill("拖入笔记");
-  await page.getByRole("button", { name: "保存笔记" }).click();
-  const note = page.getByTestId("card").filter({ hasText: "拖入笔记" });
+  await expect(page.getByRole("dialog", { name: "新建任务" })).toBeVisible();
+  await page.getByRole("textbox", { name: "任务内容 1" }).fill("拖入第一项");
+  await page.getByRole("button", { name: "保存任务" }).click();
+  const note = page.getByTestId("card").filter({ hasText: "拖入第一项" });
   await expect(membership(note)).toHaveAttribute("data-group-name", "内组");
   const position = await note.evaluate((el) => ({
     x: parseFloat((el as HTMLElement).style.left),
@@ -149,15 +149,15 @@ test("toolbar note and Todo drag to exact positions, join groups and cancel outs
   await page.getByRole("button", { name: "展开侧栏" }).click();
   await drag(
     page,
-    page.getByRole("button", { name: "添加笔记", exact: true }),
+    page.getByRole("button", { name: "添加任务", exact: true }),
     { x: 70, y: 450 },
   );
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByTestId("card")).toHaveCount(4);
   await expect(page.locator(".creation-preview")).toHaveCount(0);
   // A normal click still works after a canceled drag.
-  await page.getByRole("button", { name: "添加笔记", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "新建笔记" })).toBeVisible();
+  await page.getByRole("button", { name: "添加任务", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "新建任务" })).toBeVisible();
 });
 test("toolbar attachment drops keep the drop position through file selection", async ({
   page,

@@ -1,3 +1,4 @@
+import { openNoteEditor } from "./helpers";
 import { test, expect } from "@playwright/test";
 test("notes, grouping, persistence, attachments and portable backup", async ({
   page,
@@ -6,11 +7,11 @@ test("notes, grouping, persistence, attachments and portable backup", async ({
   await expect(
     page.locator('.save-indicator[data-state="已保存至本地"]'),
   ).toBeVisible();
-  await page.getByRole("button", { name: "添加笔记", exact: true }).click();
+  await openNoteEditor(page);
   await page.getByRole("textbox", { name: "笔记内容" }).fill("周末去山里走走");
   await page.getByRole("button", { name: "保存笔记" }).click();
   await expect(page.getByTestId("card")).toHaveCount(1);
-  await page.getByRole("button", { name: "添加笔记", exact: true }).click();
+  await openNoteEditor(page);
   await page.getByRole("textbox", { name: "笔记内容" }).fill("相机、地图、水");
   await page.getByRole("button", { name: "保存笔记" }).click();
   await page.locator(".canvas").click({ position: { x: 20, y: 20 } });
@@ -101,7 +102,7 @@ test("moving cards, searching, zooming and rejecting invalid imports", async ({
 }) => {
   await page.goto("/");
   for (const title of ["第一张", "第二张"]) {
-    await page.getByRole("button", { name: "添加笔记", exact: true }).click();
+    await openNoteEditor(page);
     await page.getByRole("textbox", { name: "笔记内容" }).fill(title);
     await page.getByRole("button", { name: "保存笔记" }).click();
   }
@@ -144,7 +145,7 @@ test("moving cards, searching, zooming and rejecting invalid imports", async ({
 test("mobile canvas remains usable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await page.getByRole("button", { name: "添加笔记", exact: true }).click();
+  await openNoteEditor(page);
   await page.getByRole("textbox", { name: "笔记内容" }).fill("移动灵感");
   await page.getByRole("button", { name: "保存笔记" }).click();
   await expect(page.getByTestId("card")).toHaveCount(1);
@@ -160,7 +161,7 @@ test("native clipboard image paste creates one persistent image", async ({
   await expect(
     page.locator('.save-indicator[data-state="已保存至本地"]'),
   ).toBeVisible();
-  await page.getByRole("button", { name: "移动画布", exact: true }).click();
+  await page.keyboard.press("h");
   await page.evaluate(async () => {
     const canvas = document.createElement("canvas");
     canvas.width = canvas.height = 1;
@@ -177,9 +178,7 @@ test("native clipboard image paste creates one persistent image", async ({
   });
   await page.keyboard.press("ControlOrMeta+v");
   await expect(page.getByTestId("card")).toHaveCount(1);
-  await expect(
-    page.getByRole("button", { name: "移动画布", exact: true }),
-  ).toHaveClass(/chosen/);
+  await expect(page.locator(".canvas")).toHaveClass(/hand-tool/);
   await expect
     .poll(() =>
       page
@@ -233,7 +232,7 @@ test("pasted files support batches, preserve editable fields and ignore modal pa
     "first.txt",
     "second.md",
   ]);
-  await page.getByRole("button", { name: "添加笔记", exact: true }).click();
+  await openNoteEditor(page);
   await page.evaluate(() => navigator.clipboard.writeText("正常粘贴文字"));
   await page.getByRole("textbox", { name: "笔记内容" }).focus();
   await page.keyboard.press("ControlOrMeta+v");

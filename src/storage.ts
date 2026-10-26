@@ -10,6 +10,8 @@ export type Card = {
   color: string;
   width?: number;
   height?: number;
+  textMode?: "wrap" | "scroll";
+  textAutoHeight?: boolean;
   blob?: Blob;
   mime?: string;
   group?: string;
@@ -264,6 +266,13 @@ export async function importBoard(
             (c.height as number) > 1e7))
       )
         throw new Error("元素尺寸无效");
+      if (
+        (c.textMode !== undefined &&
+          !["wrap", "scroll"].includes(c.textMode as string)) ||
+        (c.textAutoHeight !== undefined &&
+          typeof c.textAutoHeight !== "boolean")
+      )
+        throw Error("文本显示设置无效");
       let blob: Blob | undefined =
         attachment &&
         (c.kind === "file" || c.kind === "image") &&
@@ -301,6 +310,8 @@ export async function importBoard(
       }
       return {
         tasks,
+        textMode: c.textMode as Card["textMode"],
+        textAutoHeight: c.textAutoHeight as boolean | undefined,
         width: c.width as number | undefined,
         height: c.height as number | undefined,
         id: c.id,

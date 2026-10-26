@@ -80,6 +80,8 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
         y: card.y,
         width: card.width,
         height: card.height,
+        textMode: card.textMode,
+        textAutoHeight: card.textAutoHeight,
         color: card.color,
         group: card.group,
         mime: card.mime,

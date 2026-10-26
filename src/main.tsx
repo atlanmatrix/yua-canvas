@@ -7,8 +7,6 @@ import {
   ArrowUpRight,
   Upload,
   Download,
-  MousePointer2,
-  Hand,
   StickyNote,
   ImagePlus,
   FileUp,
@@ -17,6 +15,8 @@ import {
   Layers,
   Folder,
   FolderUp,
+  WrapText,
+  ArrowLeftRight,
   Check,
   X,
   Trash2,
@@ -614,6 +614,8 @@ function App() {
             color: colors[0],
             ...center(),
             ...textSize(text),
+            textMode: "wrap",
+            textAutoHeight: true,
           },
         ],
       }));
@@ -694,7 +696,8 @@ function App() {
             ? {
                 ...c,
                 text: n.text,
-                height: Math.max(c.height || 48, textSize(n.text).height),
+                ...textSize(n.text, c.textMode, c.width || TEXT_MAX_WIDTH),
+                textAutoHeight: true,
                 color: n.color,
               }
             : c,
@@ -714,6 +717,8 @@ function App() {
             color: n.color,
             ...(n.point || center()),
             ...textSize(n.text),
+            textMode: "wrap",
+            textAutoHeight: true,
           },
         ];
         const card = next[next.length - 1];
@@ -1063,6 +1068,8 @@ function App() {
         if (edge === "n" || edge === "s") width = height * ratio;
         else height = width / ratio;
       }
+      if (original.kind === "text" && original.textAutoHeight)
+        height = textSize(original.text, original.textMode, width).height;
       const next = {
         ...original,
         width,
@@ -1696,6 +1703,15 @@ function App() {
             )}
           </button>
           <div
+            onBlur={(e) => {
+              if (
+                !query.trim() &&
+                !e.currentTarget.contains(e.relatedTarget as Node | null)
+              ) {
+                setQuery("");
+                setSearchOpen(false);
+              }
+            }}
             className={
               "search " +
               (!searchOpen ? "search-collapsed " : "") +
@@ -1719,7 +1735,13 @@ function App() {
               onChange={(e) => setQuery(e.target.value)}
             />
             {searchOpen && query && (
-              <button title="清除搜索" onClick={() => setQuery("")}>
+              <button
+                title="清除搜索"
+                onClick={() => {
+                  setQuery("");
+                  searchInput.current?.focus();
+                }}
+              >
                 <X size={14} />
               </button>
             )}
@@ -2092,7 +2114,7 @@ function App() {
                     </div>
                   )}
                 {c.kind === "text" ? (
-                  <NoteText text={c.text} />
+                  <NoteText text={c.text} mode={c.textMode} />
                 ) : c.kind === "todo" ? (
                   <div
                     className="todo-list"
@@ -2213,6 +2235,47 @@ function App() {
                       );
                     }),
                   )}
+                {c.kind === "text" && (
+                  <button
+                    className="text-display-toggle"
+                    aria-label={
+                      c.textMode === "scroll"
+                        ? "切换为换行模式"
+                        : "切换为滚动模式"
+                    }
+                    title={c.textMode === "scroll" ? "换行" : "滚动"}
+                    aria-pressed={c.textMode === "scroll"}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onDoubleClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const textMode =
+                        c.textMode === "scroll" ? "wrap" : "scroll";
+                      updateCards((cards) =>
+                        cards.map((card) =>
+                          card.id === c.id
+                            ? {
+                                ...card,
+                                textMode,
+                                textAutoHeight: true,
+                                ...textSize(
+                                  card.text,
+                                  textMode,
+                                  card.width || TEXT_MAX_WIDTH,
+                                ),
+                              }
+                            : card,
+                        ),
+                      );
+                    }}
+                  >
+                    {c.textMode === "scroll" ? (
+                      <WrapText size={17} />
+                    ) : (
+                      <ArrowLeftRight size={17} />
+                    )}
+                  </button>
+                )}
                 <button
                   className="card-download"
                   aria-label={`下载 ${c.title || (c.kind === "todo" ? "任务" : "文本")}`}
@@ -2230,7 +2293,10 @@ function App() {
                   <Download size={17} />
                 </button>
                 {selection.includes(c.id) &&
-                  ["n", "s", "e", "w", "ne", "nw", "se", "sw"].map((edge) => (
+                  (c.kind === "text" && c.textAutoHeight
+                    ? ["e", "w"]
+                    : ["n", "s", "e", "w", "ne", "nw", "se", "sw"]
+                  ).map((edge) => (
                     <div
                       key={edge}
                       className={`card-resize resize-handle resize-${edge}`}
@@ -2320,32 +2386,6 @@ function App() {
         <div className="bottom-tools">
           <div className="toolbar">
             <button
-              title="选择 (V)"
-              aria-label="选择工具"
-              className={tool === "select" ? "chosen" : ""}
-              onClick={() => setTool("select")}
-            >
-              <MousePointer2 size={19} />
-            </button>
-            <button
-              title="移动画布 (H / 空格 / Ctrl/⌘ + 拖动)"
-              aria-label="移动画布"
-              className={tool === "hand" ? "chosen" : ""}
-              onClick={() => setTool("hand")}
-            >
-              <Hand size={19} />
-            </button>
-            <i />
-            <button
-              title="添加笔记 (N)"
-              aria-label="添加笔记"
-              disabled={!ready}
-              onPointerDown={(e) => startToolbarDrag(e, "text")}
-              onClick={() => toolbarClick(() => addNote())}
-            >
-              <StickyNote size={20} />
-            </button>
-            <button
               title="添加任务 (T)"
               aria-label="添加任务"
               disabled={!ready}
@@ -2389,16 +2429,6 @@ function App() {
               onClick={() => directoryInput.current?.click()}
             >
               <FolderUp size={20} />
-            </button>
-            <i />
-            <button
-              className="add-button"
-              aria-label="新建内容"
-              disabled={!ready}
-              onPointerDown={(e) => startToolbarDrag(e, "text")}
-              onClick={() => toolbarClick(() => addNote())}
-            >
-              <Plus size={21} />
             </button>
           </div>
         </div>

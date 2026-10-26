@@ -1,3 +1,4 @@
+import { textWidth80 } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 
 async function paste(page: Page, text: string) {
@@ -25,7 +26,7 @@ test("pasted web URLs display as links, preserve original text and remain editab
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("button", { name: "添加笔记", exact: true }),
+    page.getByRole("button", { name: "添加任务", exact: true }),
   ).toBeEnabled();
   const text = " https://example.com/文档?q=画布&mode=1#预览\n";
   await paste(page, text);
@@ -66,7 +67,7 @@ for (const modifier of ["Meta", "Control"] as const) {
   }) => {
     await page.goto("/");
     await expect(
-      page.getByRole("button", { name: "添加笔记", exact: true }),
+      page.getByRole("button", { name: "添加任务", exact: true }),
     ).toBeEnabled();
     await paste(page, "https://example.com/canvas?mode=test#section");
     const card = page.getByTestId("card"),
@@ -137,7 +138,7 @@ test("www addresses are supported while non-web schemes, mixed text and multilin
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("button", { name: "添加笔记", exact: true }),
+    page.getByRole("button", { name: "添加任务", exact: true }),
   ).toBeEnabled();
   await paste(page, "www.example.com/guide");
   await expect(
@@ -165,7 +166,7 @@ test("short and wrapped URLs fit their generated block without cutting off link 
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("button", { name: "添加笔记", exact: true }),
+    page.getByRole("button", { name: "添加任务", exact: true }),
   ).toBeEnabled();
   for (const text of [
     "https://example.com/docs?project=canvas",
@@ -174,18 +175,16 @@ test("short and wrapped URLs fit their generated block without cutting off link 
     await paste(page, text);
     const card = page.getByTestId("card").last();
     await expect(card.getByRole("link")).toHaveText(text);
-    const sizes = await card
-      .locator(".note-body")
-      .evaluate((el) => ({
-        height: el.clientHeight,
-        content: el.scrollHeight,
-        width: el.clientWidth,
-        contentWidth: el.scrollWidth,
-      }));
+    const sizes = await card.locator(".note-body").evaluate((el) => ({
+      height: el.clientHeight,
+      content: el.scrollHeight,
+      width: el.clientWidth,
+      contentWidth: el.scrollWidth,
+    }));
     expect(sizes.content).toBeLessThanOrEqual(sizes.height);
     expect(sizes.contentWidth).toBeLessThanOrEqual(sizes.width);
     expect(
       await card.evaluate((el) => parseFloat((el as HTMLElement).style.width)),
-    ).toBeLessThanOrEqual(648);
+    ).toBeLessThanOrEqual(await textWidth80(page));
   }
 });

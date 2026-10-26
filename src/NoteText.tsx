@@ -10,10 +10,38 @@ function linkTarget(text: string): string | undefined {
   }
 }
 
-export function NoteText({ text }: { text: string }) {
+export function NoteText({
+  text,
+  mode = "wrap",
+}: {
+  text: string;
+  mode?: "wrap" | "scroll";
+}) {
   const href = linkTarget(text);
   return (
-    <div className="note-body">
+    <div
+      className={`note-body text-${mode}`}
+      onWheel={(e) => {
+        const element = e.currentTarget;
+        if (
+          !e.ctrlKey &&
+          !e.metaKey &&
+          (element.scrollHeight > element.clientHeight ||
+            element.scrollWidth > element.clientWidth)
+        )
+          e.stopPropagation();
+      }}
+      onPointerDown={(e) => {
+        const element = e.currentTarget,
+          bounds = element.getBoundingClientRect(),
+          scale = bounds.width / element.offsetWidth;
+        if (
+          (e.clientX - bounds.left) / scale >= element.clientWidth ||
+          (e.clientY - bounds.top) / scale >= element.clientHeight
+        )
+          e.stopPropagation();
+      }}
+    >
       <p>
         {href ? (
           <a

@@ -1,3 +1,4 @@
+import { openNoteEditor } from "./helpers";
 import { test, expect, type Page, type BrowserContext } from "@playwright/test";
 async function setup(page: Page, context: BrowserContext) {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
@@ -7,7 +8,7 @@ async function setup(page: Page, context: BrowserContext) {
   ).toBeVisible();
 }
 async function note(page: Page, text: string) {
-  await page.getByRole("button", { name: "添加笔记", exact: true }).click();
+  await openNoteEditor(page);
   await page.getByRole("textbox", { name: "笔记内容" }).fill(text);
   await page.getByRole("button", { name: "保存笔记" }).click();
 }

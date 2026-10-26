@@ -205,7 +205,7 @@ test("empty-board drags keep the initial mapping and release on cancellation, es
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("button", { name: "添加笔记", exact: true }),
+    page.getByRole("button", { name: "添加任务", exact: true }),
   ).toBeEnabled();
   const map = page.getByTestId("minimap");
   await expect(page.getByTestId("minimap-boundary")).toHaveCount(0);

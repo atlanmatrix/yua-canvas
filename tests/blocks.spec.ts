@@ -1,3 +1,4 @@
+import { textWidth80 } from "./helpers";
 import { test, expect, type Page, type Locator } from "@playwright/test";
 async function point(page: Page, x: number, y: number) {
   return page.locator(".world").evaluate(
@@ -52,7 +53,7 @@ test("plain text pastes as a title-free 80-character block with persistent borde
     width: parseFloat((el as HTMLElement).style.width),
     height: parseFloat((el as HTMLElement).style.height),
   }));
-  expect(size.width).toBeLessThanOrEqual(648);
+  expect(size.width).toBeLessThanOrEqual(await textWidth80(page));
   expect(size.height).toBeGreaterThan(48);
   const edge = await card.getByTestId("card-resize-e").boundingBox();
   await page.mouse.move(edge!.x + 4, edge!.y + edge!.height / 10);

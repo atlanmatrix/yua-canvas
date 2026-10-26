@@ -1,3 +1,4 @@
+import { openNoteEditor } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -247,7 +248,7 @@ test("a directory read failure does not import partial files or overwrite the bo
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "添加笔记", exact: true }).click();
+  await openNoteEditor(page);
   await page.getByRole("textbox", { name: "笔记内容" }).fill("保留内容");
   await page.getByRole("button", { name: "保存笔记" }).click();
   await page.evaluate(() => {

@@ -104,7 +104,7 @@ test("card, group and toolbar drags use grabbing; release and lost focus restore
   await expect(title).toHaveCSS("cursor", "grabbing");
   await page.mouse.up();
   await expect(title).toHaveCSS("cursor", "grab");
-  const tool = page.getByRole("button", { name: "添加笔记", exact: true }),
+  const tool = page.getByRole("button", { name: "添加任务", exact: true }),
     u = await tool.boundingBox();
   await page.mouse.move(u!.x + 15, u!.y + 15);
   await page.mouse.down();
