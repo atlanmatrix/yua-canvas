@@ -20,6 +20,23 @@ npm test            # 浏览器端功能测试
 
 `dist/` 可以部署到任意静态网站托管服务。开发服务默认监听所有网卡，仅用于开发。
 
+## GitHub Pages 自动部署
+
+仓库已配置 `.github/workflows/deploy-pages.yml`：推送到 `main` 时自动构建并部署，也可以在 Actions 中手动运行 **Deploy to GitHub Pages**。
+
+首次使用需在 GitHub 仓库的 **Settings → Pages → Build and deployment → Source** 中选择 **GitHub Actions**，并确保仓库允许 Actions 运行。若仓库或组织策略要求审批部署，请按 GitHub 提示处理。
+
+工作流使用 Node.js 24 和 `npm ci`，根据 Pages 配置自动设置 Vite 的部署子路径，上传 `dist/` 并部署。默认项目地址为 <https://atlanmatrix.github.io/yua-canvas/>；实际地址以成功部署后的 Actions 输出为准。GitHub Pages 的可用性受仓库可见性、账号方案及组织策略影响。
+
+本地验证相同的子路径构建：
+
+```sh
+npm run build -- --base /yua-canvas/
+npm run preview -- --base /yua-canvas/ --port 4173 --strictPort
+```
+
+浏览器本地开发地址与 Pages 地址的数据互不共享；需要使用导出/导入迁移画布。
+
 ## 使用
 
 - 添加文字笔记、批量上传图片和任意文件，或直接拖入文件。
