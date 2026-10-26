@@ -44,6 +44,7 @@ import {
   importBoard,
 } from "./storage";
 import { Markdown } from "./Markdown";
+import { NoteText } from "./NoteText";
 import { ConnectionView } from "./ConnectionView";
 import { cardsFromFiles } from "./files";
 import { archiveSelection, createArchive, isZip, readArchive } from "./archive";
@@ -278,6 +279,7 @@ function App() {
       from?: Endpoint;
       createKind?: Card["kind"];
       button?: number;
+      link?: string;
       context?: { id: string; kind: "card" | "group" };
       groupId?: string;
       groupIds?: Set<string>;
@@ -842,6 +844,10 @@ function App() {
     gesture.current = {
       kind: pan ? "pan" : id || groupId ? "move" : "select",
       button: e.button,
+      link:
+        e.button === 0 && (e.ctrlKey || e.metaKey)
+          ? target.closest<HTMLAnchorElement>("a.note-link")?.href
+          : undefined,
       context: cardTarget
         ? { id: cardTarget.getAttribute("data-card-id")!, kind: "card" }
         : groupTarget
@@ -1166,6 +1172,14 @@ function App() {
     gesture.current = null;
     setMarquee(null);
     setCreatePreview(null);
+    if (
+      g?.link &&
+      !g.moved &&
+      e.type !== "pointercancel" &&
+      Math.abs(e.clientX - g.x) + Math.abs(e.clientY - g.y) <= 4
+    ) {
+      window.open(g.link, "_blank", "noopener,noreferrer");
+    }
     if (g?.kind === "link" && g.from) {
       setLinkDraft(null);
       if (e.type !== "pointercancel") {
@@ -2078,9 +2092,7 @@ function App() {
                     </div>
                   )}
                 {c.kind === "text" ? (
-                  <div className="note-body">
-                    <p>{c.text}</p>
-                  </div>
+                  <NoteText text={c.text} />
                 ) : c.kind === "todo" ? (
                   <div
                     className="todo-list"

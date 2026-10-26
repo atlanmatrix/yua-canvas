@@ -17,21 +17,36 @@ export function textSize(text: string) {
   const canvas = document.createElement("canvas"),
     ctx = canvas.getContext("2d")!;
   ctx.font = "13px monospace";
+  // Account for 12px padding and the 1px border on each side. Round up
+  // measured widths so subpixel layout cannot send the last character below.
+  const inset = 26;
   const lines = text.split("\n");
   const width = Math.min(
     TEXT_MAX_WIDTH,
-    Math.max(120, ...lines.map((line) => ctx.measureText(line).width + 24)),
+    Math.max(
+      120,
+      ...lines.map((line) => Math.ceil(ctx.measureText(line).width) + inset),
+    ),
   );
-  const rows = lines.reduce(
-    (sum, line) =>
-      sum +
-      Math.max(
-        1,
-        Math.ceil(ctx.measureText(line).width / Math.max(1, width - 24)),
-      ),
-    0,
-  );
-  return { width, height: Math.max(48, rows * 24 + 24) };
+  const advances = new Map<string, number>();
+  const rows = lines.reduce((sum, line) => {
+    let count = 1,
+      used = 0;
+    for (const character of line) {
+      let advance = advances.get(character);
+      if (advance === undefined) {
+        advance = ctx.measureText(character).width;
+        advances.set(character, advance);
+      }
+      if (used > 0 && used + advance > width - inset) {
+        count++;
+        used = 0;
+      }
+      used += advance;
+    }
+    return sum + count;
+  }, 0);
+  return { width, height: Math.max(48, rows * 24 + inset) };
 }
 export function settleGroups(board: Board, moved: string[]): Board {
   let groups = board.groups.map((g) => ({

@@ -1480,3 +1480,11 @@ main {
   stroke-width: 1;
   pointer-events: none;
 }
+
+.card-text .note-body .note-link {
+  word-break: break-all;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
