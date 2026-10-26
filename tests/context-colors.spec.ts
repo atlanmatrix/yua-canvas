@@ -141,10 +141,10 @@ test("text menus copy, download and open the clicked text; file menus download o
   expect(text.data.toString()).toBe("普通文本");
   await menu(page, note);
   await page.getByRole("menuitem", { name: "打开", exact: true }).click();
-  await expect(page.getByRole("textbox", { name: "笔记内容" })).toHaveValue(
+  await expect(page.getByRole("textbox", { name: "文本内容" })).toHaveValue(
     "普通文本",
   );
-  await page.getByRole("button", { name: "关闭", exact: true }).click();
+  await page.keyboard.press("Escape");
   await menu(page, card(page, "配置.env"));
   const file = await bytes(page, "下载", true);
   expect(file.name).toBe("配置.env");

@@ -1,4 +1,4 @@
-import { openNoteEditor } from "./helpers";
+import { openTextEditor } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -248,9 +248,9 @@ test("a directory read failure does not import partial files or overwrite the bo
   page,
 }) => {
   await page.goto("/");
-  await openNoteEditor(page);
-  await page.getByRole("textbox", { name: "笔记内容" }).fill("保留内容");
-  await page.getByRole("button", { name: "保存笔记" }).click();
+  await openTextEditor(page);
+  await page.getByRole("textbox", { name: "文本内容" }).fill("保留内容");
+  await page.keyboard.press("ControlOrMeta+Enter");
   await page.evaluate(() => {
     const event = new ClipboardEvent("paste", {
       bubbles: true,

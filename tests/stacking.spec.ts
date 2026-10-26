@@ -1,4 +1,4 @@
-import { openNoteEditor } from "./helpers";
+import { openTextEditor } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 
 async function rectangles(page: Page) {
@@ -88,9 +88,9 @@ test("overlapping imports, creation, resizing and duplication preserve all other
   expect(await rectangles(page)).toEqual(resized);
 
   for (const text of ["新建一", "新建二"]) {
-    await openNoteEditor(page);
-    await page.getByRole("textbox", { name: "笔记内容" }).fill(text);
-    await page.getByRole("button", { name: "保存笔记" }).click();
+    await openTextEditor(page);
+    await page.getByRole("textbox", { name: "文本内容" }).fill(text);
+    await page.keyboard.press("ControlOrMeta+Enter");
   }
   const created = await rectangles(page);
   expect(created.slice(0, 2)).toEqual(resized);

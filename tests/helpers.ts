@@ -1,12 +1,12 @@
 import { expect, type Page } from "@playwright/test";
 
-export async function openNoteEditor(page: Page) {
+export async function openTextEditor(page: Page) {
   await expect(
     page.getByRole("button", { name: "添加任务", exact: true }),
   ).toBeEnabled();
   await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
   await page.keyboard.press("n");
-  await expect(page.getByRole("textbox", { name: "笔记内容" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "文本内容" })).toBeVisible();
 }
 export async function textWidth80(page: Page) {
   return page.evaluate(() => {

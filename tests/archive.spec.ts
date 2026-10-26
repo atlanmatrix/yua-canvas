@@ -1,4 +1,4 @@
-import { openNoteEditor } from "./helpers";
+import { openTextEditor } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
 const META = "yua-canvas.metadata.json";
@@ -239,9 +239,9 @@ test("damaged archives and missing metadata files leave existing content untouch
   page,
 }) => {
   await page.goto("/");
-  await openNoteEditor(page);
-  await page.getByRole("textbox", { name: "笔记内容" }).fill("保留内容");
-  await page.getByRole("button", { name: "保存笔记" }).click();
+  await openTextEditor(page);
+  await page.getByRole("textbox", { name: "文本内容" }).fill("保留内容");
+  await page.keyboard.press("ControlOrMeta+Enter");
   await page.getByTestId("files").setInputFiles({
     name: "broken.zip",
     mimeType: "application/zip",

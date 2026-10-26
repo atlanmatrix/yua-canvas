@@ -7,7 +7,7 @@ import {
   ArrowUpRight,
   Upload,
   Download,
-  StickyNote,
+  Type,
   ImagePlus,
   FileUp,
   Minus,
@@ -46,6 +46,7 @@ import {
 } from "./storage";
 import { Markdown } from "./Markdown";
 import { NoteText, linkTarget } from "./NoteText";
+import { TextEditor } from "./TextEditor";
 import { CanvasContextMenu, ColorPalette } from "./CanvasContextMenu";
 import { ConnectionView } from "./ConnectionView";
 import { cardsFromFiles } from "./files";
@@ -202,7 +203,8 @@ function GroupNameEditor({
   );
 }
 function App() {
-  const { board, setBoard, reset, begin, end, undo, redo } = useBoardHistory();
+  const { board, setBoard, reset, begin, end, undo, redo, cancel } =
+    useBoardHistory();
   const [dragCursor, setDragCursor] = useState(false);
   const [linkModifier, setLinkModifier] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState(false);
@@ -238,12 +240,7 @@ function App() {
     [filter, setFilter] = useState("all"),
     [sidebar, setSidebar] = useState(false),
     [detail, setDetail] = useState<string>(),
-    [note, setNote] = useState<{
-      text: string;
-      id?: string;
-      color: string;
-      point?: { x: number; y: number };
-    } | null>(null),
+    [editingText, setEditingText] = useState<string>(),
     [todo, setTodo] = useState<{
       id?: string;
       tasks: Task[];
@@ -268,6 +265,12 @@ function App() {
       w: number;
       h: number;
     } | null>(null);
+  const textSession = useRef<{
+    id: string;
+    text: string;
+    original: string;
+    fresh: boolean;
+  } | null>(null);
   const searchInput = useRef<HTMLInputElement>(null),
     surface = useRef<HTMLDivElement>(null),
     connectionEditors = useRef<HTMLDivElement>(null),
@@ -311,7 +314,7 @@ function App() {
     if (g?.kind === "create") suppressToolbarClick.current = true;
     if (g?.moved && (g.kind === "move" || g.kind === "resize"))
       setBoard((b) => settleGroups(b, g.groupId ? [] : g.ids));
-    end();
+    if (g) end();
   };
   useLayoutEffect(() => {
     const el = surface.current;
@@ -628,13 +631,76 @@ function App() {
     window.addEventListener("paste", paste);
     return () => window.removeEventListener("paste", paste);
   }, [ready, addFiles, board]);
-  const addNote = (point?: { x: number; y: number }) => {
+  const finishText = (id: string, cancelled = false) => {
+    const session = textSession.current;
+    if (!session || session.id !== id) return;
+    textSession.current = null;
+    setEditingText(undefined);
+    if (
+      cancelled ||
+      (session.fresh ? !session.text.trim() : session.text === session.original)
+    ) {
+      cancel();
+      if (session.fresh) setSelection([]);
+    } else end();
+  };
+  const editText = (card: Card, fresh = false) => {
+    if (textSession.current) finishText(textSession.current.id);
+    begin();
+    if (fresh)
+      setBoard((b) => ({
+        ...b,
+        cards: [
+          ...b.cards,
+          { ...card, group: containingGroup(card, b.groups) },
+        ],
+      }));
+    textSession.current = {
+      id: card.id,
+      text: card.text,
+      original: card.text,
+      fresh,
+    };
+    setEditingText(card.id);
+    setSelection([card.id]);
     setSelectedGroup(undefined);
-    setNote({ text: "", color: colors[0], point });
+    setSelectedConnection(undefined);
+    setMenu(null);
+  };
+  const addText = (point?: { x: number; y: number }) => {
+    editText(
+      {
+        id: uid(),
+        kind: "text",
+        title: "",
+        text: "",
+        color: colors[0],
+        ...(point || center()),
+        ...textSize(""),
+        textMode: "wrap",
+        textAutoHeight: true,
+      },
+      true,
+    );
+  };
+  const changeText = (id: string, text: string) => {
+    if (textSession.current?.id !== id) return;
+    textSession.current.text = text;
+    updateCards((cards) =>
+      cards.map((card) =>
+        card.id === id
+          ? {
+              ...card,
+              text,
+              ...textSize(text, card.textMode, card.width || TEXT_MAX_WIDTH),
+              textAutoHeight: true,
+            }
+          : card,
+      ),
+    );
   };
   const openCard = (card: Card) => {
-    if (card.kind === "text")
-      setNote({ id: card.id, text: card.text, color: card.color });
+    if (card.kind === "text") editText(card);
     else if (card.kind === "todo")
       setTodo({
         id: card.id,
@@ -687,50 +753,6 @@ function App() {
       setSelection([id]);
     }
     setTodo(null);
-  };
-  const submitNote = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!note?.text.trim()) return;
-    const n = note!;
-    if (n.id)
-      updateCards((cards) =>
-        cards.map((c) =>
-          c.id === n.id
-            ? {
-                ...c,
-                text: n.text,
-                ...textSize(n.text, c.textMode, c.width || TEXT_MAX_WIDTH),
-                textAutoHeight: true,
-                color: n.color,
-              }
-            : c,
-        ),
-      );
-    else {
-      const id = uid();
-      setBoard((b) => {
-        const cards = b.cards;
-        const next: Card[] = [
-          ...cards,
-          {
-            id,
-            kind: "text",
-            title: "",
-            text: n.text,
-            color: n.color,
-            ...(n.point || center()),
-            ...textSize(n.text),
-            textMode: "wrap",
-            textAutoHeight: true,
-          },
-        ];
-        const card = next[next.length - 1];
-        card.group = containingGroup(card, b.groups);
-        return { ...b, cards: next };
-      });
-      setSelection([id]);
-    }
-    setNote(null);
   };
   const zoom = (factor: number) => {
     const r = surface.current!.getBoundingClientRect();
@@ -788,22 +810,23 @@ function App() {
   };
   const visible = board.cards.filter(
     (c) =>
-      (filter === "all" ||
+      c.id === editingText ||
+      ((filter === "all" ||
         (filter === "text" && c.kind === "text") ||
         (filter === "image" && c.kind === "image") ||
         (filter === "file" && c.kind === "file") ||
         (filter === "todo" && c.kind === "todo") ||
         (c.group && groupTreeIds(board.groups, filter).has(c.group))) &&
-      (!query ||
-        (
-          c.title +
-          " " +
-          c.text +
-          " " +
-          (c.tasks || []).map((t) => t.text).join(" ")
-        )
-          .toLowerCase()
-          .includes(query.toLowerCase())),
+        (!query ||
+          (
+            c.title +
+            " " +
+            c.text +
+            " " +
+            (c.tasks || []).map((t) => t.text).join(" ")
+          )
+            .toLowerCase()
+            .includes(query.toLowerCase()))),
   );
   const pointerDown = (
     e: React.PointerEvent,
@@ -1278,7 +1301,7 @@ function App() {
           x: (e.clientX - r.left - view.x) / view.z - 120,
           y: (e.clientY - r.top - view.y) / view.z - 125,
         };
-        if (g.createKind === "text") addNote(point);
+        if (g.createKind === "text") addText(point);
         else if (g.createKind === "todo") addTodo(point);
         else {
           pendingUpload.current = point;
@@ -1289,7 +1312,7 @@ function App() {
     if (g?.moved && (g.kind === "move" || g.kind === "resize")) {
       setBoard((b) => settleGroups(b, g.groupId ? [] : g.ids));
     }
-    end();
+    if (g && g.kind !== "create") end();
   };
   const fitGroup = (id: string) =>
     setBoard((b) => {
@@ -1465,7 +1488,6 @@ function App() {
         setSearchOpen(false);
         setMenu(null);
         setEditingGroup(undefined);
-        setNote(null);
         setTodo(null);
         setGroupDialog(null);
         setDetail(undefined);
@@ -1550,7 +1572,7 @@ function App() {
       else if (key === "h") setTool("hand");
       else if (key === "n" && !e.repeat) {
         e.preventDefault();
-        addNote();
+        addText();
       } else if (key === "t" && !e.repeat) {
         e.preventDefault();
         addTodo();
@@ -1643,7 +1665,14 @@ function App() {
   return (
     <div
       onPointerMoveCapture={(e) => setLinkModifier(e.metaKey || e.ctrlKey)}
-      onPointerDownCapture={(e) => setLinkModifier(e.metaKey || e.ctrlKey)}
+      onPointerDownCapture={(e) => {
+        setLinkModifier(e.metaKey || e.ctrlKey);
+        if (
+          textSession.current &&
+          !(e.target as HTMLElement).closest(".text-editor")
+        )
+          finishText(textSession.current.id);
+      }}
       className={
         "app " +
         (linkModifier ? "link-modifier " : "") +
@@ -1662,7 +1691,7 @@ function App() {
         <nav>
           {[
             { id: "all", name: "全部内容", icon: Layers },
-            { id: "text", name: "文字笔记", icon: StickyNote },
+            { id: "text", name: "文本", icon: Type },
             { id: "todo", name: "任务", icon: ListTodo },
             { id: "image", name: "图片", icon: ImagePlus },
             { id: "file", name: "文件", icon: FileText },
@@ -1841,6 +1870,7 @@ function App() {
             backgroundSize: `${24 * view.z}px ${24 * view.z}px`,
           }}
           onPointerDownCapture={(e) => {
+            if ((e.target as HTMLElement).closest(".text-editor")) return;
             if (
               e.button === 2 ||
               (e.button === 0 && (e.ctrlKey || e.metaKey))
@@ -1852,7 +1882,10 @@ function App() {
             }
           }}
           onContextMenuCapture={(e) => {
-            if (e.button === 2) {
+            if (
+              e.button === 2 &&
+              !(e.target as HTMLElement).closest(".text-editor")
+            ) {
               e.preventDefault();
               e.stopPropagation();
             }
@@ -1889,8 +1922,13 @@ function App() {
               setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
           }}
           onDoubleClick={(e) => {
-            if (e.target === surface.current && !e.ctrlKey && !e.metaKey)
-              addNote();
+            if (e.target === surface.current && !e.ctrlKey && !e.metaKey) {
+              const r = surface.current!.getBoundingClientRect();
+              addText({
+                x: (e.clientX - r.left - view.x) / view.z,
+                y: (e.clientY - r.top - view.y) / view.z,
+              });
+            }
           }}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
@@ -2106,6 +2144,7 @@ function App() {
                 data-testid="card"
                 data-card-id={c.id}
                 onContextMenu={(e) => {
+                  if ((e.target as HTMLElement).closest(".text-editor")) return;
                   e.preventDefault();
                   e.stopPropagation();
                   setSelectedGroup(undefined);
@@ -2124,7 +2163,8 @@ function App() {
                     ? " text-file-card"
                     : "") +
                   " " +
-                  (selection.includes(c.id) ? "selected" : "")
+                  (selection.includes(c.id) ? "selected" : "") +
+                  (editingText === c.id ? " text-editing" : "")
                 }
                 aria-label={
                   c.kind === "text" ? c.text.slice(0, 80) : c.title || "任务"
@@ -2163,7 +2203,16 @@ function App() {
                     </div>
                   )}
                 {c.kind === "text" ? (
-                  <NoteText text={c.text} mode={c.textMode} />
+                  editingText === c.id ? (
+                    <TextEditor
+                      text={c.text}
+                      mode={c.textMode}
+                      onChange={(text) => changeText(c.id, text)}
+                      onFinish={(cancelled) => finishText(c.id, cancelled)}
+                    />
+                  ) : (
+                    <NoteText text={c.text} mode={c.textMode} />
+                  )
                 ) : c.kind === "todo" ? (
                   <div
                     className="todo-list"
@@ -2615,48 +2664,6 @@ function App() {
           />
         </CanvasContextMenu>
       )}
-      {note && (
-        <div className="modal-backdrop">
-          <form
-            className="modal note-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label={note.id ? "编辑笔记" : "新建笔记"}
-            onSubmit={submitNote}
-          >
-            <div className="modal-heading">
-              <span>
-                <StickyNote size={18} />
-                {note.id ? "编辑笔记" : "新建笔记"}
-              </span>
-              <button
-                type="button"
-                aria-label="关闭"
-                onClick={() => setNote(null)}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <textarea
-              autoFocus
-              aria-label="笔记内容"
-              placeholder="内容"
-              value={note.text}
-              onChange={(e) => setNote({ ...note, text: e.target.value })}
-            />
-            <div className="modal-bottom">
-              <button
-                className="primary"
-                disabled={!note.text.trim()}
-                type="submit"
-              >
-                保存笔记
-                <ArrowUpRight size={15} />
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
       {todo && (
         <div className="modal-backdrop">
           <form
@@ -2929,7 +2936,7 @@ function App() {
           }}
         >
           {createPreview.kind === "text" ? (
-            <StickyNote />
+            <Type />
           ) : createPreview.kind === "todo" ? (
             <ListTodo />
           ) : createPreview.kind === "image" ? (

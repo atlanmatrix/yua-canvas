@@ -111,8 +111,8 @@ test("text wraps at 80 columns, adapts to content and only scrolls vertically be
     expect(await camera(page)).toBe(before);
   }
   await last.dblclick({ position: { x: 100, y: 100 } });
-  await page.getByRole("textbox", { name: "笔记内容" }).fill("缩短后的内容");
-  await page.getByRole("button", { name: "保存笔记" }).click();
+  await page.getByRole("textbox", { name: "文本内容" }).fill("缩短后的内容");
+  await page.keyboard.press("ControlOrMeta+Enter");
   expect(
     await last.evaluate((el) => parseFloat((el as HTMLElement).style.height)),
   ).toBe(50);

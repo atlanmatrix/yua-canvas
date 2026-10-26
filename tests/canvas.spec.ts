@@ -1,4 +1,4 @@
-import { openNoteEditor } from "./helpers";
+import { openTextEditor } from "./helpers";
 import { test, expect } from "@playwright/test";
 test("notes, grouping, persistence, attachments and portable backup", async ({
   page,
@@ -7,13 +7,13 @@ test("notes, grouping, persistence, attachments and portable backup", async ({
   await expect(
     page.locator('.save-indicator[data-state="已保存至本地"]'),
   ).toBeVisible();
-  await openNoteEditor(page);
-  await page.getByRole("textbox", { name: "笔记内容" }).fill("周末去山里走走");
-  await page.getByRole("button", { name: "保存笔记" }).click();
+  await openTextEditor(page);
+  await page.getByRole("textbox", { name: "文本内容" }).fill("周末去山里走走");
+  await page.keyboard.press("ControlOrMeta+Enter");
   await expect(page.getByTestId("card")).toHaveCount(1);
-  await openNoteEditor(page);
-  await page.getByRole("textbox", { name: "笔记内容" }).fill("相机、地图、水");
-  await page.getByRole("button", { name: "保存笔记" }).click();
+  await openTextEditor(page);
+  await page.getByRole("textbox", { name: "文本内容" }).fill("相机、地图、水");
+  await page.keyboard.press("ControlOrMeta+Enter");
   await page.locator(".canvas").click({ position: { x: 20, y: 20 } });
   await page.keyboard.press("ControlOrMeta+a");
   await expect(page.getByText("已选 2 项")).toBeVisible();
@@ -81,14 +81,14 @@ test("notes, grouping, persistence, attachments and portable backup", async ({
       hasText: "周末去山里走走",
     })
     .dblclick();
-  await expect(page.getByRole("textbox", { name: "笔记内容" })).toHaveValue(
+  await expect(page.getByRole("textbox", { name: "文本内容" })).toHaveValue(
     "周末去山里走走",
   );
-  await expect(page.getByRole("textbox", { name: "笔记标题" })).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "文本标题" })).toHaveCount(0);
   await page
-    .getByRole("textbox", { name: "笔记内容" })
+    .getByRole("textbox", { name: "文本内容" })
     .fill("更新后的旅行计划");
-  await page.getByRole("button", { name: "保存笔记" }).click();
+  await page.keyboard.press("ControlOrMeta+Enter");
   await page.getByRole("button", { name: "清除搜索" }).click();
   await expect(
     page.locator('.save-indicator[data-state="已保存至本地"]'),
@@ -102,9 +102,9 @@ test("moving cards, searching, zooming and rejecting invalid imports", async ({
 }) => {
   await page.goto("/");
   for (const title of ["第一张", "第二张"]) {
-    await openNoteEditor(page);
-    await page.getByRole("textbox", { name: "笔记内容" }).fill(title);
-    await page.getByRole("button", { name: "保存笔记" }).click();
+    await openTextEditor(page);
+    await page.getByRole("textbox", { name: "文本内容" }).fill(title);
+    await page.keyboard.press("ControlOrMeta+Enter");
   }
   await page.getByRole("button", { name: "适应所有内容" }).click();
   await expect(page.getByTestId("card")).toHaveCount(2);
@@ -145,9 +145,9 @@ test("moving cards, searching, zooming and rejecting invalid imports", async ({
 test("mobile canvas remains usable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await openNoteEditor(page);
-  await page.getByRole("textbox", { name: "笔记内容" }).fill("移动灵感");
-  await page.getByRole("button", { name: "保存笔记" }).click();
+  await openTextEditor(page);
+  await page.getByRole("textbox", { name: "文本内容" }).fill("移动灵感");
+  await page.keyboard.press("ControlOrMeta+Enter");
   await expect(page.getByTestId("card")).toHaveCount(1);
   await page.screenshot({ path: "/tmp/yua-canvas-mobile.png", fullPage: true });
 });
@@ -232,14 +232,14 @@ test("pasted files support batches, preserve editable fields and ignore modal pa
     "first.txt",
     "second.md",
   ]);
-  await openNoteEditor(page);
+  await openTextEditor(page);
   await page.evaluate(() => navigator.clipboard.writeText("正常粘贴文字"));
-  await page.getByRole("textbox", { name: "笔记内容" }).focus();
+  await page.getByRole("textbox", { name: "文本内容" }).focus();
   await page.keyboard.press("ControlOrMeta+v");
-  await expect(page.getByRole("textbox", { name: "笔记内容" })).toHaveValue(
+  await expect(page.getByRole("textbox", { name: "文本内容" })).toHaveValue(
     "正常粘贴文字",
   );
-  await page.getByRole("textbox", { name: "笔记内容" }).evaluate((el) => {
+  await page.getByRole("textbox", { name: "文本内容" }).evaluate((el) => {
     const clipboardData = new DataTransfer();
     clipboardData.items.add(
       new File(["ignored"], "ignored.txt", { type: "text/plain" }),
@@ -252,8 +252,9 @@ test("pasted files support batches, preserve editable fields and ignore modal pa
       }),
     );
   });
+  await expect(page.getByTestId("card")).toHaveCount(3);
+  await page.keyboard.press("Escape");
   await expect(page.getByTestId("card")).toHaveCount(2);
-  await page.getByRole("button", { name: "关闭", exact: true }).click();
   await page.getByRole("button", { name: "展开搜索" }).click();
   await page.getByRole("textbox", { name: "搜索画布" }).evaluate((el) => {
     const clipboardData = new DataTransfer();
@@ -291,7 +292,7 @@ test("full-height canvas and keyboard editing shortcuts", async ({ page }) => {
   ).toHaveCount(0);
   await page.keyboard.press("n");
   await page
-    .getByRole("textbox", { name: "笔记内容" })
+    .getByRole("textbox", { name: "文本内容" })
     .fill("v h n 应当保持输入");
   await page.keyboard.press("ControlOrMeta+Enter");
   await expect(page.getByTestId("card")).toHaveCount(1);
@@ -512,13 +513,13 @@ test("legacy notes open directly as content-only editors and preserve stored dat
   await expect(card.locator("h2")).toHaveCount(0);
   await expect(card).not.toContainText("旧标题");
   await card.dblclick();
-  await expect(page.getByRole("dialog", { name: "编辑笔记" })).toBeVisible();
-  const content = page.getByRole("textbox", { name: "笔记内容" });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const content = page.getByRole("textbox", { name: "文本内容" });
   await expect(content).toHaveValue("旧内容");
   await expect(content).toBeFocused();
-  await expect(page.getByRole("textbox", { name: "笔记标题" })).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "文本标题" })).toHaveCount(0);
   await content.fill("   ");
-  await expect(page.getByRole("button", { name: "保存笔记" })).toBeDisabled();
+  await expect(content).toHaveValue("   ");
   await content.fill("编辑后的内容\n第二行");
   await page.keyboard.press("ControlOrMeta+Enter");
   await expect(card).toContainText("编辑后的内容");
@@ -529,8 +530,8 @@ test("legacy notes open directly as content-only editors and preserve stored dat
   await expect(card).toContainText("第二行");
   await card.click();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("dialog", { name: "编辑笔记" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "笔记内容" })).toHaveValue(
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "文本内容" })).toHaveValue(
     "编辑后的内容\n第二行",
   );
 });

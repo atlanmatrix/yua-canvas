@@ -1,4 +1,4 @@
-import { openNoteEditor } from "./helpers";
+import { openTextEditor } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 
 async function saved(page: Page) {
@@ -48,9 +48,9 @@ test("autosave waits 600ms after the last interaction and persists only the late
     };
   });
   const writes = () => page.evaluate(() => (window as any).__writes);
-  await openNoteEditor(page);
-  await page.getByRole("textbox", { name: "笔记内容" }).fill("自动保存内容");
-  await page.getByRole("button", { name: "保存笔记" }).click();
+  await openTextEditor(page);
+  await page.getByRole("textbox", { name: "文本内容" }).fill("自动保存内容");
+  await page.keyboard.press("ControlOrMeta+Enter");
   await expect(page.locator(".save-indicator")).toHaveAttribute(
     "data-state",
     "正在保存…",

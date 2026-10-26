@@ -1,4 +1,4 @@
-import { openNoteEditor } from "./helpers";
+import { openTextEditor } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 async function view(page: Page) {
   return page.locator(".world").evaluate((el) => {
@@ -18,9 +18,9 @@ test("zoom and pan are saved without editing cards and restored on reload or a n
 }) => {
   await page.goto("/");
   await saved(page);
-  await openNoteEditor(page);
-  await page.getByRole("textbox", { name: "笔记内容" }).fill("位置保持不变");
-  await page.getByRole("button", { name: "保存笔记" }).click();
+  await openTextEditor(page);
+  await page.getByRole("textbox", { name: "文本内容" }).fill("位置保持不变");
+  await page.keyboard.press("ControlOrMeta+Enter");
   const cardPosition = () =>
     page
       .getByTestId("card")
@@ -56,9 +56,9 @@ test("invalid stored viewport falls back safely without losing cards", async ({
 }) => {
   await page.goto("/");
   await saved(page);
-  await openNoteEditor(page);
-  await page.getByRole("textbox", { name: "笔记内容" }).fill("保留数据");
-  await page.getByRole("button", { name: "保存笔记" }).click();
+  await openTextEditor(page);
+  await page.getByRole("textbox", { name: "文本内容" }).fill("保留数据");
+  await page.keyboard.press("ControlOrMeta+Enter");
   await saved(page);
   await page.evaluate(
     () =>

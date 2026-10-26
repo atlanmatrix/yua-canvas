@@ -44,6 +44,12 @@ export function useBoardHistory() {
     transaction.current = null;
     if (start && start !== current.current) push(start);
   };
+  const cancel = () => {
+    if (!transaction.current) return;
+    current.current = transaction.current;
+    transaction.current = null;
+    setState(current.current);
+  };
   const reset = (raw: Board) => {
     const b = pruneConnections(raw);
     past.current = [];
@@ -70,5 +76,5 @@ export function useBoardHistory() {
       setState(b);
     }
   };
-  return { board, setBoard, reset, begin, end, undo, redo };
+  return { board, setBoard, reset, begin, end, undo, redo, cancel };
 }
