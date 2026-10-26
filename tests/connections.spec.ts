@@ -335,3 +335,138 @@ test("connections, drafts and minimap curves have target arrows that keep a usab
   );
   await page.screenshot({ path: "/tmp/yua-arrow-connection.png" });
 });
+
+test("connection editors stay above overlapping cards and group headers while zooming", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByTestId("import").setInputFiles({
+    name: "overlap.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(
+      JSON.stringify({
+        version: 1,
+        cards: [
+          {
+            id: "a",
+            kind: "text",
+            title: "",
+            text: "起点",
+            x: 100,
+            y: 100,
+            width: 160,
+            height: 100,
+            color: "#ffffff",
+          },
+          {
+            id: "b",
+            kind: "todo",
+            title: "",
+            text: "",
+            x: 320,
+            y: 100,
+            width: 220,
+            height: 220,
+            color: "#ffffff",
+            tasks: [{ id: "t", text: "目标任务", done: false }],
+          },
+        ],
+        groups: [
+          {
+            id: "g",
+            name: "分组标题",
+            bounds: { x: 300, y: 400, width: 180, height: 120 },
+          },
+        ],
+        connections: [
+          {
+            id: "link",
+            from: { card: "a", side: "e" },
+            to: { card: "b", side: "w" },
+          },
+        ],
+      }),
+    ),
+  });
+  await page.getByRole("button", { name: "确认替换" }).click();
+  await page.getByRole("button", { name: "关闭提示" }).click();
+  const zoom = await page
+    .locator(".world")
+    .evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
+  const title = await page
+    .getByRole("button", { name: "拖动分组 分组标题" })
+    .boundingBox();
+  await page.mouse.move(title!.x + 30, title!.y + title!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    title!.x + 30,
+    title!.y + title!.height / 2 - 240 * zoom,
+    { steps: 10 },
+  );
+  await page.mouse.up();
+  const geometry = () =>
+    page
+      .locator(".card,.group-boundary")
+      .evaluateAll((els) => els.map((el) => (el as HTMLElement).style.cssText));
+  const original = await geometry();
+  const hit = (x: number, y: number) =>
+    page.locator(".world").evaluate(
+      (el, p) => {
+        const matrix = el.getBoundingClientRect(),
+          m = new DOMMatrix(getComputedStyle(el).transform);
+        const node = document.elementFromPoint(
+          matrix.x + p.x * m.a,
+          matrix.y + p.y * m.d,
+        );
+        return {
+          editor: node?.matches(".connection-label-editor"),
+          card: node?.closest<HTMLElement>(".card")?.dataset.cardId,
+          group: node?.closest<HTMLElement>(".group-boundary")?.dataset.groupId,
+        };
+      },
+      { x, y },
+    );
+  expect((await hit(210, 180)).card).toBe("a");
+  expect((await hit(305, 180)).group).toBe("g");
+  expect((await hit(350, 180)).card).toBe("b");
+  const midpoint = await page.locator(".connection-hit").evaluate((el) => {
+    const path = el as SVGPathElement,
+      p = path
+        .getPointAtLength(path.getTotalLength() / 2)
+        .matrixTransform(path.getScreenCTM()!);
+    return { x: p.x, y: p.y };
+  });
+  await page.mouse.dblclick(midpoint.x, midpoint.y);
+  const input = page.getByRole("textbox", { name: "连线文字" });
+  await expect(input).toBeFocused();
+  for (const x of [210, 305, 350])
+    expect((await hit(x, 180)).editor).toBe(true);
+  await input.fill("连线层级修复");
+  await input.click({ position: { x: 10, y: 16 } });
+  await expect(input).toBeFocused();
+  expect(await geometry()).toEqual(original);
+  await page.mouse.move(1000, 400);
+  await page.keyboard.down("Control");
+  await page.mouse.wheel(0, -35);
+  await page.keyboard.up("Control");
+  await expect
+    .poll(() =>
+      page
+        .locator(".world")
+        .evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a),
+    )
+    .toBeGreaterThan(zoom);
+  await expect(input).toBeFocused();
+  for (const x of [210, 305, 350])
+    expect((await hit(x, 180)).editor).toBe(true);
+  await page.screenshot({ path: "/tmp/yua-connection-editor-overlay.png" });
+  await page.keyboard.press("Enter");
+  await expect(input).toHaveCount(0);
+  await expect(page.locator(".connection-label")).toHaveText("连线层级修复");
+  expect((await hit(210, 180)).card).toBe("a");
+  expect(await geometry()).toEqual(original);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(page.locator(".connection-label")).toHaveCount(0);
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect(page.locator(".connection-label")).toHaveText("连线层级修复");
+});

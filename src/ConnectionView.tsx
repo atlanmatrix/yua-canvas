@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { type Card } from "./storage";
 import {
   type Connection,
@@ -12,6 +13,7 @@ export function ConnectionView({
   cards,
   offsets,
   selected,
+  editorLayer,
   onSelect,
   onLabelChange,
 }: {
@@ -19,6 +21,7 @@ export function ConnectionView({
   cards: Card[];
   offsets: Record<string, { y: number; visible: boolean }>;
   selected: boolean;
+  editorLayer: RefObject<HTMLDivElement | null>;
   onSelect: () => void;
   onLabelChange: (label: string) => void;
 }) {
@@ -65,7 +68,35 @@ export function ConnectionView({
           edit();
         }}
       />
-      {(editing || connection.label) && (
+      {editing &&
+        editorLayer.current &&
+        createPortal(
+          <input
+            className="connection-label-editor"
+            style={{ left: midpoint.x - 120, top: midpoint.y - 16 }}
+            aria-label="连线文字"
+            autoFocus
+            maxLength={1000}
+            value={value}
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => setValue(e.target.value)}
+            onPointerDown={(e) => e.stopPropagation()}
+            onBlur={save}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") {
+                e.preventDefault();
+                save();
+              }
+              if (e.key === "Escape") {
+                finished.current = true;
+                setEditing(false);
+              }
+            }}
+          />,
+          editorLayer.current,
+        )}
+      {!editing && connection.label && (
         <foreignObject
           className="connection-label-host"
           x={midpoint.x - 130}
@@ -73,43 +104,18 @@ export function ConnectionView({
           width={260}
           height={36}
         >
-          {editing ? (
-            <input
-              className="connection-label-editor"
-              aria-label="连线文字"
-              autoFocus
-              maxLength={1000}
-              value={value}
-              onFocus={(e) => e.target.select()}
-              onChange={(e) => setValue(e.target.value)}
-              onPointerDown={(e) => e.stopPropagation()}
-              onBlur={save}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  save();
-                }
-                if (e.key === "Escape") {
-                  finished.current = true;
-                  setEditing(false);
-                }
-              }}
-            />
-          ) : (
-            <div
-              className="connection-label"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={onSelect}
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                edit();
-              }}
-              title={connection.label}
-            >
-              {connection.label}
-            </div>
-          )}
+          <div
+            className="connection-label"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={onSelect}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              edit();
+            }}
+            title={connection.label}
+          >
+            {connection.label}
+          </div>
         </foreignObject>
       )}
     </g>

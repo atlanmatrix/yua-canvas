@@ -266,6 +266,7 @@ function App() {
     } | null>(null);
   const searchInput = useRef<HTMLInputElement>(null),
     surface = useRef<HTMLDivElement>(null),
+    connectionEditors = useRef<HTMLDivElement>(null),
     fileInput = useRef<HTMLInputElement>(null),
     directoryInput = useRef<HTMLInputElement>(null),
     imageInput = useRef<HTMLInputElement>(null),
@@ -1864,6 +1865,7 @@ function App() {
                       cards={board.cards}
                       offsets={taskOffsets}
                       selected={selectedConnection === c.id}
+                      editorLayer={connectionEditors}
                       onSelect={() => {
                         setSelectedConnection(c.id);
                         setSelection([]);
@@ -2226,6 +2228,7 @@ function App() {
                   ))}
               </article>
             ))}
+            <div className="connection-edit-layer" ref={connectionEditors} />
             {marquee && (
               <div
                 className="marquee"
