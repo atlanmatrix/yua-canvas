@@ -42,6 +42,7 @@ import {
   containingGroup,
   emptyBoard,
   readBoard,
+  saveBoard,
   readCanvasClipboard,
   saveCanvasClipboard,
   readView,
@@ -97,6 +98,9 @@ import { HelpDialog } from "./HelpDialog";
 import { type PinnedItem } from "./pins";
 import { useMinimapGeometry } from "./minimapGeometry";
 import "./style.css";
+import { PwaControls } from "./PwaControls";
+import { registerPwa } from "./pwa";
+void registerPwa();
 import { CloudPanel } from "./CloudPanel";
 import { ShareViewer } from "./ShareViewer";
 const uid = () => crypto.randomUUID();
@@ -244,6 +248,8 @@ function App() {
     redo,
     cancel,
   } = workspace;
+  const latestWorkspace = useRef({ root, view, navigation });
+  latestWorkspace.current = { root, view, navigation };
   const [dragCursor, setDragCursor] = useState(false);
   const [linkModifier, setLinkModifier] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState(false);
@@ -1945,6 +1951,22 @@ function App() {
           )}
           <div className="floating-actions">
             <CloudPanel board={root} ready={ready} restore={restore} />
+            <PwaControls
+              beforeUpdate={async () => {
+                if (!ready) throw Error("画布尚未读取完成，请稍后更新");
+                const snapshot = latestWorkspace.current;
+                await saveBoard(
+                  snapshot.root,
+                  snapshot.view,
+                  snapshot.navigation,
+                );
+                if (
+                  latestWorkspace.current.root !== snapshot.root ||
+                  latestWorkspace.current.view !== snapshot.view
+                )
+                  throw Error("保存期间画布发生变化，请再次点击更新");
+              }}
+            />
             <span
               className={
                 "save-indicator " + (saveStatus === "保存失败" ? "error" : "")

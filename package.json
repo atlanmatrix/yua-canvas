@@ -11,7 +11,9 @@
     "dev:cloud": "wrangler dev --port 8787",
     "db:local": "wrangler d1 migrations apply yua-canvas --local",
     "deploy:cloud": "npm run build && npm run check:worker && wrangler deploy",
-    "test:cloud": "node --test tests/cloud-api.mjs"
+    "test:cloud": "node --test tests/cloud-api.mjs",
+    "test:pwa": "node --test tests/pwa-production.mjs",
+    "icons": "node scripts/render-icons.mjs"
   },
   "repository": {
     "type": "git",
@@ -40,6 +42,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261027.1",
     "@playwright/test": "^1.64.1",
+    "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
