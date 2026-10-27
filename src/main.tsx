@@ -2095,7 +2095,7 @@ function App() {
                 <ConnectionArrow
                   id="canvas-connection-arrow"
                   size={10 / view.z}
-                  color="#60a5fa"
+                  color="#9ca3af"
                 />
                 <ConnectionArrow
                   id="canvas-connection-arrow-selected"

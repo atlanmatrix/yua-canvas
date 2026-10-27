@@ -163,7 +163,7 @@ export function Minimap({
           <ConnectionArrow
             id="minimap-connection-arrow"
             size={4 / scale}
-            color="#94a3b8"
+            color="#9ca3af"
           />
         </defs>
         <g

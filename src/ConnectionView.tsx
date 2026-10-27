@@ -27,6 +27,7 @@ export function ConnectionView({
   onSelect: () => void;
   onLabelChange: (label: string) => void;
 }) {
+  const [hovered, setHovered] = useState(false);
   const [editing, setEditing] = useState(false),
     [value, setValue] = useState("");
   const finished = useRef(false);
@@ -52,11 +53,15 @@ export function ConnectionView({
     if (value.trim() !== (connection.label || "")) onLabelChange(value.trim());
   };
   return (
-    <g data-connection-id={connection.id}>
+    <g
+      data-connection-id={connection.id}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
+    >
       <path
-        className={"connection-path " + (selected ? "selected" : "")}
+        className={"connection-path " + (selected ? "selected" : hovered ? "hovered" : "")}
         d={d}
-        markerEnd={`url(#canvas-connection-arrow${selected ? "-selected" : ""})`}
+        markerEnd={`url(#canvas-connection-arrow${selected || hovered ? "-selected" : ""})`}
       />
       <path
         className="connection-hit"
@@ -111,6 +116,8 @@ export function ConnectionView({
           >
             <div
               className="connection-label"
+              onPointerEnter={() => setHovered(true)}
+              onPointerLeave={() => setHovered(false)}
               onPointerDown={(e) => e.stopPropagation()}
               onClick={onSelect}
               onDoubleClick={(e) => {

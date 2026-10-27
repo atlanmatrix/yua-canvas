@@ -1131,10 +1131,13 @@ main {
 }
 .connection-path {
   fill: none;
-  stroke: #60a5fa;
+  stroke: #9ca3af;
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
+}
+.connection-path.hovered {
+  stroke: var(--accent);
 }
 .connection-path.selected {
   stroke: var(--accent);
@@ -1272,7 +1275,7 @@ main {
 }
 .minimap-connection {
   fill: none;
-  stroke: #94a3b8;
+  stroke: #9ca3af;
   stroke-width: 0.8;
 }
 .minimap-viewport {
