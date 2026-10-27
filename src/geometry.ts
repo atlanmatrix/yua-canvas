@@ -18,6 +18,45 @@ function scrollbarSize() {
 export const cardRect = (
   c: Pick<Card, "x" | "y" | "width" | "height">,
 ): Rect => ({ x: c.x, y: c.y, width: c.width || 240, height: c.height || 250 });
+
+export type ArrowDirection =
+  "arrowup" | "arrowdown" | "arrowleft" | "arrowright";
+
+export function adjacentCard(
+  cards: Card[],
+  selected: string,
+  direction: ArrowDirection,
+) {
+  const current = cards.find((card) => card.id === selected);
+  if (!current) return;
+  const origin = cardRect(current);
+  const horizontal = direction === "arrowleft" || direction === "arrowright";
+  const sign = direction === "arrowleft" || direction === "arrowup" ? -1 : 1;
+  const center = (rect: Rect) => ({
+    x: rect.x + rect.width / 2,
+    y: rect.y + rect.height / 2,
+  });
+  const start = center(origin);
+  return cards
+    .filter((card) => card.id !== selected)
+    .map((card) => {
+      const rect = cardRect(card),
+        end = center(rect);
+      const forward = (horizontal ? end.x - start.x : end.y - start.y) * sign;
+      const across = Math.abs(horizontal ? end.y - start.y : end.x - start.x);
+      const aligned = horizontal
+        ? rect.y < origin.y + origin.height && rect.y + rect.height > origin.y
+        : rect.x < origin.x + origin.width && rect.x + rect.width > origin.x;
+      return { card, forward, across, aligned };
+    })
+    .filter((candidate) => candidate.forward > 0.001)
+    .sort(
+      (a, b) =>
+        Number(b.aligned) - Number(a.aligned) ||
+        Math.hypot(a.forward, a.across * 2) -
+          Math.hypot(b.forward, b.across * 2),
+    )[0]?.card;
+}
 export const overlaps = (a: Rect, b: Rect) =>
   a.x < b.x + b.width - 0.001 &&
   a.x + a.width > b.x + 0.001 &&

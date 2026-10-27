@@ -87,7 +87,14 @@ import {
   duplicateFragment,
   type Fragment,
 } from "./fragments";
-import { cardRect, textSize, TEXT_MAX_WIDTH, settleGroups } from "./geometry";
+import {
+  cardRect,
+  textSize,
+  TEXT_MAX_WIDTH,
+  settleGroups,
+  adjacentCard,
+  type ArrowDirection,
+} from "./geometry";
 import { cardDownload } from "./downloads";
 import { type Endpoint, type Side, endpointPoint, curve } from "./connections";
 import { useAutosave } from "./autosave";
@@ -1911,8 +1918,50 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         ["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key) &&
         selection.length
       ) {
+        if (document.querySelector('[role="menu"]') || gesture.current) return;
         e.preventDefault();
-        const step = e.shiftKey ? 10 : 1;
+        if (!e.shiftKey) {
+          if (selection.length !== 1 || selectedGroup) return;
+          const next = adjacentCard(
+            board.cards,
+            selection[0],
+            key as ArrowDirection,
+          );
+          if (!next) return;
+          setSelection([next.id]);
+          setSelectedConnection(undefined);
+          surface.current
+            ?.querySelector<HTMLElement>(
+              `[data-card-id="${CSS.escape(next.id)}"]`,
+            )
+            ?.focus({ preventScroll: true });
+          const area = surface.current?.getBoundingClientRect();
+          if (area) {
+            const rect = cardRect(next);
+            setView((v) => {
+              const reveal = (
+                offset: number,
+                start: number,
+                size: number,
+                available: number,
+              ) => {
+                const leading = offset + start * v.z,
+                  trailing = leading + size * v.z;
+                if (size * v.z > available - 96)
+                  return available / 2 - (start + size / 2) * v.z;
+                if (leading < 48) return offset + 48 - leading;
+                if (trailing > available - 48)
+                  return offset + available - 48 - trailing;
+                return offset;
+              };
+              const x = reveal(v.x, rect.x, rect.width, area.width);
+              const y = reveal(v.y, rect.y, rect.height, area.height);
+              return x === v.x && y === v.y ? v : { ...v, x, y };
+            });
+          }
+          return;
+        }
+        const step = 10;
         updateCards((cards) =>
           cards.map((c) =>
             selection.includes(c.id)
@@ -2443,6 +2492,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   (selection.includes(c.id) ? "selected" : "") +
                   (editingCard === c.id ? " canvas-editing" : "")
                 }
+                tabIndex={-1}
                 aria-label={
                   c.kind === "text" ? c.text.slice(0, 80) : c.title || "任务"
                 }
@@ -2558,6 +2608,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   )
                 ) : c.kind === "canvas" ? (
                   <>
+                    <svg
+                      className="canvas-card-inner-border"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <rect x="0.5" y="0.5" rx="10" />
+                    </svg>
                     <div className="canvas-card-preview">
                       <button
                         aria-label={`进入子画布 ${c.title}`}
