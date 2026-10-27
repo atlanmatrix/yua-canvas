@@ -80,6 +80,9 @@ export function HelpDialog() {
                 <X size={18} />
               </button>
             </div>
+            <p className="help-build-version" aria-label="构建版本">
+              构建版本 <code>{__BUILD_VERSION__}</code>
+            </p>
             <h3>画布与组件</h3>
             <p>
               画布空白处右键「新建」，可在右击位置创建文本、任务、图片、文件、子画布或分组；图片和文件需选择本地内容。也可粘贴文本、拖入图片或文件开始记录。双击组件编辑；拖动边框调整尺寸，从边缘的
