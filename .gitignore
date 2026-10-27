@@ -3,3 +3,8 @@ dist/
 test-results/
 playwright-report/
 *.log
+
+.wrangler/
+.dev.vars
+.env.local
+work/

@@ -1641,3 +1641,25 @@ main {
 .file-content-editor {
   text-align: left;
 }
+
+.cloud-panel { max-height: 85vh; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
+.cloud-panel p { line-height: 1.6; margin: 0; }
+.cloud-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.cloud-panel button, .cloud-login, .share-viewer header button, .share-viewer header a, .share-zoom button { padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; background: white; color: #333; cursor: pointer; }
+.cloud-panel button:disabled { opacity: .45; cursor: default; }
+.cloud-panel input { width: 100%; padding: 9px; margin: 8px 0; }
+.cloud-conflict { border: 1px solid #e8b75d; background: #fff9eb; padding: 12px; border-radius: 8px; }
+.cloud-share-list { max-height: 180px; overflow: auto; font-size: 12px; }
+.cloud-share-list > div { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; }
+.share-viewer { position: fixed; inset: 0; background: #f5f5f3; }
+.share-viewer header { position: absolute; z-index: 10; top: 0; left: 0; right: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px; background: #fffffff0; border-bottom: 1px solid #ddd; }
+.share-viewer > p { margin: 100px 24px; }
+.share-surface { position: absolute; inset: 70px 0 0; overflow: hidden; touch-action: none; }
+.share-world { position: absolute; transform-origin: 0 0; }
+.share-card { position: absolute; border: 1px solid #ddd; border-radius: 8px; padding: 12px; overflow: auto; max-height: 1200px; box-shadow: 0 2px 8px #0001; }
+.share-card img { width: 100%; height: auto; display: block; }
+.share-card ul { list-style: none; padding: 0; }
+.share-group { position: absolute; border: 1px solid #ccc; border-radius: 12px; opacity: .65; }
+.share-group > span { position: absolute; top: -26px; white-space: nowrap; }
+.share-connections { position: absolute; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
+.share-zoom { position: fixed; bottom: 20px; right: 20px; display: flex; gap: 12px; align-items: center; background: white; border-radius: 8px; }

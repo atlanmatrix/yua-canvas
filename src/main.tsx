@@ -87,6 +87,8 @@ import {
 import { Minimap } from "./Minimap";
 import { useMinimapGeometry } from "./minimapGeometry";
 import "./style.css";
+import { CloudPanel } from "./CloudPanel";
+import { ShareViewer } from "./ShareViewer";
 const uid = () => crypto.randomUUID();
 const colors = ["#ffffff"];
 function Attachment({ card, large = false }: { card: Card; large?: boolean }) {
@@ -1947,6 +1949,7 @@ function App() {
             </nav>
           )}
           <div className="floating-actions">
+            <CloudPanel board={root} ready={ready} restore={restore} />
             {(selection.length > 1 || selectedGroup) && (
               <button
                 className="floating-button batch-download"
@@ -3152,4 +3155,17 @@ function App() {
     </div>
   );
 }
-createRoot(document.getElementById("root")!).render(<App />);
+function Router() {
+  const [hash, setHash] = useState(location.hash);
+  useEffect(() => {
+    const update = () => setHash(location.hash);
+    window.addEventListener("hashchange", update);
+    return () => window.removeEventListener("hashchange", update);
+  }, []);
+  return hash.startsWith("#/s/") ? (
+    <ShareViewer key={hash} token={hash.slice(4)} />
+  ) : (
+    <App />
+  );
+}
+createRoot(document.getElementById("root")!).render(<Router />);

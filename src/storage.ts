@@ -449,3 +449,25 @@ export async function importBoard(
     connections,
   });
 }
+
+// Kept separately from the active workspace so adopting cloud content is recoverable.
+export async function saveRecovery(board: Board) {
+  const db = await database;
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction("boards", "readwrite");
+    tx.objectStore("boards").put(board, "cloud-recovery");
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+export async function readRecovery(): Promise<Board | undefined> {
+  const db = await database;
+  return new Promise((resolve, reject) => {
+    const r = db
+      .transaction("boards")
+      .objectStore("boards")
+      .get("cloud-recovery");
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+}
