@@ -117,6 +117,10 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
           color: card.color,
           group: card.group,
           mime: card.mime,
+          blobType: card.blob?.type,
+          blobName: card.blob instanceof File ? card.blob.name : undefined,
+          blobLastModified:
+            card.blob instanceof File ? card.blob.lastModified : undefined,
           pin: card.pin,
           taskIds: card.tasks?.map((t) => t.id),
         };
@@ -239,7 +243,12 @@ export async function readArchive(
           tasks,
           blob: undefined,
           archiveFile: filePath,
-          mime: typeof meta.mime === "string" ? meta.mime : fileMime(meta.file),
+          mime:
+            typeof meta.mime === "string"
+              ? meta.mime
+              : meta.blobType !== undefined
+                ? undefined
+                : fileMime(meta.file),
         };
       });
     const cards = restoreCards(data.cards);

@@ -193,6 +193,7 @@ export async function saveBoard(
     if (navigation) tx.objectStore("boards").put(navigation, "navigation");
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
   });
 }
 export function validView(view: any): view is View {
@@ -227,12 +228,16 @@ export async function readNavigation(): Promise<Navigation | undefined> {
     r.onerror = () => reject(r.error);
   });
 }
-async function serializeBoard(board: Board): Promise<object> {
+export async function serializeBoard(board: Board): Promise<object> {
   return {
     ...board,
     cards: await Promise.all(
       board.cards.map(async (card) => ({
         ...card,
+        blobType: card.blob?.type,
+        blobName: card.blob instanceof File ? card.blob.name : undefined,
+        blobLastModified:
+          card.blob instanceof File ? card.blob.lastModified : undefined,
         canvas:
           card.kind === "canvas" && card.canvas
             ? await serializeBoard(card.canvas)
@@ -305,7 +310,7 @@ export async function importBoard(
     return {
       id: g.id,
       ...(validPin(g.pin) !== undefined ? { pin: validPin(g.pin) } : {}),
-      name: g.name.slice(0, 200),
+      name: g.name,
       color: g.color,
       parent: typeof g.parent === "string" ? g.parent : undefined,
       bounds: g.bounds
@@ -336,6 +341,10 @@ export async function importBoard(
       )
         throw new Error("卡片数据无效");
       ids.add(c.id);
+      if (c.mime !== undefined && typeof c.mime !== "string")
+        throw Error("附件 MIME 类型无效");
+      if (c.blobType !== undefined && typeof c.blobType !== "string")
+        throw Error("附件类型无效");
       if (c.kind === "miniature" && !miniatureUrl(c.text as string))
         throw Error("3D 场景地址无效");
       if (
@@ -370,7 +379,25 @@ export async function importBoard(
           throw new Error("附件数据无效");
         const [header, body] = c.blob.split(",");
         const bytes = Uint8Array.from(atob(body), (ch) => ch.charCodeAt(0));
-        blob = new Blob([bytes], { type: header.slice(5, -7) });
+        blob = new Blob([bytes], {
+          type:
+            typeof c.blobType === "string" ? c.blobType : header.slice(5, -7),
+        });
+      }
+      if (blob && typeof c.blobType === "string" && blob.type !== c.blobType)
+        blob = blob.slice(0, blob.size, c.blobType);
+      if (c.blobName !== undefined || c.blobLastModified !== undefined) {
+        if (
+          !blob ||
+          typeof c.blobName !== "string" ||
+          typeof c.blobLastModified !== "number" ||
+          !Number.isFinite(c.blobLastModified)
+        )
+          throw Error("附件文件元数据无效");
+        blob = new File([blob], c.blobName, {
+          type: blob.type,
+          lastModified: c.blobLastModified,
+        });
       }
       if ((c.kind === "image" || c.kind === "file") && !blob)
         throw new Error("缺少附件");
@@ -424,7 +451,12 @@ export async function importBoard(
           typeof c.group === "string" && groups.some((g) => g.id === c.group)
             ? c.group
             : undefined,
-        mime: blob?.type,
+        mime:
+          typeof c.mime === "string"
+            ? c.mime
+            : c.blobType === undefined
+              ? blob?.type
+              : undefined,
         blob,
       };
     }),
@@ -457,10 +489,12 @@ export async function importBoard(
   return initializeGroups({
     version: 1,
     id: boardId,
-    ...(data.parentCreated ? { parentCreated: true } : {}),
+    ...(data.parentCreated !== undefined
+      ? { parentCreated: data.parentCreated }
+      : {}),
     cards,
     groups,
-    connections,
+    ...(data.connections !== undefined ? { connections } : {}),
   });
 }
 

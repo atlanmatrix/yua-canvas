@@ -38,6 +38,10 @@ export async function packCloud(board: Board) {
       }
       cards.push({
         ...c,
+        blobType: c.blob?.type,
+        blobName: c.blob instanceof File ? c.blob.name : undefined,
+        blobLastModified:
+          c.blob instanceof File ? c.blob.lastModified : undefined,
         blob: undefined,
         archiveFile,
         canvas: c.canvas ? await pack(c.canvas) : undefined,

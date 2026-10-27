@@ -96,7 +96,12 @@ async function snapshot(page: Page) {
     stream = await download.createReadStream(),
     chunks: Buffer[] = [];
   for await (const chunk of stream!) chunks.push(chunk);
-  return JSON.parse(Buffer.concat(chunks).toString());
+  const backup = JSON.parse(Buffer.concat(chunks).toString());
+  let board = backup;
+  for (const id of backup.workspace?.navigation.path || [])
+    board = board.cards.find((card: any) => card.id === id).canvas;
+  const { workspace, format, ...content } = board;
+  return content;
 }
 async function background(page: Page, x = 600, y = 500) {
   await page.locator(".canvas").click({ button: "right", position: { x, y } });

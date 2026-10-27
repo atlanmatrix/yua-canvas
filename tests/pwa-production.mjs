@@ -269,6 +269,81 @@ test("3D hierarchy and component opening work offline at the Pages subpath", asy
     await context.close();
   }
 });
+test("complete workspace backup restores all canvases and views offline at the Pages subpath", async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await app(context);
+    const card = (id, text) => ({
+      id,
+      kind: "text",
+      title: "",
+      text,
+      x: 80,
+      y: 100,
+      width: 200,
+      height: 100,
+      color: "#ffffff",
+    });
+    await page.getByTestId("import").setInputFiles({
+      name: "root.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(
+        JSON.stringify({
+          version: 1,
+          groups: [],
+          cards: [
+            card("root-note", "根内容"),
+            {
+              ...card("child", ""),
+              kind: "canvas",
+              title: "子画布",
+              x: 400,
+              canvas: {
+                version: 1,
+                id: "child-board",
+                groups: [],
+                cards: [card("child-note", "子级内容")],
+              },
+            },
+          ],
+        }),
+      ),
+    });
+    await page.getByRole("button", { name: "确认替换" }).click();
+    await page
+      .getByRole("button", { name: "进入子画布 子画布", exact: true })
+      .click();
+    await page.getByRole("button", { name: "放大", exact: true }).click();
+    const download = async () => {
+      const pending = page.waitForEvent("download");
+      await page.getByRole("button", { name: "导出画布", exact: true }).click();
+      const chunks = [];
+      for await (const chunk of await (await pending).createReadStream())
+        chunks.push(chunk);
+      return Buffer.concat(chunks);
+    };
+    const bytes = await download(),
+      original = JSON.parse(bytes.toString());
+    assert.equal(original.cards.length, 2);
+    assert.equal(original.format, "yua-canvas-workspace");
+    assert.equal(original.workspace.view.z, 1.2);
+    await page.getByRole("button", { name: "返回父画布", exact: true }).click();
+    await context.setOffline(true);
+    await page.getByTestId("import").setInputFiles({
+      name: "backup.json",
+      mimeType: "application/json",
+      buffer: bytes,
+    });
+    await page.getByRole("button", { name: "确认替换" }).click();
+    await expect(page.locator(".canvas-navigation")).toHaveText("子画布");
+    assert.deepEqual(JSON.parse((await download()).toString()), original);
+    await page.reload();
+    await expect(page.locator(".canvas-navigation")).toHaveText("子画布");
+    assert.deepEqual(JSON.parse((await download()).toString()), original);
+  } finally {
+    await context.close();
+  }
+});
 test("update saves pending canvas edits and does not reload other open tabs", async () => {
   const context = await browser.newContext();
   try {

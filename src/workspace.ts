@@ -1,5 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useBoardHistory } from "./history";
+import type { WorkspaceSnapshot } from "./workspaceBackup";
 import {
   type Board,
   type View,
@@ -155,12 +156,11 @@ export function useCanvasWorkspace() {
     });
     activate(updated, active.path);
   };
-  const restore = (
+  const restoreNavigation = (
     root: Board,
     savedView?: View,
     savedNavigation?: Navigation,
   ) => {
-    history.reset(root);
     const current = locateBoard(root, savedNavigation?.path || []),
       currentKey = current.board.id || "";
     setPath(current.path);
@@ -185,7 +185,15 @@ export function useCanvasWorkspace() {
     setView,
     navigation,
     setBoard,
-    restore,
+    restore: (root: Board, view?: View, navigation?: Navigation) => {
+      history.reset(root);
+      restoreNavigation(root, view, navigation);
+    },
+    importSnapshot: ({ board, view, navigation }: WorkspaceSnapshot) => {
+      history.end();
+      history.setBoard(board, { preserveLayout: true });
+      restoreNavigation(board, view, navigation);
+    },
     navigate: (next: string[]) => activate(history.board, next),
     wrapParent,
     canCreateParent,

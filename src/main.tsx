@@ -49,8 +49,13 @@ import {
   readView,
   readNavigation,
   exportBoard,
-  importBoard,
 } from "./storage";
+import {
+  exportWorkspace,
+  readCanvasImport,
+  workspaceCounts,
+  type CanvasImport,
+} from "./workspaceBackup";
 import { Markdown } from "./Markdown";
 import { NoteText, linkTarget } from "./NoteText";
 import { TextEditor } from "./TextEditor";
@@ -109,8 +114,16 @@ import { Miniature, MiniatureDialog } from "./Miniature";
 const uid = () => crypto.randomUUID();
 const colors = ["#ffffff"];
 function Attachment({ card, large = false }: { card: Card; large?: boolean }) {
-  const [url, setUrl] = useState(""),
+  const [asset, setAsset] = useState<{
+      url: string;
+      blob: Blob;
+      mime?: string;
+    }>(),
     [fileText, setFileText] = useState("");
+  const url =
+    asset && asset.blob === card.blob && asset.mime === card.mime
+      ? asset.url
+      : "";
   useEffect(() => {
     if (!card.blob || !isTextFile(card)) return;
     let active = true;
@@ -140,10 +153,16 @@ function Attachment({ card, large = false }: { card: Card; large?: boolean }) {
   }, [large, card.blob, card.mime, card.title]);
   useEffect(() => {
     if (!card.blob) return;
-    const u = URL.createObjectURL(card.blob);
-    setUrl(u);
+    // The stored Blob type is preserved independently of the declared preview
+    // type. Always give the PDF viewer a PDF URL, including mismatched imports.
+    const preview =
+      card.mime === "application/pdf"
+        ? card.blob.slice(0, card.blob.size, "application/pdf")
+        : card.blob;
+    const u = URL.createObjectURL(preview);
+    setAsset({ url: u, blob: card.blob, mime: card.mime });
     return () => URL.revokeObjectURL(u);
-  }, [card.blob]);
+  }, [card.blob, card.mime]);
   if (!large && card.kind === "file" && isTextFile(card))
     return (
       <pre
@@ -302,7 +321,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     } | null>(null),
     [copyFiles, setCopyFiles] = useState<Card[]>([]),
     [toast, setToast] = useState(""),
-    [confirmImport, setConfirmImport] = useState<Board | null>(null),
+    [confirmImport, setConfirmImport] = useState<CanvasImport | null>(null),
+    [importBusy, setImportBusy] = useState(false),
     [marquee, setMarquee] = useState<{
       x: number;
       y: number;
@@ -430,7 +450,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         notify("无法读取浏览器存储，请检查浏览器设置后刷新。");
       });
   }, []);
-  useAutosave(root, view, ready, setSaveStatus, navigation);
+  useAutosave(root, view, ready && !importBusy, setSaveStatus, navigation);
   useEffect(() => {
     const el = surface.current;
     if (!el) return;
@@ -1706,11 +1726,21 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   };
   const exportAll = async () => {
     try {
+      const snapshot = latestWorkspace.current;
       download(
-        new Blob([await exportBoard(board)], { type: "application/json" }),
+        new Blob(
+          [
+            await exportWorkspace({
+              board: snapshot.root,
+              view: snapshot.view,
+              navigation: snapshot.navigation,
+            }),
+          ],
+          { type: "application/json" },
+        ),
         `yua-canvas-${new Date().toISOString().slice(0, 10)}.json`,
       );
-      notify("画布已导出，包含所有附件");
+      notify("工作区已导出，包含全部画布和附件");
     } catch {
       notify("导出失败，请重试");
     }
@@ -1723,7 +1753,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     }
     try {
       const destination = board.id || "";
-      const imported = await importBoard(await file.text());
+      const imported = await readCanvasImport(await file.text());
       if (activeCanvasKey.current === destination) setConfirmImport(imported);
     } catch (e) {
       notify(e instanceof Error ? e.message : "导入失败");
@@ -1731,7 +1761,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   };
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (preview3D) return;
+      if (preview3D || importBusy) return;
       setLinkModifier(e.metaKey || e.ctrlKey);
       const key = e.key.toLowerCase(),
         mod = e.ctrlKey || e.metaKey;
@@ -2056,7 +2086,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             <button
               className="floating-button"
               aria-label="导出画布"
-              title="导出 (⌘/Ctrl Shift E)"
+              title="导出全部画布 (⌘/Ctrl Shift E)"
               disabled={!ready}
               onClick={exportAll}
             >
@@ -3348,25 +3378,65 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             aria-label="确认导入"
           >
             <div className="modal-heading">
-              <span>导入画布</span>
+              <span>
+                {confirmImport.workspace ? "还原工作区备份" : "导入画布"}
+              </span>
             </div>
-            <p>替换当前画布？（{confirmImport.cards.length} 项）</p>
+            <p>
+              {confirmImport.workspace
+                ? `将替换整个工作区，包含 ${workspaceCounts(confirmImport.board).canvases} 个画布、${workspaceCounts(confirmImport.board).components} 个组件，并恢复各层视图及所在层级。`
+                : `替换当前画布？（${confirmImport.board.cards.length} 项）`}
+            </p>
             <div className="modal-bottom">
-              <button className="button" onClick={() => setConfirmImport(null)}>
+              <button
+                className="button"
+                disabled={importBusy}
+                onClick={() => setConfirmImport(null)}
+              >
                 取消
               </button>
               <button
                 className="primary"
-                onClick={() => {
-                  setBoard(confirmImport);
-                  setConfirmImport(null);
-                  setSelection([]);
-                  setDetail(undefined);
-                  fit(confirmImport.cards, confirmImport.groups);
-                  notify("画布已导入");
+                disabled={importBusy}
+                onClick={async () => {
+                  const imported = confirmImport;
+                  setImportBusy(true);
+                  try {
+                    if (imported.workspace) {
+                      const snapshot = {
+                        board: imported.board,
+                        ...imported.workspace,
+                      };
+                      await saveBoard(
+                        snapshot.board,
+                        snapshot.view,
+                        snapshot.navigation,
+                      );
+                      clearCanvasUI();
+                      setPending3DOpen(undefined);
+                      workspace.importSnapshot(snapshot);
+                      notify("工作区已完整还原");
+                    } else {
+                      setBoard(imported.board, { preserveLayout: true });
+                      setConfirmImport(null);
+                      setSelection([]);
+                      setDetail(undefined);
+                      fit(imported.board.cards, imported.board.groups);
+                      notify("画布已导入");
+                    }
+                  } catch (error) {
+                    notify(
+                      "还原失败，原工作区已保留" +
+                        (error instanceof Error && error.message
+                          ? `：${error.message}`
+                          : ""),
+                    );
+                  } finally {
+                    setImportBusy(false);
+                  }
                 }}
               >
-                确认替换
+                {importBusy ? "正在还原…" : "确认替换"}
               </button>
             </div>
           </div>
