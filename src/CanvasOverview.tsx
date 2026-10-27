@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Box } from "lucide-react";
+import { CanvasContextMenu } from "./CanvasContextMenu";
 import { Minimap } from "./Minimap";
 import { projectMinimap, type MinimapProjection } from "./minimapGeometry";
 import { DEFAULT_VIEW } from "./workspace";
@@ -26,6 +29,7 @@ export function CanvasOverview({
   onDragChange,
   onSwitch,
   dragging,
+  onPreview3D,
 }: {
   root: Board;
   path: string[];
@@ -40,9 +44,33 @@ export function CanvasOverview({
   onDragChange: (dragging: boolean) => void;
   onSwitch: (path: string[]) => void;
   dragging: boolean;
+  onPreview3D: () => void;
 }) {
   const [preview, setPreview] = useState<Level>(),
     [active, setActive] = useState(true);
+  const [menu, setMenu] = useState<{ x: number; y: number }>();
+  const overview = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: PointerEvent) => {
+      if (!(e.target as Element).closest(".context-menu")) setMenu(undefined);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMenu(undefined);
+        overview.current?.querySelector<HTMLButtonElement>(".minimap")?.focus();
+      }
+    };
+    const dismiss = () => setMenu(undefined);
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", key);
+    window.addEventListener("blur", dismiss);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", key);
+      window.removeEventListener("blur", dismiss);
+    };
+  }, [menu]);
   useEffect(() => {
     setActive(true);
     const timer = setTimeout(() => setActive(false), 1200);
@@ -91,8 +119,23 @@ export function CanvasOverview({
     : viewport;
   return (
     <div
+      ref={overview}
       className={"canvas-overview " + (active || dragging ? "active" : "idle")}
       onPointerLeave={() => setPreview(undefined)}
+      onContextMenu={(e) => {
+        if (!(e.target as Element).closest(".minimap")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setMenu({ x: e.clientX, y: e.clientY });
+      }}
+      onKeyDown={(e) => {
+        if (!(e.target as Element).closest(".minimap")) return;
+        if (e.key !== "ContextMenu" && !(e.shiftKey && e.key === "F10")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const rect = e.currentTarget.getBoundingClientRect();
+        setMenu({ x: rect.left + 20, y: rect.top + 20 });
+      }}
     >
       <Minimap
         board={showingOther ? target.board : board}
@@ -138,6 +181,23 @@ export function CanvasOverview({
           第 {target.depth + 1} 层 · {target.name}
         </span>
       )}
+      {menu &&
+        createPortal(
+          <CanvasContextMenu x={menu.x} y={menu.y}>
+            <button
+              role="menuitem"
+              autoFocus
+              onClick={() => {
+                setMenu(undefined);
+                onPreview3D();
+              }}
+            >
+              <Box size={15} />
+              3D 预览
+            </button>
+          </CanvasContextMenu>,
+          document.body,
+        )}
     </div>
   );
 }

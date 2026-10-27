@@ -94,6 +94,7 @@ import {
   type ImportNode,
 } from "./directories";
 import { CanvasOverview } from "./CanvasOverview";
+import { Canvas3D } from "./Canvas3D";
 import { PinBar } from "./PinBar";
 import { HelpDialog } from "./HelpDialog";
 import { type PinnedItem } from "./pins";
@@ -232,7 +233,7 @@ function GroupNameEditor({
     />
   );
 }
-function App() {
+function App({ preview3D = false }: { preview3D?: boolean }) {
   const workspace = useCanvasWorkspace();
   const {
     board,
@@ -255,6 +256,10 @@ function App() {
   const [dragCursor, setDragCursor] = useState(false);
   const [linkModifier, setLinkModifier] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState(false);
+  const [pending3DOpen, setPending3DOpen] = useState<{
+    path: string[];
+    card: string;
+  }>();
   const [linkDraft, setLinkDraft] = useState<{
       from: Endpoint;
       to?: Endpoint;
@@ -716,6 +721,7 @@ function App() {
       const target = event.target;
       if (
         !ready ||
+        preview3D ||
         document.querySelector('[role="dialog"]') ||
         (target instanceof HTMLElement &&
           (target.isContentEditable ||
@@ -729,7 +735,7 @@ function App() {
     };
     window.addEventListener("paste", paste);
     return () => window.removeEventListener("paste", paste);
-  }, [ready, addFiles, board]);
+  }, [ready, addFiles, board, preview3D]);
   const finishEditing = (id: string, cancelled = false) => {
     const session = editSession.current;
     if (!session || session.id !== id) return;
@@ -924,6 +930,41 @@ function App() {
       true,
     );
   };
+  const closePreview3D = () => {
+    history.replaceState(null, "", location.pathname + location.search);
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+  };
+  useEffect(() => {
+    if (
+      preview3D ||
+      !ready ||
+      !pending3DOpen ||
+      JSON.stringify(path) !== JSON.stringify(pending3DOpen.path)
+    )
+      return;
+    setPending3DOpen(undefined);
+    const card = board.cards.find((c) => c.id === pending3DOpen.card);
+    if (!card) return;
+    const r = cardRect(card),
+      viewport = surface.current?.getBoundingClientRect();
+    if (viewport) {
+      const z = Math.max(
+        0.2,
+        Math.min(
+          1,
+          (viewport.width - 120) / r.width,
+          (viewport.height - 170) / r.height,
+        ),
+      );
+      setView({
+        z,
+        x: viewport.width / 2 - (r.x + r.width / 2) * z,
+        y: viewport.height / 2 - (r.y + r.height / 2) * z,
+      });
+    }
+    setSelection([card.id]);
+    openCard(card);
+  }, [preview3D, ready, pending3DOpen, board, JSON.stringify(path)]);
   const zoom = (factor: number) => {
     const r = surface.current!.getBoundingClientRect();
     setView((v) => {
@@ -1690,6 +1731,7 @@ function App() {
   };
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      if (preview3D) return;
       setLinkModifier(e.metaKey || e.ctrlKey);
       const key = e.key.toLowerCase(),
         mod = e.ctrlKey || e.metaKey;
@@ -1932,8 +1974,10 @@ function App() {
       ? selection
       : [menuCard.id]
     : [];
-  return (
+  return [
     <div
+      key="canvas"
+      inert={preview3D}
       onPointerMoveCapture={(e) => setLinkModifier(e.metaKey || e.ctrlKey)}
       onPointerDownCapture={(e) => {
         setLinkModifier(e.metaKey || e.ctrlKey);
@@ -1945,6 +1989,7 @@ function App() {
       }}
       className={
         "app " +
+        (preview3D ? "previewing-3d " : "") +
         (linkModifier ? "link-modifier " : "") +
         (linkDraft ? "connecting " : "") +
         (dragCursor ? "is-grabbing" : "")
@@ -2081,7 +2126,11 @@ function App() {
                 return next;
               });
             } else
-              setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
+              setView((v) => ({
+                ...v,
+                x: v.x - e.deltaX,
+                y: v.y - e.deltaY,
+              }));
           }}
           onDoubleClick={(e) => {
             if (e.target === surface.current && !e.ctrlKey && !e.metaKey) {
@@ -2376,7 +2425,9 @@ function App() {
                     </div>
                   )}
                 {c.kind === "miniature" ? (
-                  <Miniature card={c} onEdit={() => setMiniatureDraft(c)} />
+                  preview3D ? null : (
+                    <Miniature card={c} onEdit={() => setMiniatureDraft(c)} />
+                  )
                 ) : c.kind === "canvas" ? (
                   <>
                     <div className="canvas-card-preview">
@@ -2637,6 +2688,10 @@ function App() {
           </div>
         </div>
         <CanvasOverview
+          onPreview3D={() => {
+            clearCanvasUI();
+            location.hash = "/3d";
+          }}
           dragging={dragCursor}
           root={root}
           path={path}
@@ -3396,8 +3451,26 @@ function App() {
           </button>
         </div>
       )}
-    </div>
-  );
+    </div>,
+    preview3D &&
+      (ready ? (
+        <Canvas3D
+          key="preview3d"
+          root={root}
+          path={path}
+          onClose={closePreview3D}
+          onOpen={(nextPath, card) => {
+            navigateCanvas(nextPath);
+            if (card) setPending3DOpen({ path: nextPath, card });
+            closePreview3D();
+          }}
+        />
+      ) : (
+        <section key="loading3d" className="canvas3d-page" role="status">
+          正在读取工作区…
+        </section>
+      )),
+  ];
 }
 function Router() {
   const [hash, setHash] = useState(location.hash);
@@ -3409,7 +3482,7 @@ function Router() {
   return hash.startsWith("#/s/") ? (
     <ShareViewer key={hash} token={hash.slice(4)} />
   ) : (
-    <App />
+    <App preview3D={hash === "#/3d"} />
   );
 }
 createRoot(document.getElementById("root")!).render(<Router />);

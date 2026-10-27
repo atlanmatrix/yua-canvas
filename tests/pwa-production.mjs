@@ -196,6 +196,79 @@ test("offline reload restores IndexedDB and lazy diagrams while APIs never enter
     await context.close();
   }
 });
+test("3D hierarchy and component opening work offline at the Pages subpath", async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await app(context);
+    await page.getByTestId("import").setInputFiles({
+      name: "hierarchy.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(
+        JSON.stringify({
+          version: 1,
+          id: "root",
+          groups: [],
+          cards: [
+            {
+              id: "child",
+              kind: "canvas",
+              title: "离线子画布",
+              text: "",
+              x: 80,
+              y: 100,
+              color: "#ffffff",
+              canvas: {
+                version: 1,
+                id: "child-board",
+                groups: [],
+                cards: [
+                  {
+                    id: "note",
+                    kind: "text",
+                    title: "",
+                    text: "离线 3D 组件",
+                    x: 1800,
+                    y: 1400,
+                    width: 220,
+                    height: 140,
+                    color: "#ffffff",
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      ),
+    });
+    await page.getByRole("button", { name: "确认替换" }).click();
+    await expect(page.locator(".save-indicator")).toHaveAttribute(
+      "data-state",
+      "已保存至本地",
+    );
+    await page.getByTestId("minimap").click({ button: "right" });
+    await page.getByRole("menuitem", { name: "3D 预览" }).click();
+    await expect(page.locator(".canvas3d-layer")).toHaveCount(2);
+    await expect(page.getByTestId("canvas3d-scene")).toHaveCSS(
+      "transform-style",
+      "preserve-3d",
+    );
+    await context.setOffline(true);
+    await page.reload();
+    await expect(page.locator(".canvas3d-layer")).toHaveCount(2);
+    await page
+      .getByRole("button", { name: "聚焦 根画布 / 离线子画布", exact: true })
+      .click();
+    await page.getByLabel("仅显示聚焦画布").check();
+    await page.locator('[data-3d-card="note"]').dblclick();
+    await expect(page.getByRole("textbox", { name: "文本内容" })).toHaveValue(
+      "离线 3D 组件",
+    );
+    assert.equal(new URL(page.url()).pathname, prefix);
+    assert.equal(new URL(page.url()).hash, "");
+  } finally {
+    await context.close();
+  }
+});
 test("update saves pending canvas edits and does not reload other open tabs", async () => {
   const context = await browser.newContext();
   try {
