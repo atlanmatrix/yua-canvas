@@ -1,9 +1,11 @@
 import { validEndpoint, type Connection } from "./connections";
 import { cardRect } from "./geometry";
 import { miniatureUrl, miniatureViewUrl } from "./miniatureScene";
+export type PinColor = "info" | "warn" | "danger" | "normal";
 export type Card = {
   id: string;
   pin?: string;
+  pinColor?: PinColor;
   kind: "text" | "image" | "file" | "todo" | "canvas" | "miniature";
   title: string;
   text: string;
@@ -26,6 +28,7 @@ export type Rect = { x: number; y: number; width: number; height: number };
 export type Group = {
   id: string;
   pin?: string;
+  pinColor?: PinColor;
   name: string;
   color?: string;
   bounds?: Rect;
@@ -311,6 +314,7 @@ export async function importBoard(
     return {
       id: g.id,
       ...(validPin(g.pin) !== undefined ? { pin: validPin(g.pin) } : {}),
+      pinColor: validPinColor(g.pinColor),
       name: g.name,
       color: g.color,
       parent: typeof g.parent === "string" ? g.parent : undefined,
@@ -451,6 +455,7 @@ export async function importBoard(
         height: c.height as number | undefined,
         id: c.id,
         ...(validPin(c.pin) !== undefined ? { pin: validPin(c.pin) } : {}),
+        pinColor: validPinColor(c.pinColor),
         kind: c.kind as Card["kind"],
         miniatureView: c.miniatureView as string | undefined,
         title: c.title,
@@ -563,6 +568,14 @@ export async function readCanvasClipboard(): Promise<
   });
 }
 
+function validPinColor(value: unknown): PinColor | undefined {
+  return value === "info" ||
+    value === "warn" ||
+    value === "danger" ||
+    value === "normal"
+    ? value
+    : undefined;
+}
 function validPin(value: unknown): string | undefined {
   if (value === undefined) return;
   if (typeof value !== "string" || !value.trim() || value.length > 100)

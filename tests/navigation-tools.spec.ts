@@ -94,7 +94,7 @@ test("idle overview fades, hover and zoom restore opacity, hierarchy previews wi
   await root.click();
   await expect(page.locator('[data-card-id="根级内容"]')).toHaveCount(1);
 });
-test("pins persist, rename directly, navigate across levels and locate groups", async ({
+test("pins persist, rename directly, stay on the current canvas and locate groups", async ({
   page,
 }) => {
   await setup(page);
@@ -110,8 +110,16 @@ test("pins persist, rename directly, navigate across levels and locate groups", 
   await page
     .getByRole("button", { name: "进入子画布 项目", exact: true })
     .click();
+  await expect(rail).toHaveCount(0);
   await page.getByRole("button", { name: "适应所有内容", exact: true }).click();
   await pin(page, "子级内容");
+  await expect(rail.getByRole("button")).toHaveText(["子级内容"]);
+  await rail.getByRole("button", { name: "子级内容", exact: true }).click();
+  await expect(page.locator('[data-card-id="子级内容"]')).toHaveClass(
+    /selected/,
+  );
+  await page.getByRole("button", { name: "返回父画布", exact: true }).click();
+  await expect(rail.getByRole("button")).toHaveText(["重点"]);
   await rail.getByRole("button", { name: "重点", exact: true }).click();
   await expect(page.locator('[data-card-id="根级内容"]')).toHaveClass(
     /selected/,
@@ -122,7 +130,11 @@ test("pins persist, rename directly, navigate across levels and locate groups", 
   await page.getByRole("menuitem", { name: "Pin", exact: true }).click();
   await saved(page);
   await page.reload();
-  await expect(rail.getByRole("button")).toHaveCount(3);
+  await expect(rail.getByRole("button")).toHaveCount(2);
+  await page
+    .getByRole("button", { name: "进入子画布 项目", exact: true })
+    .click();
+  await expect(rail.getByRole("button")).toHaveText(["子级内容"]);
   await rail.getByRole("button", { name: "子级内容", exact: true }).click();
   const target = page.locator('[data-card-id="子级内容"]');
   await expect(target).toHaveClass(/selected/);
@@ -130,6 +142,7 @@ test("pins persist, rename directly, navigate across levels and locate groups", 
   expect(rect!.x).toBeGreaterThan(0);
   expect(rect!.y).toBeGreaterThan(70);
   expect(rect!.x + rect!.width).toBeLessThan(1280);
+  await page.getByRole("button", { name: "返回父画布", exact: true }).click();
   await rail.getByRole("button", { name: "空分组", exact: true }).click();
   await expect(page.locator(".group-selected")).toHaveCount(1);
   await page
@@ -139,6 +152,84 @@ test("pins persist, rename directly, navigate across levels and locate groups", 
   await expect(
     rail.getByRole("button", { name: "重点", exact: true }),
   ).toHaveCount(0);
+});
+test("pin colors support all states, dismissal, undo and persistence for cards and groups", async ({
+  page,
+}) => {
+  await setup(page);
+  await pin(page, "根级内容");
+  const rail = page.getByRole("navigation", { name: "Pin 定位" });
+  const item = rail.getByRole("button", { name: "根级内容", exact: true });
+  for (const [value, label, color] of [
+    ["info", "info：蓝色", "rgb(29, 78, 216)"],
+    ["warn", "warn：橙色", "rgb(154, 52, 18)"],
+    ["danger", "danger：红色", "rgb(185, 28, 28)"],
+    ["normal", "normal：默认", "rgb(75, 85, 99)"],
+  ]) {
+    await item.click({ button: "right" });
+    await expect(page.getByRole("menuitemradio")).toHaveCount(4);
+    await page.getByRole("menuitemradio", { name: label, exact: true }).click();
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await expect(item).toHaveAttribute("data-pin-color", value);
+    await page.mouse.move(10, 500);
+    await expect(item).toHaveCSS("color", color);
+  }
+  await item.click({ button: "right" });
+  await expect(
+    page.getByRole("menuitemradio", { name: "normal：默认" }),
+  ).toBeFocused();
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Enter");
+  await expect(item).toHaveAttribute("data-pin-color", "info");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(item).toHaveAttribute("data-pin-color", "normal");
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect(item).toHaveAttribute("data-pin-color", "info");
+  await item.click({ button: "right" });
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(item).toBeFocused();
+  await item.click({ button: "right" });
+  await page.locator(".canvas").click({ position: { x: 1100, y: 500 } });
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await item.dblclick();
+  await page.getByRole("textbox", { name: "Pin 名称" }).fill("彩色 Pin");
+  await page.getByRole("textbox", { name: "Pin 名称" }).press("Enter");
+  const renamed = rail.getByRole("button", { name: "彩色 Pin", exact: true });
+  await expect(renamed).toHaveAttribute("data-pin-color", "info");
+  await page
+    .getByRole("button", { name: "拖动分组 空分组", exact: true })
+    .click({ button: "right", position: { x: 30, y: 10 } });
+  await page.getByRole("menuitem", { name: "Pin", exact: true }).click();
+  const group = rail.getByRole("button", { name: "空分组", exact: true });
+  await group.click({ button: "right" });
+  await page
+    .getByRole("menuitemradio", { name: "danger：红色", exact: true })
+    .click();
+  await saved(page);
+  await page.reload();
+  await expect(renamed).toHaveAttribute("data-pin-color", "info");
+  await expect(group).toHaveAttribute("data-pin-color", "danger");
+  await page
+    .getByRole("button", { name: "进入子画布 项目", exact: true })
+    .click();
+  await expect(rail).toHaveCount(0);
+  await page.getByRole("button", { name: "适应所有内容", exact: true }).click();
+  await pin(page, "子级内容");
+  const nested = rail.getByRole("button", { name: "子级内容", exact: true });
+  await nested.click({ button: "right" });
+  await page
+    .getByRole("menuitemradio", { name: "warn：橙色", exact: true })
+    .click();
+  await expect(nested).toHaveAttribute("data-pin-color", "warn");
+  await nested.click({ button: "right" });
+  await page.getByRole("button", { name: "返回父画布", exact: true }).click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(renamed).toHaveAttribute("data-pin-color", "info");
+  await page
+    .getByRole("button", { name: "进入子画布 项目", exact: true })
+    .click();
+  await expect(nested).toHaveAttribute("data-pin-color", "warn");
 });
 test("root can create one parent and persists the restriction; undo restores availability", async ({
   page,
@@ -179,13 +270,20 @@ test("help opens with question mark icon, lists shortcuts and closes with Escape
   await page.getByRole("button", { name: "关闭使用说明" }).click();
   await expect(help).toHaveCount(0);
 });
-test("JSON and ZIP preserve pin labels, duplicate pins locate independent copies", async ({
+test("JSON and ZIP preserve pin labels and colors, duplicate pins locate independent copies", async ({
   page,
 }) => {
   await setup(page);
   await pin(page, "根级内容");
   await page.keyboard.press("ControlOrMeta+d");
   const rail = page.getByRole("navigation", { name: "Pin 定位" });
+  await rail
+    .getByRole("button", { name: "根级内容", exact: true })
+    .first()
+    .click({ button: "right" });
+  await page
+    .getByRole("menuitemradio", { name: "info：蓝色", exact: true })
+    .click();
   await expect(
     rail.getByRole("button", { name: "根级内容", exact: true }),
   ).toHaveCount(2);
@@ -197,6 +295,7 @@ test("JSON and ZIP preserve pin labels, duplicate pins locate independent copies
   const raw = Buffer.concat(chunks),
     data = JSON.parse(raw.toString());
   expect(data.cards.filter((c: any) => c.pin === "根级内容")).toHaveLength(2);
+  expect(data.cards.filter((c: any) => c.pinColor === "info")).toHaveLength(1);
   await page.getByTestId("import").setInputFiles({
     name: "pins.json",
     mimeType: "application/json",
@@ -227,4 +326,5 @@ test("JSON and ZIP preserve pin labels, duplicate pins locate independent copies
   await expect(
     rail.getByRole("button", { name: "根级内容", exact: true }),
   ).toHaveCount(4);
+  await expect(rail.locator('[data-pin-color="info"]')).toHaveCount(2);
 });

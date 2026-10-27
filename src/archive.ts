@@ -63,6 +63,7 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
             height: card.height,
             color: card.color,
             pin: card.pin,
+            pinColor: card.pinColor,
             group: card.group,
             canvas: {
               ...(await pack(card.canvas, directory + "/")),
@@ -136,6 +137,7 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
           blobLastModified:
             card.blob instanceof File ? card.blob.lastModified : undefined,
           pin: card.pin,
+          pinColor: card.pinColor,
           taskIds: card.tasks?.map((t) => t.id),
         };
       }),

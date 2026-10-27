@@ -23,7 +23,11 @@ async function setup(page: Page) {
       JSON.stringify({
         version: 1,
         cards: [
-          { ...note("text", 80, 150, "inner"), pin: "第一项" },
+          {
+            ...note("text", 80, 150, "inner"),
+            pin: "第一项",
+            pinColor: "info",
+          },
           {
             ...note("file", 720, 150, "outer"),
             kind: "file",
@@ -31,6 +35,7 @@ async function setup(page: Page) {
             text: "",
             blob: "data:application/octet-stream;base64,AAEC/w==",
             pin: "第二项",
+            pinColor: "danger",
           },
           {
             ...note("image", 400, 150, "outer"),
@@ -48,6 +53,8 @@ async function setup(page: Page) {
             ...note("child", 430, 400, "outer"),
             kind: "canvas",
             title: "子画布",
+            pin: "子画布 Pin",
+            pinColor: "warn",
             text: "",
             canvas: {
               version: 1,
@@ -70,6 +77,8 @@ async function setup(page: Page) {
           {
             id: "outer",
             name: "整组",
+            pin: "整组 Pin",
+            pinColor: "danger",
             bounds: { x: 40, y: 90, width: 1050, height: 600 },
           },
           {
@@ -102,6 +111,7 @@ async function zipFromMenu(page: Page) {
   for await (const chunk of stream!) chunks.push(chunk);
   const files = unzipSync(Buffer.concat(chunks));
   return {
+    raw: Buffer.concat(chunks),
     files,
     meta: JSON.parse(strFromU8(files["yua-canvas.metadata.json"])),
   };
@@ -113,7 +123,7 @@ test("group menu ZIP includes all descendants, subcanvas attachments and links",
   await page
     .getByRole("button", { name: "拖动分组 整组", exact: true })
     .click({ button: "right", position: { x: 30, y: 10 } });
-  const { files, meta } = await zipFromMenu(page);
+  const { files, meta, raw } = await zipFromMenu(page);
   expect(meta.cards).toHaveLength(5);
   expect(meta.groups).toHaveLength(2);
   expect(meta.connections).toHaveLength(1);
@@ -125,6 +135,28 @@ test("group menu ZIP includes all descendants, subcanvas attachments and links",
     [0, 1, 2, 255],
   );
   await expect(page.locator(".batch-download")).toHaveCount(0);
+  expect(meta.cards.find((c: any) => c.id === "text").pinColor).toBe("info");
+  expect(meta.cards.find((c: any) => c.kind === "canvas").pinColor).toBe(
+    "warn",
+  );
+  expect(meta.groups.find((g: any) => g.id === "outer").pinColor).toBe(
+    "danger",
+  );
+  await page.getByTestId("import").setInputFiles({
+    name: "colored-pins.zip",
+    mimeType: "application/zip",
+    buffer: raw,
+  });
+  const rail = page.getByRole("navigation", { name: "Pin 定位" });
+  for (const [name, color] of [
+    ["第一项", "info"],
+    ["子画布 Pin", "warn"],
+    ["整组 Pin", "danger"],
+  ]) {
+    const pins = rail.getByRole("button", { name, exact: true });
+    await expect(pins).toHaveCount(2);
+    await expect(pins.nth(1)).toHaveAttribute("data-pin-color", color);
+  }
 });
 test("multi-selected component menu downloads whole selection rather than clicked item", async ({
   page,

@@ -1595,6 +1595,15 @@ main {
 .pin-bar button, .pin-bar input { flex-shrink: 0; max-width: 180px; border: 1px solid #d5dae4; border-radius: 7px; background: #fffffff2; padding: 6px 10px; font-size: 12px; color: #4b5563; overflow: hidden; text-overflow: ellipsis; }
 .pin-bar input { width: 160px; }
 .pin-bar button:hover { border-color: var(--accent); color: var(--accent); }
+.pin-bar button[data-pin-color="info"] { color: #1d4ed8; border-color: #93c5fd; background: #eff6ff; }
+.pin-bar button[data-pin-color="warn"] { color: #9a3412; border-color: #fdba74; background: #fff7ed; }
+.pin-bar button[data-pin-color="danger"] { color: #b91c1c; border-color: #fca5a5; background: #fef2f2; }
+.pin-color-menu button { display: flex; align-items: center; gap: 8px; }
+.pin-color-menu button[aria-checked="true"] { background: var(--accent-soft); }
+.pin-color-dot { width: 10px; height: 10px; border-radius: 50%; background: #6b7280; }
+.pin-color-dot[data-pin-color="info"] { background: #2563eb; }
+.pin-color-dot[data-pin-color="warn"] { background: #ea580c; }
+.pin-color-dot[data-pin-color="danger"] { background: #dc2626; }
 .canvas-overview { position: absolute; left: 20px; bottom: 22px; width: 230px; height: 132px; z-index: 4; transition: opacity .35s ease; }
 .canvas-overview.idle { opacity: .28; }
 .canvas-overview.active, .canvas-overview:hover, .canvas-overview:has(:focus-visible) { opacity: 1; }

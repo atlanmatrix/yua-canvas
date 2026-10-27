@@ -1945,24 +1945,32 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   const current = board.cards.find(
     (c) => c.id === detail && (c.kind === "image" || c.kind === "file"),
   );
-  const updatePin = (pin: PinnedItem, name?: string) => {
+  const updatePinProperties = (
+    pin: PinnedItem,
+    properties: Pick<Partial<Card>, "pin" | "pinColor">,
+  ) => {
     workspace.updateRoot((root) =>
       replaceBoard(root, pin.path, (current) => ({
         ...current,
         ...(pin.kind === "card"
           ? {
               cards: current.cards.map((card) =>
-                card.id === pin.id ? { ...card, pin: name } : card,
+                card.id === pin.id ? { ...card, ...properties } : card,
               ),
             }
           : {
               groups: current.groups.map((group) =>
-                group.id === pin.id ? { ...group, pin: name } : group,
+                group.id === pin.id ? { ...group, ...properties } : group,
               ),
             }),
       })),
     );
   };
+  const updatePin = (pin: PinnedItem, name?: string) =>
+    updatePinProperties(pin, {
+      pin: name,
+      ...(!name ? { pinColor: undefined } : {}),
+    });
   const jumpToPin = (pin: PinnedItem) => {
     const target = pin.path.reduce(
       (b, id) => b.cards.find((c) => c.id === id)?.canvas || b,
@@ -2095,7 +2103,18 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             </button>
           </div>
         </div>
-        <PinBar root={root} onJump={jumpToPin} onRename={updatePin} />
+        <PinBar
+          key={JSON.stringify(path)}
+          board={board}
+          path={path}
+          onJump={jumpToPin}
+          onRename={updatePin}
+          onColorChange={(pin, color) =>
+            updatePinProperties(pin, {
+              pinColor: color === "normal" ? undefined : color,
+            })
+          }
+        />
         <div
           className={"canvas " + (tool === "hand" ? "hand-tool" : "")}
           ref={surface}
