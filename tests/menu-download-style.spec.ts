@@ -203,3 +203,50 @@ test("Pin list is vertical, ordinary cards share file borders and shadows, curve
     page.locator("aside,.sidebar,.search,.batch-download"),
   ).toHaveCount(0);
 });
+
+test("Pin boxes fit their actual labels and share the right edge on desktop and mobile", async ({
+  page,
+}) => {
+  await setup(page);
+  const rail = page.getByRole("navigation", { name: "Pin 定位" });
+  await rail.getByRole("button", { name: "第二项", exact: true }).dblclick();
+  await page
+    .getByRole("textbox", { name: "Pin 名称" })
+    .fill("一个长度不同的 Pin 名称");
+  await page.getByRole("textbox", { name: "Pin 名称" }).press("Enter");
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    const boxes = await rail.getByRole("button").evaluateAll((elements) =>
+      elements.map((element) => {
+        const box = element.getBoundingClientRect(),
+          css = getComputedStyle(element),
+          canvas = document.createElement("canvas"),
+          ctx = canvas.getContext("2d")!;
+        ctx.font = css.font;
+        return {
+          x: box.x,
+          right: box.right,
+          width: box.width,
+          expected:
+            ctx.measureText(element.textContent!).width +
+            parseFloat(css.paddingLeft) +
+            parseFloat(css.paddingRight) +
+            parseFloat(css.borderLeftWidth) +
+            parseFloat(css.borderRightWidth),
+        };
+      }),
+    );
+    expect(boxes[0].width).toBeLessThan(boxes[1].width);
+    expect(boxes[0].right).toBeCloseTo(boxes[1].right, 0);
+    for (const box of boxes) expect(box.width).toBeCloseTo(box.expected, 0);
+    const container = (await rail.boundingBox())!;
+    expect(container.width).toBeCloseTo(
+      Math.max(...boxes.map((box) => box.width)) + 6,
+      0,
+    );
+    expect(container.x + container.width).toBeCloseTo(
+      width - (width < 700 ? 12 : 20),
+      0,
+    );
+  }
+});

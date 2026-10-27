@@ -1,4 +1,4 @@
-import { miniatureUrl } from "../src/miniatureScene";
+import { miniatureUrl, miniatureViewUrl } from "../src/miniatureScene";
 
 interface Env {
   RATE_LIMITER: RateLimit;
@@ -114,7 +114,16 @@ function validateSnapshot(data: any): string[] {
         fail(400, "卡片格式无效");
       if (c.kind === "miniature" && !miniatureUrl(c.text))
         fail(400, "3D 场景地址无效");
-      if (c.kind === "file" || c.kind === "image") {
+      if (
+        c.miniatureView !== undefined &&
+        (c.kind !== "miniature" || !miniatureViewUrl(c.text, c.miniatureView))
+      )
+        fail(400, "3D 场景视图无效");
+      if (
+        c.kind === "file" ||
+        c.kind === "image" ||
+        (c.kind === "miniature" && c.archiveFile !== undefined)
+      ) {
         if (
           typeof c.archiveFile !== "string" ||
           !/^[a-f0-9]{64}$/.test(c.archiveFile)

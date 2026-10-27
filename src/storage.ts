@@ -1,6 +1,6 @@
 import { validEndpoint, type Connection } from "./connections";
 import { cardRect } from "./geometry";
-import { miniatureUrl } from "./miniatureScene";
+import { miniatureUrl, miniatureViewUrl } from "./miniatureScene";
 export type Card = {
   id: string;
   pin?: string;
@@ -19,6 +19,7 @@ export type Card = {
   group?: string;
   tasks?: Task[];
   canvas?: Board;
+  miniatureView?: string;
 };
 export type Task = { id: string; text: string; done: boolean };
 export type Rect = { x: number; y: number; width: number; height: number };
@@ -367,7 +368,7 @@ export async function importBoard(
         throw Error("文本显示设置无效");
       let blob: Blob | undefined =
         attachment &&
-        (c.kind === "file" || c.kind === "image") &&
+        (c.kind === "file" || c.kind === "image" || c.kind === "miniature") &&
         typeof c.archiveFile === "string"
           ? attachment(
               c.archiveFile,
@@ -401,6 +402,18 @@ export async function importBoard(
       }
       if ((c.kind === "image" || c.kind === "file") && !blob)
         throw new Error("缺少附件");
+      if (
+        c.kind === "miniature" &&
+        blob &&
+        !["image/png", "image/webp"].includes(blob.type)
+      )
+        throw Error("3D 场景封面格式无效");
+      if (
+        c.miniatureView !== undefined &&
+        (c.kind !== "miniature" ||
+          !miniatureViewUrl(c.text as string, c.miniatureView))
+      )
+        throw Error("3D 场景视图无效");
       let tasks: Task[] | undefined;
       if (c.kind === "todo") {
         if (!Array.isArray(c.tasks)) throw new Error("任务数据无效");
@@ -439,6 +452,7 @@ export async function importBoard(
         id: c.id,
         ...(validPin(c.pin) !== undefined ? { pin: validPin(c.pin) } : {}),
         kind: c.kind as Card["kind"],
+        miniatureView: c.miniatureView as string | undefined,
         title: c.title,
         text: c.text,
         x: c.x as number,

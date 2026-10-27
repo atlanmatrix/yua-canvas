@@ -2,19 +2,35 @@ import { useEffect, useState } from "react";
 import { Box, Pencil, X } from "lucide-react";
 import type { Card } from "./storage";
 import { MINIATURE_EXAMPLE, miniatureUrl } from "./miniatureScene";
+import {
+  useMiniatureCapture,
+  type MiniatureSnapshot,
+} from "./miniatureCapture";
 
 export function Miniature({
   card,
   onEdit,
+  onSnapshot,
 }: {
   card: Card;
   onEdit?: () => void;
+  onSnapshot?: (snapshot: MiniatureSnapshot) => void;
 }) {
-  const [interactive, setInteractive] = useState(false);
   const src = miniatureUrl(card.text);
-  useEffect(() => setInteractive(false), [src]);
+  const capture = useMiniatureCapture(card, onSnapshot);
+  const [cover, setCover] = useState("");
+  useEffect(() => {
+    if (!capture.snapshot.cover) {
+      setCover("");
+      return;
+    }
+    const url = URL.createObjectURL(capture.snapshot.cover);
+    setCover(url);
+    return () => URL.revokeObjectURL(url);
+  }, [capture.snapshot.cover]);
+  const { interactive, frame } = capture;
   return (
-    <div className="miniature">
+    <div className="miniature" ref={capture.container}>
       <div className="miniature-heading">
         <Box size={16} />
         <span title={card.title}>{card.title || "Miniature"}</span>
@@ -27,29 +43,49 @@ export function Miniature({
           aria-label={interactive ? "结束场景交互" : "交互 3D 场景"}
           aria-pressed={interactive}
           disabled={!src}
-          onClick={() => setInteractive(!interactive)}
+          onClick={capture.toggle}
         >
           {interactive ? "结束交互" : "交互"}
         </button>
       </div>
-      {src ? (
+      {src &&
+        !interactive &&
+        (cover ? (
+          <img
+            className="miniature-cover"
+            src={cover}
+            alt={card.title || "3D 场景封面"}
+            draggable={false}
+          />
+        ) : (
+          <div className="miniature-placeholder">
+            <Box size={38} />
+            <span>{capture.failed ? "暂无静态预览" : "正在生成预览…"}</span>
+          </div>
+        ))}
+      {src && frame ? (
         <iframe
-          className="miniature-frame"
+          key={frame.id}
+          ref={capture.iframe}
+          className={
+            "miniature-frame" + (!interactive ? " miniature-capture-frame" : "")
+          }
           title={card.title || "3D 场景"}
-          src={src}
+          src={frame.url}
           width="100%"
           height="480"
-          loading="lazy"
+          loading="eager"
           sandbox="allow-scripts allow-same-origin allow-pointer-lock"
           allow="fullscreen"
           allowFullScreen
           tabIndex={interactive ? 0 : -1}
+          aria-hidden={!interactive}
           inert={!interactive}
-          style={{ pointerEvents: interactive ? "auto" : "none" }}
+          onLoad={capture.loaded}
         />
-      ) : (
+      ) : !src ? (
         <p role="alert">场景地址无效</p>
-      )}
+      ) : null}
     </div>
   );
 }

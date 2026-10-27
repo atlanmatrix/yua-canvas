@@ -102,11 +102,25 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
                   2,
                 ),
               )
-            : new Uint8Array(await downloaded.blob.arrayBuffer());
+            : card.kind === "miniature"
+              ? strToU8(card.text)
+              : new Uint8Array(await downloaded.blob.arrayBuffer());
+        let coverFile: string | undefined;
+        if (card.kind === "miniature" && card.blob) {
+          const extension = card.blob.type === "image/webp" ? "webp" : "png";
+          coverFile = `${prefix}${stem}.cover.${extension}`;
+          let coverIndex = 2;
+          while (used.has(coverFile.toLowerCase()))
+            coverFile = `${prefix}${stem}.cover (${coverIndex++}).${extension}`;
+          used.add(coverFile.toLowerCase());
+          entries[coverFile] = new Uint8Array(await card.blob.arrayBuffer());
+        }
         return {
           id: card.id,
           kind: card.kind,
           file: path,
+          coverFile,
+          miniatureView: card.miniatureView,
           name: card.title,
           x: card.x,
           y: card.y,
@@ -210,6 +224,16 @@ export async function readArchive(
         if (typeof meta.file !== "string" || !content)
           throw Error("ZIP 中缺少元数据引用的文件");
         used.add(filePath);
+        let coverPath: string | undefined;
+        if (meta.kind === "miniature" && meta.coverFile !== undefined) {
+          if (
+            typeof meta.coverFile !== "string" ||
+            !entries.has(prefix + meta.coverFile)
+          )
+            throw Error("ZIP 中缺少场景封面");
+          coverPath = prefix + meta.coverFile;
+          used.add(coverPath);
+        }
         let text = "",
           tasks;
         if (meta.kind === "text" || meta.kind === "miniature")
@@ -242,11 +266,11 @@ export async function readArchive(
           text,
           tasks,
           blob: undefined,
-          archiveFile: filePath,
+          archiveFile: meta.kind === "miniature" ? coverPath : filePath,
           mime:
             typeof meta.mime === "string"
               ? meta.mime
-              : meta.blobType !== undefined
+              : meta.blobType !== undefined || meta.kind === "miniature"
                 ? undefined
                 : fileMime(meta.file),
         };

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { mockMiniature } from "./miniature-fixture";
 
 const note = (id: string, x = 80, y = 100) => ({
   id,
@@ -96,13 +97,16 @@ const fixture = () => ({
   ],
 });
 
-async function setup(page: Page) {
-  await page.route(scene, (r) =>
-    r.fulfill({
-      contentType: "text/html; charset=utf-8",
-      body: "<p>3D 场景</p>",
-    }),
-  );
+async function setup(page: Page, target?: string) {
+  await mockMiniature(page);
+  const data: any = fixture();
+  if (target) {
+    data.cards = data.cards.slice(0, 2);
+    const child = data.cards[1].canvas;
+    child.cards = child.cards.filter((card: any) => card.id === target);
+    child.groups = [];
+    child.connections = [];
+  }
   await page.goto("/");
   await expect(
     page.getByRole("button", { name: "添加任务", exact: true }),
@@ -110,10 +114,10 @@ async function setup(page: Page) {
   await page.getByTestId("import").setInputFiles({
     name: "hierarchy.json",
     mimeType: "application/json",
-    buffer: Buffer.from(JSON.stringify(fixture())),
+    buffer: Buffer.from(JSON.stringify(data)),
   });
   await page.getByRole("button", { name: "确认替换" }).click();
-  await expect(page.getByTestId("card")).toHaveCount(3);
+  await expect(page.getByTestId("card")).toHaveCount(target ? 2 : 3);
 }
 async function open(page: Page) {
   await page.getByTestId("minimap").click({ button: "right" });
@@ -166,51 +170,81 @@ test("minimap context menu opens an exploded hierarchy with static components, g
   await expect(page.locator(".canvas3d-page iframe")).toHaveCount(0);
   await expect(page.locator(".app")).toHaveAttribute("inert", "");
   await page.screenshot({ path: "/tmp/yua-canvas3d-hierarchy.png" });
-  await page.getByRole("button", { name: "返回画布", exact: true }).click();
+  await page.getByRole("button", { name: "退出预览", exact: true }).click();
   await expect(page.locator(".canvas3d-page")).toHaveCount(0);
   expect(await page.locator(".world").getAttribute("style")).toBe(beforeView);
 });
 
-test("orbit, wheel/buttons zoom, pan, focus and layer spacing do not modify canvas data", async ({
+test("orbit follows mouse axes, clamps pitch to 180 degrees, and keeps only two top-right actions", async ({
   page,
 }) => {
   await setup(page);
   await saved(page);
   const original = await snapshot(page);
   await open(page);
-  const sceneView = page.getByTestId("canvas3d-scene");
-  const initial = await sceneView.getAttribute("style");
-  const stage = (await page.getByTestId("canvas3d-stage").boundingBox())!;
-  await page.mouse.move(stage.x + 40, stage.y + 50);
+  await expect(page.locator(".canvas3d-page button")).toHaveCount(2);
+  await expect(
+    page.locator(
+      ".canvas3d-sidebar,.canvas3d-tools,.canvas3d-hint, .canvas3d-header",
+    ),
+  ).toHaveCount(0);
+  const actions = (await page.locator(".canvas3d-actions").boundingBox())!;
+  expect(actions.x + actions.width).toBeGreaterThan(1200);
+  expect(actions.y).toBeLessThan(30);
+  const sceneView = page.getByTestId("canvas3d-scene"),
+    initial = await sceneView.getAttribute("style");
+  const root = page.locator('[data-depth="0"]'),
+    child = page.locator('[data-depth="1"]').first(),
+    grandchild = page.locator('[data-depth="2"]');
+  const center = async (node: typeof root) => {
+    const box = (await node.boundingBox())!;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const originalCenter = await center(root);
+  expect(originalCenter.y).toBeLessThan((await center(child)).y);
+  expect((await center(child)).y).toBeLessThan((await center(grandchild)).y);
+  expect(
+    await child.evaluate(
+      (el) => new DOMMatrix(getComputedStyle(el).transform).m43,
+    ),
+  ).toBe(-220);
+  await page.mouse.move(40, 60);
   await page.mouse.down();
-  await page.mouse.move(stage.x + 140, stage.y + 90, { steps: 8 });
+  await page.mouse.move(120, 60, { steps: 8 });
   await page.mouse.up();
-  expect(await sceneView.getAttribute("style")).not.toBe(initial);
+  expect(Number(await sceneView.getAttribute("data-yaw"))).toBeGreaterThan(-18);
+  expect((await center(root)).x).toBeGreaterThan(originalCenter.x);
+  await page.getByRole("button", { name: "重置 3D 视角" }).click();
+  await page.mouse.move(40, 60);
+  await page.mouse.down();
+  await page.mouse.move(40, 140, { steps: 8 });
+  await page.mouse.up();
+  expect(Number(await sceneView.getAttribute("data-pitch"))).toBeLessThan(48);
+  expect((await center(root)).y).toBeGreaterThan(originalCenter.y);
+  for (let i = 0; i < 3; i++) {
+    await page.mouse.move(40, 60);
+    await page.mouse.down();
+    await page.mouse.move(40, 660, { steps: 5 });
+    await page.mouse.up();
+  }
+  await expect(sceneView).toHaveAttribute("data-pitch", "-90");
+  for (let i = 0; i < 3; i++) {
+    await page.mouse.move(40, 660);
+    await page.mouse.down();
+    await page.mouse.move(40, 60, { steps: 5 });
+    await page.mouse.up();
+  }
+  await expect(sceneView).toHaveAttribute("data-pitch", "90");
   await page.mouse.wheel(0, -250);
-  await expect(page.getByLabel("3D 缩放比例")).not.toHaveText("100%");
+  await expect(sceneView).not.toHaveAttribute("data-zoom", "1");
   await page.getByRole("button", { name: "重置 3D 视角" }).click();
   await expect(sceneView).toHaveAttribute("style", initial!);
-  await page.getByRole("button", { name: "放大 3D 预览" }).click();
-  await expect(page.getByLabel("3D 缩放比例")).toHaveText("120%");
-  await page.getByRole("button", { name: "缩小 3D 预览" }).click();
-  await expect(page.getByLabel("3D 缩放比例")).toHaveText("100%");
-  await page.mouse.move(stage.x + 40, stage.y + 50);
+  await page.mouse.move(40, 60);
   await page.mouse.down({ button: "right" });
-  await page.mouse.move(stage.x + 70, stage.y + 80, { steps: 5 });
+  await page.mouse.move(70, 90, { steps: 5 });
   await page.mouse.up({ button: "right" });
   expect(await sceneView.getAttribute("style")).toContain(
     "translate3d(30px, 30px",
-  );
-  await page
-    .getByRole("button", { name: "聚焦 根画布 / 项目", exact: true })
-    .click();
-  await page.getByLabel("仅显示聚焦画布").check();
-  await expect(page.locator(".canvas3d-layer")).toHaveCount(1);
-  await expect(page.locator(".canvas3d-component")).toHaveCount(6);
-  await page.getByLabel("3D 层间距").fill("400");
-  await expect(page.locator(".canvas3d-layer")).toHaveAttribute(
-    "style",
-    /400px/,
   );
   await page.keyboard.press("n");
   await page.keyboard.press("ControlOrMeta+z");
@@ -224,12 +258,8 @@ for (const id of ["深层文本", "todo", "file", "image", "miniature", "nested"
   test(`double click ${id} navigates to its canvas and invokes its normal action`, async ({
     page,
   }) => {
-    await setup(page);
+    await setup(page, id);
     await open(page);
-    await page
-      .getByRole("button", { name: "聚焦 根画布 / 项目", exact: true })
-      .click();
-    await page.getByLabel("仅显示聚焦画布").check();
     await page.locator(`[data-3d-card="${id}"]`).dblclick();
     await expect(page.locator(".canvas3d-page")).toHaveCount(0);
     await expect(page.locator(".canvas-navigation")).toHaveText(
@@ -286,13 +316,14 @@ test("empty mobile preview supports keyboard rotation and leaves native canvas e
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/#/3d");
-  await expect(page.locator(".canvas3d-empty")).toHaveText("空画布");
+  await expect(page.locator(".canvas3d-layer")).toHaveCount(1);
+  await expect(page.locator(".canvas3d-page button")).toHaveCount(2);
   const sceneView = page.getByTestId("canvas3d-scene"),
     before = await sceneView.getAttribute("style");
   await page.keyboard.press("ArrowLeft");
   expect(await sceneView.getAttribute("style")).not.toBe(before);
   await page.keyboard.press("+");
-  await expect(page.getByLabel("3D 缩放比例")).toHaveText("120%");
+  await expect(sceneView).toHaveAttribute("data-zoom", "1.2");
   await page.screenshot({ path: "/tmp/yua-canvas3d-mobile.png" });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     390,
@@ -310,6 +341,8 @@ test("two-finger zoom and pan, cancellation and suspended scene iframes work", a
   await page
     .getByRole("button", { name: "进入子画布 项目", exact: true })
     .click();
+  await expect(page.locator(".miniature-cover")).toBeVisible();
+  await page.getByRole("button", { name: "交互 3D 场景" }).click();
   await expect(page.locator(".miniature-frame")).toHaveCount(1);
   await open(page);
   await expect(page.locator("iframe")).toHaveCount(0);
@@ -331,13 +364,17 @@ test("two-finger zoom and pan, cancellation and suspended scene iframes work", a
     type: "touchEnd",
     touchPoints: [],
   });
-  await expect(page.getByLabel("3D 缩放比例")).not.toHaveText("100%");
+  await expect(page.getByTestId("canvas3d-scene")).not.toHaveAttribute(
+    "data-zoom",
+    "1",
+  );
   const sceneView = page.getByTestId("canvas3d-scene");
   const before = await sceneView.getAttribute("style");
   await page.evaluate(() => window.dispatchEvent(new Event("blur")));
   await page.mouse.move(900, 500);
   expect(await sceneView.getAttribute("style")).toBe(before);
-  await page.getByRole("button", { name: "返回画布", exact: true }).click();
-  await expect(page.locator(".miniature-frame")).toHaveCount(1);
+  await page.getByRole("button", { name: "退出预览", exact: true }).click();
+  await expect(page.locator(".miniature-cover")).toBeVisible();
+  await expect(page.locator(".miniature-frame")).toHaveCount(0);
   await expect(page.locator(".canvas-navigation")).toHaveText("项目");
 });

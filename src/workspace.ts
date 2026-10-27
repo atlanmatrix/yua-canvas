@@ -119,7 +119,7 @@ export function useCanvasWorkspace() {
   };
   const setBoard = (
     action: Board | ((board: Board) => Board),
-    options?: { preserveLayout?: boolean },
+    options?: { preserveLayout?: boolean; recordHistory?: boolean },
   ) =>
     history.setBoard((root) => {
       const target = findBoardPath(root, key);

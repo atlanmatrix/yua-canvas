@@ -28,7 +28,7 @@ export function useBoardHistory() {
   };
   const setBoard = (
     action: Board | ((b: Board) => Board),
-    options?: { preserveLayout?: boolean },
+    options?: { preserveLayout?: boolean; recordHistory?: boolean },
   ) => {
     const previous = current.current,
       raw = typeof action === "function" ? action(previous) : action,
@@ -38,7 +38,8 @@ export function useBoardHistory() {
         !transaction.current && !options?.preserveLayout,
       );
     if (next === previous) return;
-    if (!transaction.current) push(previous);
+    if (!transaction.current && options?.recordHistory !== false)
+      push(previous);
     current.current = next;
     setState(next);
   };

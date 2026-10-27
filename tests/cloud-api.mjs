@@ -326,3 +326,76 @@ test("miniature snapshots sync and share; unsafe scene URLs are rejected", async
   );
   assert.deepEqual(resolved.data.snapshot.cards, snapshot.cards);
 });
+
+test("miniature covers remain share-scoped assets and saved views stay on the configured scene", async () => {
+  const bytes = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",
+      "base64",
+    ),
+    id = hash(bytes);
+  const uploaded = await fetch(origin + "/api/assets/" + id, {
+    method: "PUT",
+    headers: { Origin: origin, Cookie: "yua_session=" + other },
+    body: bytes,
+  });
+  assert.equal(uploaded.status, 200);
+  const current = await request("/canvas", "GET", undefined, other),
+    revision = current.data.revision;
+  const snapshot = board(
+    "https://atlanmatrix.github.io/codex-playground/city/",
+  );
+  Object.assign(snapshot.cards[0], {
+    kind: "miniature",
+    title: "城市",
+    mime: "image/png",
+    blobType: "image/png",
+    archiveFile: id,
+    miniatureView: "https://other.example/city/?view=saved",
+  });
+  assert.equal(
+    (
+      await request(
+        "/canvas",
+        "PUT",
+        { baseRevision: revision, snapshot },
+        other,
+      )
+    ).status,
+    400,
+  );
+  snapshot.cards[0].miniatureView = snapshot.cards[0].text + "?view=saved";
+  assert.equal(
+    (
+      await request(
+        "/canvas",
+        "PUT",
+        { baseRevision: revision, snapshot },
+        other,
+      )
+    ).status,
+    200,
+  );
+  const shared = await request(
+    "/shares",
+    "POST",
+    { expiresInDays: 7, expectedRevision: revision + 1 },
+    other,
+  );
+  assert.equal(shared.status, 200);
+  const image = await fetch(origin + "/api/assets/" + id, {
+    headers: { "X-Share-Token": shared.data.token },
+  });
+  assert.equal(image.status, 200);
+  assert.deepEqual(Buffer.from(await image.arrayBuffer()), bytes);
+  assert.equal(
+    (
+      await request(
+        "/shares/resolve",
+        "POST",
+        { token: shared.data.token },
+        null,
+      )
+    ).data.snapshot.cards[0].miniatureView,
+    snapshot.cards[0].miniatureView,
+  );
+});

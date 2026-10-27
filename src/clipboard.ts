@@ -69,7 +69,11 @@ export function clipboardCopy(cards: Card[]): ClipboardCopy {
         return (c.tasks || [])
           .map((t) => `- [${t.done ? "x" : " "}] ${t.text}`)
           .join("\n");
-      return c.kind === "canvas" ? c.title || "子画布" : c.text;
+      return c.kind === "canvas"
+        ? c.title || "子画布"
+        : c.kind === "miniature"
+          ? c.miniatureView || c.text
+          : c.text;
     }),
   ).then((parts) => new Blob([parts.join("\n\n")], { type: "text/plain" }));
   return {

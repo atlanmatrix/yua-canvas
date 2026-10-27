@@ -255,10 +255,7 @@ test("3D hierarchy and component opening work offline at the Pages subpath", asy
     await context.setOffline(true);
     await page.reload();
     await expect(page.locator(".canvas3d-layer")).toHaveCount(2);
-    await page
-      .getByRole("button", { name: "聚焦 根画布 / 离线子画布", exact: true })
-      .click();
-    await page.getByLabel("仅显示聚焦画布").check();
+
     await page.locator('[data-3d-card="note"]').dblclick();
     await expect(page.getByRole("textbox", { name: "文本内容" })).toHaveValue(
       "离线 3D 组件",
@@ -340,6 +337,51 @@ test("complete workspace backup restores all canvases and views offline at the P
     await page.reload();
     await expect(page.locator(".canvas-navigation")).toHaveText("子画布");
     assert.deepEqual(JSON.parse((await download()).toString()), original);
+  } finally {
+    await context.close();
+  }
+});
+test("miniature static covers survive an offline reload without starting a scene", async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await app(context),
+      scene = "https://atlanmatrix.github.io/codex-playground/city/";
+    let loads = 0;
+    await page.route(
+      (url) =>
+        url.origin === new URL(scene).origin &&
+        url.pathname === new URL(scene).pathname,
+      (route) => {
+        loads++;
+        return route.fulfill({
+          contentType: "text/html; charset=utf-8",
+          body: `<script>
+      const parentOrigin=new URL(location.href).searchParams.get('parentOrigin');
+      window.addEventListener('message',e=>{if(e.source!==parent||e.origin!==parentOrigin||e.data?.type!=='little-worlds:capture')return;
+        const canvas=document.createElement('canvas');canvas.width=96;canvas.height=72;canvas.getContext('2d').fillRect(0,0,96,72);
+        parent.postMessage({type:'little-worlds:response',requestId:e.data.requestId,ok:true,result:{url:'${scene}?view=saved',dataUrl:canvas.toDataURL('image/webp')}},parentOrigin);
+      });parent.postMessage({type:'little-worlds:ready'},parentOrigin);
+      </script>`,
+        });
+      },
+    );
+    await page
+      .getByRole("button", { name: "添加 miniature", exact: true })
+      .click();
+    await page.getByRole("button", { name: "使用示例场景" }).click();
+    await page.getByRole("button", { name: "保存场景" }).click();
+    await expect(page.locator(".miniature-cover")).toBeVisible();
+    await expect(page.locator("iframe")).toHaveCount(0);
+    await expect(page.locator(".save-indicator")).toHaveAttribute(
+      "data-state",
+      "已保存至本地",
+    );
+    const before = loads;
+    await context.setOffline(true);
+    await page.reload();
+    await expect(page.locator(".miniature-cover")).toBeVisible();
+    await expect(page.locator("iframe")).toHaveCount(0);
+    assert.equal(loads, before);
   } finally {
     await context.close();
   }

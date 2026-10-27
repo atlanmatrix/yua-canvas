@@ -51,7 +51,7 @@ export function PinBar({
               setEditing(key);
             }}
           >
-            {pin.name}
+            <span>{pin.name}</span>
           </button>
         );
       })}

@@ -6,51 +6,13 @@
   position: fixed;
   inset: 0;
   z-index: 40;
-  display: flex;
-  flex-direction: column;
   background: #edf1f5;
   color: #334155;
   outline: none;
 }
-.canvas3d-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px 24px;
-  background: #ffffffed;
-  border-bottom: 1px solid #dbe2ea;
-}
-.canvas3d-header > button {
-  padding: 8px;
-  border-radius: 6px;
-  font-size: 12px;
-}
-.canvas3d-header button:hover {
-  background: #eff6ff;
-}
-.canvas3d-header h1 {
-  display: flex;
-  gap: 9px;
-  align-items: center;
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-.canvas3d-header p {
-  margin: 5px 0 0 29px;
-  color: #7b8799;
-  font-size: 11px;
-}
-.canvas3d-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-}
 .canvas3d-stage {
-  flex: 1;
-  position: relative;
-  min-width: 0;
+  position: absolute;
+  inset: 0;
   overflow: hidden;
   touch-action: none;
   user-select: none;
@@ -60,10 +22,36 @@
 .canvas3d-stage:active {
   cursor: grabbing;
 }
+.canvas3d-actions {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+.canvas3d-actions button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  background: #fffffff0;
+  box-shadow: 0 3px 12px #3341550a;
+}
+.canvas3d-actions button:hover {
+  background: #eff6ff;
+  color: #2563eb;
+}
+@media (max-width: 640px) {
+  .canvas3d-actions {
+    top: 12px;
+    right: 12px;
+  }
+}
 .canvas3d-origin {
   position: absolute;
   left: 50%;
-  top: 48%;
+  top: 50%;
   width: 0;
   height: 0;
   perspective: 4000px;
@@ -101,7 +89,7 @@
   left: 0;
   max-width: 100%;
   white-space: nowrap;
-  pointer-events: auto;
+  pointer-events: none;
   border: 1px solid #d5dfeb;
   border-radius: 7px;
   background: #fffffff2;
@@ -111,14 +99,6 @@
 .canvas3d-layer-title > span {
   color: #2563eb;
   font: 11px monospace;
-}
-.canvas3d-empty {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #94a3b8;
-  font-size: 13px;
 }
 .canvas3d-component {
   position: absolute;
@@ -233,148 +213,4 @@
     transparent 6px 12px
   );
   pointer-events: none;
-}
-.canvas3d-tools {
-  position: absolute;
-  bottom: 58px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px;
-  border: 1px solid #dbe2ea;
-  border-radius: 9px;
-  background: #fffffff0;
-  box-shadow: 0 3px 12px #3341550a;
-}
-.canvas3d-tools button {
-  width: 30px;
-  height: 30px;
-  border-radius: 5px;
-}
-.canvas3d-tools button:hover {
-  background: #eff6ff;
-}
-.canvas3d-tools output {
-  width: 48px;
-  text-align: center;
-  font-size: 12px;
-  color: #64748b;
-}
-.canvas3d-hint {
-  position: absolute;
-  bottom: 17px;
-  left: 12px;
-  right: 12px;
-  text-align: center;
-  pointer-events: none;
-  font-size: 11px;
-  color: #7b8799;
-}
-.canvas3d-sidebar {
-  width: 242px;
-  flex-shrink: 0;
-  padding: 24px 16px;
-  background: #ffffffc9;
-  border-left: 1px solid #dbe2ea;
-  overflow: auto;
-}
-.canvas3d-sidebar h2 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-}
-.canvas3d-sidebar > p {
-  font-size: 11px;
-  color: #94a3b8;
-  line-height: 1.7;
-  margin-bottom: 20px;
-}
-.canvas3d-tree-row {
-  display: flex;
-  gap: 3px;
-  align-items: center;
-}
-.canvas3d-tree-row > button {
-  min-width: 0;
-  padding: 9px 5px;
-  border-radius: 5px;
-  font-size: 12px;
-}
-.canvas3d-tree-row > button:first-child {
-  flex: 1;
-  justify-content: flex-start;
-}
-.canvas3d-tree-row > button:hover,
-.canvas3d-tree-row > button[aria-pressed="true"] {
-  background: #eff6ff;
-  color: #2563eb;
-}
-.canvas3d-tree-row span {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  flex: 1;
-  text-align: left;
-}
-.canvas3d-tree-row svg {
-  flex-shrink: 0;
-}
-.canvas3d-tree-row small {
-  color: #94a3b8;
-}
-.canvas3d-solo {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 24px 0;
-  font-size: 11px;
-}
-.canvas3d-spacing {
-  display: block;
-  font-size: 11px;
-  border-top: 1px solid #e2e8f0;
-  padding-top: 20px;
-}
-.canvas3d-spacing output {
-  float: right;
-  color: #94a3b8;
-}
-.canvas3d-spacing input {
-  display: block;
-  width: 100%;
-  margin: 15px 0;
-  accent-color: #3b82f6;
-}
-@media (max-width: 640px) {
-  .canvas3d-header {
-    padding: 12px;
-    gap: 8px;
-  }
-  .canvas3d-header > button span {
-    display: none;
-  }
-  .canvas3d-body {
-    flex-direction: column;
-  }
-  .canvas3d-sidebar {
-    width: 100%;
-    max-height: 30dvh;
-    padding: 12px 16px;
-    border-left: 0;
-    border-top: 1px solid #dbe2ea;
-  }
-  .canvas3d-sidebar > p {
-    margin: 6px 0;
-  }
-  .canvas3d-solo {
-    margin: 10px 0;
-  }
-  .canvas3d-spacing {
-    padding-top: 10px;
-  }
-  .canvas3d-hint {
-    font-size: 10px;
-  }
 }

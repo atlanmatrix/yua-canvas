@@ -111,6 +111,7 @@ void registerPwa();
 import { CloudPanel } from "./CloudPanel";
 import { ShareViewer } from "./ShareViewer";
 import { Miniature, MiniatureDialog } from "./Miniature";
+import { miniatureViewUrl } from "./miniatureScene";
 const uid = () => crypto.randomUUID();
 const colors = ["#ffffff"];
 function Attachment({ card, large = false }: { card: Card; large?: boolean }) {
@@ -2456,7 +2457,44 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   )}
                 {c.kind === "miniature" ? (
                   preview3D ? null : (
-                    <Miniature card={c} onEdit={() => setMiniatureDraft(c)} />
+                    <Miniature
+                      card={c}
+                      onEdit={() => setMiniatureDraft(c)}
+                      onSnapshot={({ view, cover }) => {
+                        if (!miniatureViewUrl(c.text, view)) return;
+                        workspace.updateRoot(
+                          (root) =>
+                            replaceBoard(root, path, (board) => {
+                              const target = board.cards.find(
+                                (card) =>
+                                  card.id === c.id &&
+                                  card.kind === "miniature" &&
+                                  card.text === c.text,
+                              );
+                              if (
+                                !target ||
+                                (target.miniatureView === view &&
+                                  target.blob === cover)
+                              )
+                                return board;
+                              return {
+                                ...board,
+                                cards: board.cards.map((card) =>
+                                  card === target
+                                    ? {
+                                        ...card,
+                                        miniatureView: view,
+                                        blob: cover,
+                                        mime: cover?.type,
+                                      }
+                                    : card,
+                                ),
+                              };
+                            }),
+                          { preserveLayout: true, recordHistory: false },
+                        );
+                      }}
+                    />
                   )
                 ) : c.kind === "canvas" ? (
                   <>
@@ -3449,11 +3487,16 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           onClose={() => setMiniatureDraft(undefined)}
           onSave={(title, src) => {
             const fresh = !miniatureDraft.id;
+            const sceneChanged = miniatureDraft.text !== src;
+            const resetCover = sceneChanged
+              ? { blob: undefined, mime: undefined, miniatureView: undefined }
+              : {};
             const card = {
               ...miniatureDraft,
               id: miniatureDraft.id || uid(),
               title,
               text: src,
+              ...resetCover,
             };
             setBoard((b) => ({
               ...b,
@@ -3463,7 +3506,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     { ...card, group: containingGroup(card, b.groups) },
                   ]
                 : b.cards.map((c) =>
-                    c.id === card.id ? { ...c, title, text: src } : c,
+                    c.id === card.id
+                      ? { ...c, title, text: src, ...resetCover }
+                      : c,
                   ),
             }));
             setSelection([card.id]);

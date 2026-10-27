@@ -17,3 +17,23 @@ export function miniatureUrl(value: string): string | undefined {
     return;
   }
 }
+
+export function miniatureViewUrl(
+  source: string,
+  value: unknown,
+): string | undefined {
+  if (typeof value !== "string") return;
+  const base = miniatureUrl(source),
+    candidate = miniatureUrl(value);
+  if (!base || !candidate) return;
+  const expected = new URL(base),
+    url = new URL(candidate);
+  if (
+    url.origin !== expected.origin ||
+    url.pathname.replace(/\/$/, "") !== expected.pathname.replace(/\/$/, "")
+  )
+    return;
+  for (const key of ["parentOrigin", "screenshot", "preview"])
+    url.searchParams.delete(key);
+  return url.href;
+}

@@ -13,7 +13,10 @@ import {
 function MiniCard({ card, selected }: { card: Card; selected: boolean }) {
   const [image, setImage] = useState("");
   useEffect(() => {
-    if (card.kind !== "image" || !card.blob) return;
+    if (!["image", "miniature"].includes(card.kind) || !card.blob) {
+      setImage("");
+      return;
+    }
     const url = URL.createObjectURL(card.blob);
     setImage(url);
     return () => URL.revokeObjectURL(url);

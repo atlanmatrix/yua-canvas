@@ -1,19 +1,14 @@
 import { test, expect, type Page } from "@playwright/test";
 import { unzipSync, strFromU8 } from "fflate";
 import { downloadSelectionMenu } from "./helpers";
+import { mockMiniature } from "./miniature-fixture";
 
 const src = "https://atlanmatrix.github.io/codex-playground/city/";
 const title = "被自然收回的城市街角";
 const embed = `<iframe src="${src}" title="${title}" width="100%" height="480" style="border:0" loading="lazy" allow="fullscreen" allowfullscreen></iframe>`;
 
 test.beforeEach(async ({ page }) => {
-  // Keep scene interaction deterministic and independent of the remote host.
-  await page.route(src, (route) =>
-    route.fulfill({
-      contentType: "text/html; charset=utf-8",
-      body: '<body style="background:#b8cbb3"><button onclick="this.textContent=\'场景已旋转\'">旋转场景</button></body>',
-    }),
-  );
+  await mockMiniature(page);
 });
 async function ready(page: Page) {
   await page.goto("/");
@@ -49,14 +44,8 @@ test("iframe creates a draggable, resizable scene with opt-in interaction and re
   await create(page);
   const card = page.locator(".card-miniature"),
     frame = card.locator("iframe");
-  await expect(frame).toHaveAttribute("src", src);
-  await expect(frame).toHaveAttribute("title", title);
-  await expect(frame).toHaveAttribute("loading", "lazy");
-  await expect(frame).toHaveAttribute("allow", "fullscreen");
-  expect(await frame.evaluate((el) => el.getBoundingClientRect().height)).toBe(
-    480,
-  );
-  await expect(frame).toHaveCSS("pointer-events", "none");
+  await expect(card.locator(".miniature-cover")).toBeVisible();
+  await expect(frame).toHaveCount(0);
   const before = (await card.boundingBox())!;
   await page.mouse.move(before.x + 80, before.y + 100);
   await page.mouse.down();
@@ -65,8 +54,14 @@ test("iframe creates a draggable, resizable scene with opt-in interaction and re
   const moved = (await card.boundingBox())!;
   expect(moved.x).toBeCloseTo(before.x + 40, 0);
   expect(moved.y).toBeCloseTo(before.y + 25, 0);
+  await mockMiniature(page, { delay: 300 });
   await card.getByRole("button", { name: "交互 3D 场景" }).click();
-  await expect(frame).toHaveCSS("pointer-events", "auto");
+  await expect(frame).toHaveAttribute("src", /city\/\?.*parentOrigin=/);
+  await expect(frame).toHaveAttribute("allow", "fullscreen");
+  await expect(frame).toHaveAttribute("title", title);
+  expect(await frame.evaluate((el) => el.getBoundingClientRect().height)).toBe(
+    480,
+  );
   await page
     .frameLocator(".miniature-frame")
     .getByRole("button", { name: "旋转场景" })
@@ -74,8 +69,11 @@ test("iframe creates a draggable, resizable scene with opt-in interaction and re
   await expect(
     page.frameLocator(".miniature-frame").getByRole("button"),
   ).toHaveText("场景已旋转");
+  await expect(page.locator("[data-minimap-card] image")).toHaveCount(0);
   await card.getByRole("button", { name: "结束场景交互" }).click();
-  await expect(frame).toHaveCSS("pointer-events", "none");
+  await expect(frame).toHaveCount(0);
+  await expect(card.locator(".miniature-cover")).toBeVisible();
+  await expect(page.locator("[data-minimap-card] image")).toHaveCount(1);
   const handle = card.getByTestId("card-resize-se"),
     box = (await handle.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -95,12 +93,17 @@ test("iframe creates a draggable, resizable scene with opt-in interaction and re
     width: 685,
     height: 540,
   });
+  expect(
+    new URL(exported.cards[0].miniatureView).searchParams.get("view"),
+  ).toBe("rotated");
+  expect(exported.cards[0].blob).toMatch(/^data:image\/webp;base64,/);
   await expect(page.locator(".save-indicator")).toHaveAttribute(
     "data-state",
     "已保存至本地",
   );
   await page.reload();
-  await expect(page.locator(".miniature-frame")).toHaveAttribute("src", src);
+  await expect(page.locator(".miniature-cover")).toBeVisible();
+  await expect(page.locator("iframe")).toHaveCount(0);
 });
 
 test("editing validates URLs, ignores executable iframe attributes, supports example and cancel/undo", async ({
@@ -124,33 +127,39 @@ test("editing validates URLs, ignores executable iframe attributes, supports exa
     `<iframe src="${src}" title="${title}" onload="window.__unsafe=true" srcdoc="unsafe"></iframe><script>window.__unsafe=true</script>`,
   );
   await page.getByRole("button", { name: "保存场景" }).click();
-  await expect(page.locator("iframe")).not.toHaveAttribute("onload");
-  await expect(page.locator("iframe")).not.toHaveAttribute("srcdoc");
+  await expect(page.locator(".miniature-cover")).toBeVisible();
+  await expect(page.locator("iframe")).toHaveCount(0);
+  await expect(page.locator("iframe[onload],iframe[srcdoc]")).toHaveCount(0);
   expect(await page.evaluate(() => (window as any).__unsafe)).toBeUndefined();
   await page
     .getByRole("button", { name: "编辑 miniature", exact: true })
     .click();
   await page.getByRole("textbox", { name: "场景名称" }).fill("更名");
   await page.keyboard.press("Escape");
-  await expect(page.locator("iframe")).toHaveAttribute("title", title);
+  await expect(page.locator(".miniature-cover")).toHaveAttribute("alt", title);
   await page
     .getByRole("button", { name: "编辑 miniature", exact: true })
     .click();
   await page.getByRole("button", { name: "使用示例场景" }).click();
   await page.getByRole("textbox", { name: "场景名称" }).fill("更名");
   await page.getByRole("button", { name: "保存场景" }).click();
-  await expect(page.locator("iframe")).toHaveAttribute("title", "更名");
+  await expect(page.locator(".miniature-cover")).toHaveAttribute("alt", "更名");
   await page.keyboard.press("ControlOrMeta+z");
-  await expect(page.locator("iframe")).toHaveAttribute("title", title);
+  await expect(page.locator(".miniature-cover")).toHaveAttribute("alt", title);
 });
 
 test("copy, JSON and ZIP retain miniature type, source, title and dimensions; invalid imports are atomic", async ({
   page,
   context,
 }) => {
+  let sceneLoads = 0;
+  page.on("request", (request) => {
+    if (request.url().startsWith(src)) sceneLoads++;
+  });
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await ready(page);
   await create(page);
+  await expect(page.locator(".miniature-cover")).toBeVisible();
   await page.keyboard.press("ControlOrMeta+c");
   await expect(page.getByRole("status")).toContainText("已复制");
   await page.keyboard.press("ControlOrMeta+v");
@@ -162,6 +171,10 @@ test("copy, JSON and ZIP retain miniature type, source, title and dimensions; in
   for (const card of metadata.cards) {
     expect(card.kind).toBe("miniature");
     expect(strFromU8(entries[card.file])).toBe(src);
+    expect(entries[card.coverFile]).toBeDefined();
+    expect(new URL(card.miniatureView).searchParams.get("view")).toBe(
+      "initial",
+    );
   }
   await page.getByTestId("files").setInputFiles({
     name: "scenes.zip",
@@ -178,6 +191,7 @@ test("copy, JSON and ZIP retain miniature type, source, title and dimensions; in
   await page.getByRole("button", { name: "确认替换" }).click();
   await expect(page.locator(".card-miniature")).toHaveCount(4);
   const restored = JSON.parse((await download(page, "导出画布")).toString());
+  expect(restored.cards).toEqual(JSON.parse(json.toString()).cards);
   for (const card of restored.cards)
     expect(card).toMatchObject({
       kind: "miniature",
@@ -185,7 +199,11 @@ test("copy, JSON and ZIP retain miniature type, source, title and dimensions; in
       text: src,
       width: 640,
       height: 520,
+      blob: restored.cards[0].blob,
+      miniatureView: restored.cards[0].miniatureView,
     });
+  expect(restored.cards[0].blob).toMatch(/^data:image\/webp;base64,/);
+  expect(sceneLoads).toBe(1);
   const invalid = {
     ...restored,
     cards: [{ ...restored.cards[0], text: "javascript:alert(1)" }],
@@ -256,10 +274,8 @@ test("read-only shares embed miniature scenes without exposing editor controls",
     }),
   );
   await page.goto("/#/s/" + "a".repeat(64));
-  await expect(page.locator(".share-miniature iframe")).toHaveAttribute(
-    "src",
-    src,
-  );
+  await expect(page.locator(".share-miniature .miniature-cover")).toBeVisible();
+  await expect(page.locator(".share-miniature iframe")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "编辑 miniature" }),
   ).toHaveCount(0);
@@ -271,4 +287,142 @@ test("read-only shares embed miniature scenes without exposing editor controls",
   await expect(
     page.frameLocator(".miniature-frame").getByRole("button"),
   ).toHaveText("场景已旋转");
+});
+
+test("cover generation is serial, persists and reopens without any scene iframes", async ({
+  page,
+}) => {
+  await ready(page);
+  await page.evaluate(() => {
+    (window as any).maxCaptureFrames = 0;
+    const observer = new MutationObserver(() => {
+      (window as any).maxCaptureFrames = Math.max(
+        (window as any).maxCaptureFrames,
+        document.querySelectorAll(".miniature-capture-frame").length,
+      );
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  });
+  const data = {
+    version: 1,
+    groups: [],
+    cards: [0, 1].map((i) => ({
+      id: `scene-${i}`,
+      kind: "miniature",
+      title: `场景 ${i}`,
+      text: src,
+      x: 80 + i * 380,
+      y: 100,
+      width: 340,
+      height: 300,
+      color: "#ffffff",
+    })),
+  };
+  await page.getByTestId("import").setInputFiles({
+    name: "scenes.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(data)),
+  });
+  await page.getByRole("button", { name: "确认替换" }).click();
+  await expect(page.locator(".miniature-cover")).toHaveCount(2);
+  await expect(page.locator("iframe")).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).maxCaptureFrames)).toBe(1);
+  await expect(page.locator(".save-indicator")).toHaveAttribute(
+    "data-state",
+    "已保存至本地",
+  );
+  let loads = 0;
+  page.on("request", (request) => {
+    if (request.url().startsWith(src)) loads++;
+  });
+  await page.reload();
+  await expect(page.locator(".miniature-cover")).toHaveCount(2);
+  await expect(page.locator("iframe")).toHaveCount(0);
+  expect(loads).toBe(0);
+});
+
+test("automatic screenshots do not add undo steps", async ({ page }) => {
+  await ready(page);
+  await create(page);
+  await expect(page.locator(".miniature-cover")).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(page.locator(".card-miniature")).toHaveCount(0);
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect(page.locator(".miniature-cover")).toBeVisible();
+  await expect(page.locator("iframe")).toHaveCount(0);
+});
+
+test("messages from a different origin, window or request cannot alter the saved view or cover", async ({
+  page,
+}) => {
+  await ready(page);
+  await create(page);
+  await expect(page.locator(".miniature-cover")).toBeVisible();
+  const original = JSON.parse((await download(page, "导出画布")).toString())
+    .cards[0];
+  await mockMiniature(page, { delay: 1000 });
+  await page.getByRole("button", { name: "交互 3D 场景" }).click();
+  await expect(page.locator("iframe")).toBeVisible();
+  await page.evaluate(
+    ({ src, cover }) => {
+      const child = document.querySelector("iframe")!.contentWindow!,
+        origin = new URL(src).origin;
+      const notification = {
+        type: "little-worlds:statechange",
+        url: src + "?view=forged",
+      };
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: child,
+          origin: "https://other.example",
+          data: notification,
+        }),
+      );
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: window,
+          origin,
+          data: notification,
+        }),
+      );
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: child,
+          origin,
+          data: {
+            type: "little-worlds:response",
+            requestId: "wrong-request",
+            ok: true,
+            result: { url: src + "?view=forged", dataUrl: cover },
+          },
+        }),
+      );
+    },
+    { src, cover: original.blob },
+  );
+  const result = JSON.parse((await download(page, "导出画布")).toString())
+    .cards[0];
+  expect(result.miniatureView).toBe(original.miniatureView);
+  expect(result.blob).toBe(original.blob);
+});
+
+test("an unsupported capture protocol times out without leaving a background iframe running", async ({
+  page,
+}) => {
+  await mockMiniature(page, { protocol: false });
+  await ready(page);
+  await page.clock.install();
+  await create(page);
+  await expect(page.locator(".miniature-capture-frame")).toHaveCount(1);
+  await page.clock.fastForward(13000);
+  await expect(page.locator("iframe")).toHaveCount(0);
+  await expect(page.locator(".miniature-placeholder")).toHaveText(
+    "暂无静态预览",
+  );
+  await page.getByRole("button", { name: "交互 3D 场景" }).click();
+  await page.clock.fastForward(13000);
+  await expect(page.locator("iframe")).toHaveCount(1);
+  await page.getByRole("button", { name: "结束场景交互" }).click();
+  await page.clock.fastForward(13000);
+  await expect(page.locator("iframe")).toHaveCount(0);
 });
