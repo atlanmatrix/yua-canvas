@@ -161,13 +161,14 @@ test("pin colors support all states, dismissal, undo and persistence for cards a
   const rail = page.getByRole("navigation", { name: "Pin 定位" });
   const item = rail.getByRole("button", { name: "根级内容", exact: true });
   for (const [value, label, color] of [
-    ["info", "info：蓝色", "rgb(29, 78, 216)"],
-    ["warn", "warn：橙色", "rgb(154, 52, 18)"],
-    ["danger", "danger：红色", "rgb(185, 28, 28)"],
-    ["normal", "normal：默认", "rgb(75, 85, 99)"],
+    ["info", "Pin 颜色：蓝色", "rgb(29, 78, 216)"],
+    ["warn", "Pin 颜色：橙色", "rgb(180, 83, 9)"],
+    ["danger", "Pin 颜色：红色", "rgb(185, 28, 28)"],
+    ["normal", "Pin 颜色：默认", "rgb(75, 85, 99)"],
   ]) {
     await item.click({ button: "right" });
     await expect(page.getByRole("menuitemradio")).toHaveCount(4);
+    await expect(page.getByRole("menuitemradio")).toHaveText(["", "", "", ""]);
     await page.getByRole("menuitemradio", { name: label, exact: true }).click();
     await expect(page.getByRole("menu")).toHaveCount(0);
     await expect(item).toHaveAttribute("data-pin-color", value);
@@ -176,7 +177,11 @@ test("pin colors support all states, dismissal, undo and persistence for cards a
   }
   await item.click({ button: "right" });
   await expect(
-    page.getByRole("menuitemradio", { name: "normal：默认" }),
+    page.getByRole("menuitemradio", { name: "Pin 颜色：默认" }),
+  ).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
+  await expect(
+    page.getByRole("menuitemradio", { name: "Pin 颜色：红色" }),
   ).toBeFocused();
   await page.keyboard.press("Home");
   await page.keyboard.press("Enter");
@@ -204,7 +209,7 @@ test("pin colors support all states, dismissal, undo and persistence for cards a
   const group = rail.getByRole("button", { name: "空分组", exact: true });
   await group.click({ button: "right" });
   await page
-    .getByRole("menuitemradio", { name: "danger：红色", exact: true })
+    .getByRole("menuitemradio", { name: "Pin 颜色：红色", exact: true })
     .click();
   await saved(page);
   await page.reload();
@@ -219,7 +224,7 @@ test("pin colors support all states, dismissal, undo and persistence for cards a
   const nested = rail.getByRole("button", { name: "子级内容", exact: true });
   await nested.click({ button: "right" });
   await page
-    .getByRole("menuitemradio", { name: "warn：橙色", exact: true })
+    .getByRole("menuitemradio", { name: "Pin 颜色：橙色", exact: true })
     .click();
   await expect(nested).toHaveAttribute("data-pin-color", "warn");
   await nested.click({ button: "right" });
@@ -230,6 +235,48 @@ test("pin colors support all states, dismissal, undo and persistence for cards a
     .getByRole("button", { name: "进入子画布 项目", exact: true })
     .click();
   await expect(nested).toHaveAttribute("data-pin-color", "warn");
+});
+
+test("parent and child shortcuts require one selected canvas and preserve native text editing", async ({
+  page,
+}) => {
+  await setup(page);
+  const root = page.locator('[data-card-id="根级内容"]');
+  const child = page.locator('[data-card-id="child"]');
+  await page.keyboard.press("Meta+ArrowDown");
+  await expect(root).toBeVisible();
+  await root.click();
+  await page.keyboard.press("Meta+ArrowDown");
+  await expect(root).toHaveClass(/selected/);
+  await child.click({ modifiers: ["Meta"], position: { x: 30, y: 30 } });
+  await expect(page.locator(".card.selected")).toHaveCount(2);
+  await page.keyboard.press("Meta+ArrowDown");
+  await expect(root).toBeVisible();
+  await root.click({ modifiers: ["Meta"] });
+  await expect(page.locator(".card.selected")).toHaveCount(1);
+  await expect(child).toHaveClass(/selected/);
+  await page.keyboard.press("Meta+ArrowDown");
+  await expect(root).toHaveCount(0);
+  await expect(page.locator('[data-card-id="子级内容"]')).toHaveCount(1);
+  await page.getByRole("button", { name: "适应所有内容", exact: true }).click();
+  await page.locator('[data-card-id="子级内容"]').dblclick();
+  const editor = page.getByRole("textbox", { name: "文本内容" });
+  await expect(editor).toBeFocused();
+  await page.keyboard.press("Meta+ArrowUp");
+  await expect(editor).toBeVisible();
+  await page.keyboard.press("Meta+ArrowDown");
+  await expect(editor).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Meta+ArrowUp");
+  await expect(root).toBeVisible();
+  await page.keyboard.press("Meta+ArrowUp");
+  await expect(root).toBeVisible();
+  // The same navigation is available with Ctrl on non-Mac keyboards.
+  await child.click({ position: { x: 30, y: 30 } });
+  await page.keyboard.press("Control+ArrowDown");
+  await expect(root).toHaveCount(0);
+  await page.keyboard.press("Control+ArrowUp");
+  await expect(root).toBeVisible();
 });
 test("root can create one parent and persists the restriction; undo restores availability", async ({
   page,
@@ -282,7 +329,7 @@ test("JSON and ZIP preserve pin labels and colors, duplicate pins locate indepen
     .first()
     .click({ button: "right" });
   await page
-    .getByRole("menuitemradio", { name: "info：蓝色", exact: true })
+    .getByRole("menuitemradio", { name: "Pin 颜色：蓝色", exact: true })
     .click();
   await expect(
     rail.getByRole("button", { name: "根级内容", exact: true }),

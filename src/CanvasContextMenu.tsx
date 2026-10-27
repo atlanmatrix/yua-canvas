@@ -18,10 +18,34 @@ export function ColorPalette({
   onChange: (color: string) => void;
 }) {
   return (
+    <ColorSwatches
+      label="背景颜色"
+      optionLabel="背景色"
+      colors={BACKGROUND_COLORS}
+      value={value?.toLowerCase()}
+      onChange={onChange}
+    />
+  );
+}
+
+export function ColorSwatches<T extends string>({
+  label,
+  optionLabel,
+  colors,
+  value,
+  onChange,
+}: {
+  label: string;
+  optionLabel: string;
+  colors: readonly { name: string; value: T; background?: string }[];
+  value?: string;
+  onChange: (color: T) => void;
+}) {
+  return (
     <div
       className="color-palette"
       role="group"
-      aria-label="背景颜色"
+      aria-label={label}
       onKeyDown={(e) => {
         if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
         e.preventDefault();
@@ -42,15 +66,15 @@ export function ColorPalette({
         buttons[next]?.focus();
       }}
     >
-      {BACKGROUND_COLORS.map((color) => (
+      {colors.map((color) => (
         <button
           key={color.value}
           className="color-swatch"
           role="menuitemradio"
-          aria-label={`背景色：${color.name}`}
-          aria-checked={value?.toLowerCase() === color.value}
+          aria-label={`${optionLabel}：${color.name}`}
+          aria-checked={value === color.value}
           title={color.name}
-          style={{ background: color.value }}
+          style={{ background: color.background || color.value }}
           onClick={() => onChange(color.value)}
         />
       ))}

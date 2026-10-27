@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Box } from "lucide-react";
-import { CanvasContextMenu } from "./CanvasContextMenu";
+import { Layers } from "lucide-react";
+import { CanvasContextMenu, MenuSection } from "./CanvasContextMenu";
 import { Minimap } from "./Minimap";
 import { projectMinimap, type MinimapProjection } from "./minimapGeometry";
 import { DEFAULT_VIEW } from "./workspace";
@@ -153,6 +153,17 @@ export function CanvasOverview({
           onNavigate(point);
         }}
       />
+      <button
+        className="minimap-layer-view"
+        aria-label="分层视图"
+        title="分层视图"
+        onClick={() => {
+          setMenu(undefined);
+          onPreview3D();
+        }}
+      >
+        <Layers size={16} aria-hidden="true" />
+      </button>
       <nav className="canvas-levels" aria-label="画布层级">
         {all.map((level) => {
           const key = JSON.stringify(level.path),
@@ -184,17 +195,19 @@ export function CanvasOverview({
       {menu &&
         createPortal(
           <CanvasContextMenu x={menu.x} y={menu.y}>
-            <button
-              role="menuitem"
-              autoFocus
-              onClick={() => {
-                setMenu(undefined);
-                onPreview3D();
-              }}
-            >
-              <Box size={15} />
-              3D 预览
-            </button>
+            <MenuSection label="视图">
+              <button
+                role="menuitem"
+                autoFocus
+                onClick={() => {
+                  setMenu(undefined);
+                  onPreview3D();
+                }}
+              >
+                <Layers size={15} />
+                分层视图
+              </button>
+            </MenuSection>
           </CanvasContextMenu>,
           document.body,
         )}

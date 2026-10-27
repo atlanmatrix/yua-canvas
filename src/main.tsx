@@ -1808,7 +1808,18 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       if (document.querySelector('[role="dialog"]') || !ready || e.altKey)
         return;
       if (mod) {
-        if (key === "c" && (selection.length || selectedGroup)) {
+        if ((key === "arrowup" || key === "arrowdown") && !e.shiftKey) {
+          e.preventDefault();
+          if (e.repeat || gesture.current || menu) return;
+          if (key === "arrowup") {
+            if (path.length) navigateCanvas(path.slice(0, -1));
+          } else if (selection.length === 1 && !selectedGroup) {
+            const child = board.cards.find(
+              (card) => card.id === selection[0] && card.kind === "canvas",
+            );
+            if (child) navigateCanvas([...path, child.id]);
+          }
+        } else if (key === "c" && (selection.length || selectedGroup)) {
           e.preventDefault();
           void copySelected();
         } else if (key === "x" && (selection.length || selectedGroup)) {
@@ -2973,121 +2984,127 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       {menu && (
         <CanvasContextMenu x={menu.x} y={menu.y}>
           {menu.kind === "canvas" ? (
-            <MenuSection label="画布操作">
-              <ContextSubmenu key={`${menu.x}:${menu.y}`} label="新建">
+            <>
+              <MenuSection label="新建内容">
+                <ContextSubmenu key={`${menu.x}:${menu.y}`} label="新建">
+                  <button
+                    role="menuitem"
+                    disabled={!ready}
+                    onClick={() => createFromMenu("text")}
+                  >
+                    <Type size={14} />
+                    文本
+                  </button>
+                  <button
+                    role="menuitem"
+                    disabled={!ready}
+                    onClick={() => createFromMenu("todo")}
+                  >
+                    <ListTodo size={14} />
+                    任务
+                  </button>
+                  <button
+                    role="menuitem"
+                    disabled={!ready}
+                    onClick={() => createFromMenu("image")}
+                  >
+                    <ImagePlus size={14} />
+                    图片
+                  </button>
+                  <button
+                    role="menuitem"
+                    disabled={!ready}
+                    onClick={() => createFromMenu("file")}
+                  >
+                    <FileUp size={14} />
+                    文件
+                  </button>
+                  <button
+                    role="menuitem"
+                    disabled={!ready}
+                    onClick={() => createFromMenu("canvas")}
+                  >
+                    <PanelsTopLeft size={14} />
+                    子画布
+                  </button>
+                  <button
+                    role="menuitem"
+                    disabled={!ready}
+                    onClick={() => createFromMenu("miniature")}
+                  >
+                    <Box size={14} />
+                    Miniature
+                  </button>
+                  <button
+                    role="menuitem"
+                    disabled={!ready}
+                    onClick={() => createFromMenu("group")}
+                  >
+                    <Folder size={14} />
+                    分组
+                  </button>
+                </ContextSubmenu>
+              </MenuSection>
+              <MenuSection label="内容操作">
+                {(selection.length > 0 || selectedGroup) && (
+                  <button
+                    role="menuitem"
+                    disabled={archiveBusy}
+                    onClick={() => {
+                      setMenu(null);
+                      void downloadSelected(selection, selectedGroup);
+                    }}
+                  >
+                    <Download size={14} />
+                    下载
+                  </button>
+                )}
                 <button
                   role="menuitem"
-                  disabled={!ready}
-                  onClick={() => createFromMenu("text")}
-                >
-                  <Type size={14} />
-                  文本
-                </button>
-                <button
-                  role="menuitem"
-                  disabled={!ready}
-                  onClick={() => createFromMenu("todo")}
-                >
-                  <ListTodo size={14} />
-                  任务
-                </button>
-                <button
-                  role="menuitem"
-                  disabled={!ready}
-                  onClick={() => createFromMenu("image")}
-                >
-                  <ImagePlus size={14} />
-                  图片
-                </button>
-                <button
-                  role="menuitem"
-                  disabled={!ready}
-                  onClick={() => createFromMenu("file")}
-                >
-                  <FileUp size={14} />
-                  文件
-                </button>
-                <button
-                  role="menuitem"
-                  disabled={!ready}
-                  onClick={() => createFromMenu("canvas")}
-                >
-                  <PanelsTopLeft size={14} />
-                  子画布
-                </button>
-                <button
-                  role="menuitem"
-                  disabled={!ready}
-                  onClick={() => createFromMenu("miniature")}
-                >
-                  <Box size={14} />
-                  Miniature
-                </button>
-                <button
-                  role="menuitem"
-                  disabled={!ready}
-                  onClick={() => createFromMenu("group")}
-                >
-                  <Folder size={14} />
-                  分组
-                </button>
-              </ContextSubmenu>
-              {(selection.length > 0 || selectedGroup) && (
-                <button
-                  role="menuitem"
-                  disabled={archiveBusy}
                   onClick={() => {
-                    setMenu(null);
-                    void downloadSelected(selection, selectedGroup);
+                    const r = surface.current!.getBoundingClientRect();
+                    void pasteFromMenu({
+                      x: (menu.x - r.left - view.x) / view.z,
+                      y: (menu.y - r.top - view.y) / view.z,
+                    });
                   }}
                 >
-                  <Download size={14} />
-                  下载
+                  <ClipboardPaste size={14} />
+                  粘贴
                 </button>
-              )}
-              <button
-                role="menuitem"
-                onClick={() => {
-                  const r = surface.current!.getBoundingClientRect();
-                  void pasteFromMenu({
-                    x: (menu.x - r.left - view.x) / view.z,
-                    y: (menu.y - r.top - view.y) / view.z,
-                  });
-                }}
-              >
-                <ClipboardPaste size={14} />
-                粘贴
-              </button>
-              <button
-                role="menuitem"
-                disabled={!path.length}
-                onClick={() => navigateCanvas(path.slice(0, -1))}
-              >
-                <ArrowLeft size={14} />
-                返回父画布
-              </button>
-              <button
-                role="menuitem"
-                disabled={!workspace.canCreateParent}
-                onClick={createParentCanvas}
-              >
-                <FolderUp size={14} />
-                创建父画布
-              </button>
-              <button
-                role="menuitem"
-                onClick={() => {
-                  const r = surface.current!.getBoundingClientRect();
-                  addCanvas({
-                    x: (menu.x - r.left - view.x) / view.z,
-                    y: (menu.y - r.top - view.y) / view.z,
-                  });
-                }}
-              >
-                <PanelsTopLeft size={14} />
-                创建子画布
-              </button>
-            </MenuSection>
+              </MenuSection>
+              <MenuSection label="画布层级">
+                <button
+                  role="menuitem"
+                  disabled={!path.length}
+                  onClick={() => navigateCanvas(path.slice(0, -1))}
+                >
+                  <ArrowLeft size={14} />
+                  返回父画布
+                </button>
+                <button
+                  role="menuitem"
+                  disabled={!workspace.canCreateParent}
+                  onClick={createParentCanvas}
+                >
+                  <FolderUp size={14} />
+                  创建父画布
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    const r = surface.current!.getBoundingClientRect();
+                    addCanvas({
+                      x: (menu.x - r.left - view.x) / view.z,
+                      y: (menu.y - r.top - view.y) / view.z,
+                    });
+                  }}
+                >
+                  <PanelsTopLeft size={14} />
+                  创建子画布
+                </button>
+              </MenuSection>
+            </>
           ) : (
             <>
               {menuCard && (
@@ -3095,35 +3112,33 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   {(menuCard.kind === "text" ||
                     menuCard.kind === "canvas" ||
                     menuCard.kind === "miniature") && (
-                    <>
-                      <button
-                        role="menuitem"
-                        onClick={() => {
-                          const href =
-                            menuCard.kind === "text"
-                              ? linkTarget(menuCard.text)
-                              : undefined;
-                          setMenu(null);
-                          if (href)
-                            window.open(href, "_blank", "noopener,noreferrer");
-                          else openCard(menuCard);
-                        }}
-                      >
-                        <ArrowUpRight size={14} />
-                        打开
-                      </button>
-                      <button
-                        role="menuitem"
-                        onClick={() => {
-                          setMenu(null);
-                          void copySelected([menuCard.id]);
-                        }}
-                      >
-                        <Copy size={14} />
-                        复制
-                      </button>
-                    </>
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        const href =
+                          menuCard.kind === "text"
+                            ? linkTarget(menuCard.text)
+                            : undefined;
+                        setMenu(null);
+                        if (href)
+                          window.open(href, "_blank", "noopener,noreferrer");
+                        else openCard(menuCard);
+                      }}
+                    >
+                      <ArrowUpRight size={14} />
+                      打开
+                    </button>
                   )}
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setMenu(null);
+                      void copySelected([menuCard.id]);
+                    }}
+                  >
+                    <Copy size={14} />
+                    复制
+                  </button>
                   <button
                     role="menuitem"
                     onClick={() => {
@@ -3188,6 +3203,16 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               )}
               {menuGroup && (
                 <MenuSection label="内容操作">
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setMenu(null);
+                      void copySelected([], { groupId: menuGroup.id });
+                    }}
+                  >
+                    <Copy size={14} />
+                    复制
+                  </button>
                   <button
                     role="menuitem"
                     disabled={archiveBusy}

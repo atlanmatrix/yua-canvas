@@ -1,17 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, RefreshCw, WifiOff } from "lucide-react";
+import { RefreshCw, WifiOff } from "lucide-react";
 import { registerPwa } from "./pwa";
-interface InstallPrompt extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
 export function PwaControls({
   beforeUpdate,
 }: {
   beforeUpdate: () => Promise<void>;
 }) {
-  const [install, setInstall] = useState<InstallPrompt>(),
-    [waiting, setWaiting] = useState<ServiceWorker>(),
+  const [waiting, setWaiting] = useState<ServiceWorker>(),
     [online, setOnline] = useState(navigator.onLine),
     [updating, setUpdating] = useState(false),
     [error, setError] = useState("");
@@ -19,19 +14,10 @@ export function PwaControls({
     reload = useRef(false);
   save.current = beforeUpdate;
   useEffect(() => {
-    const prompt = (event: Event) => {
-      event.preventDefault();
-      setInstall(event as InstallPrompt);
-    };
-    const installed = () => setInstall(undefined),
-      connection = () => setOnline(navigator.onLine);
-    window.addEventListener("beforeinstallprompt", prompt);
-    window.addEventListener("appinstalled", installed);
+    const connection = () => setOnline(navigator.onLine);
     window.addEventListener("online", connection);
     window.addEventListener("offline", connection);
     return () => {
-      window.removeEventListener("beforeinstallprompt", prompt);
-      window.removeEventListener("appinstalled", installed);
       window.removeEventListener("online", connection);
       window.removeEventListener("offline", connection);
     };
@@ -86,22 +72,6 @@ export function PwaControls({
           <WifiOff size={16} />
           离线
         </span>
-      )}
-      {install && (
-        <button
-          className="floating-button"
-          aria-label="安装 Canvas of Yua"
-          title="安装 Canvas of Yua"
-          onClick={() => {
-            void install
-              .prompt()
-              .then(() => install.userChoice)
-              .then(() => setInstall(undefined))
-              .catch(() => setError("请使用浏览器菜单安装应用"));
-          }}
-        >
-          <Download size={18} />
-        </button>
       )}
       {waiting && (
         <button

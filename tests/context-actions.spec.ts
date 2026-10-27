@@ -66,7 +66,7 @@ async function setup(page: Page) {
             id: "d",
             kind: "image",
             title: "pixel.png",
-            blob: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",
+            blob: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==",
             x: 420,
             y: 390,
             width: 220,
@@ -261,7 +261,7 @@ test("group menus separate dissolution from deleting descendants and restore lay
   const popup = page.getByRole("menu");
   await expect(
     popup.getByRole("group", { name: "内容操作" }).getByRole("menuitem"),
-  ).toHaveText(["下载", "剪切"]);
+  ).toHaveText(["复制", "下载", "剪切"]);
   await expect(
     popup
       .getByRole("group", { name: "分组操作" })
@@ -295,4 +295,42 @@ test("group menus separate dissolution from deleting descendants and restore lay
   await page.reload();
   await expect(card(page, "e")).toBeVisible();
   await expect(page.locator(".group-boundary")).toHaveCount(0);
+});
+
+test("every component and group menu copies content that can be pasted independently", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await setup(page);
+  const original = await snapshot(page);
+  for (const id of ["a", "b", "c", "d"]) {
+    await menu(page, card(page, id), { x: 50, y: 50 });
+    await page.getByRole("menuitem", { name: "复制", exact: true }).click();
+    await expect(page.getByRole("status")).toContainText("已复制");
+    await page.keyboard.press("ControlOrMeta+v");
+    await expect(page.getByTestId("card")).toHaveCount(6);
+    const pasted = (await snapshot(page)).cards.find(
+      (item: any) =>
+        !original.cards.some((source: any) => source.id === item.id),
+    );
+    const source = original.cards.find((item: any) => item.id === id);
+    expect(pasted.kind).toBe(source.kind);
+    expect(pasted.text).toBe(source.text);
+    expect(pasted.blob).toBe(source.blob);
+    expect(pasted.tasks?.map((task: any) => [task.text, task.done])).toEqual(
+      source.tasks?.map((task: any) => [task.text, task.done]),
+    );
+    await page.keyboard.press("ControlOrMeta+z");
+    await expect(page.getByTestId("card")).toHaveCount(5);
+  }
+  await menu(
+    page,
+    page.getByRole("button", { name: "拖动分组 项目", exact: true }),
+  );
+  await page.getByRole("menuitem", { name: "复制", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("已复制分组");
+  await page.keyboard.press("ControlOrMeta+v");
+  await expect(page.getByTestId("card")).toHaveCount(9);
+  await expect(page.locator(".group-boundary")).toHaveCount(4);
 });

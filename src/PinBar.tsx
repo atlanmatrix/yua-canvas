@@ -3,12 +3,16 @@ import { createPortal } from "react-dom";
 import { Pin } from "lucide-react";
 import { collectPins, type PinnedItem } from "./pins";
 import type { Board, PinColor } from "./storage";
-import { CanvasContextMenu } from "./CanvasContextMenu";
-const colors: { value: PinColor; label: string }[] = [
-  { value: "info", label: "info：蓝色" },
-  { value: "warn", label: "warn：橙色" },
-  { value: "danger", label: "danger：红色" },
-  { value: "normal", label: "normal：默认" },
+import {
+  CanvasContextMenu,
+  ColorSwatches,
+  MenuSection,
+} from "./CanvasContextMenu";
+const colors: { value: PinColor; name: string; background: string }[] = [
+  { value: "info", name: "蓝色", background: "#2563eb" },
+  { value: "warn", name: "橙色", background: "#fdba74" },
+  { value: "danger", name: "红色", background: "#dc2626" },
+  { value: "normal", name: "默认", background: "#6b7280" },
 ];
 export function PinBar({
   board,
@@ -138,30 +142,18 @@ export function PinBar({
             }}
           >
             <CanvasContextMenu x={menu.x} y={menu.y}>
-              <div
-                className="pin-color-menu"
-                role="group"
-                aria-label="Pin 颜色"
-              >
-                {colors.map((color) => (
-                  <button
-                    key={color.value}
-                    role="menuitemradio"
-                    aria-checked={(menu.pin.color || "normal") === color.value}
-                    onClick={() => {
-                      onColorChange(menu.pin, color.value);
-                      closeMenu();
-                    }}
-                  >
-                    <span
-                      className="pin-color-dot"
-                      data-pin-color={color.value}
-                      aria-hidden="true"
-                    />
-                    {color.label}
-                  </button>
-                ))}
-              </div>
+              <MenuSection label="外观">
+                <ColorSwatches
+                  label="Pin 颜色"
+                  optionLabel="Pin 颜色"
+                  colors={colors}
+                  value={menu.pin.color || "normal"}
+                  onChange={(color) => {
+                    onColorChange(menu.pin, color);
+                    closeMenu();
+                  }}
+                />
+              </MenuSection>
             </CanvasContextMenu>
           </div>,
           document.body,

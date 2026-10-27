@@ -181,6 +181,17 @@ test("seven horizontal pastel choices color every card type and groups, preserve
   await menu(page, card(page, ids[0]));
   const swatches = page.getByRole("menuitemradio");
   await expect(swatches).toHaveCount(7);
+  const swatchStyle = await swatches.first().evaluate((el) => {
+    const css = getComputedStyle(el);
+    return {
+      width: parseFloat(css.width),
+      height: parseFloat(css.height),
+      border: css.borderWidth,
+    };
+  });
+  expect(swatchStyle.width).toBeCloseTo(24 * 0.8, 1);
+  expect(swatchStyle.height).toBeCloseTo(24 * 0.8, 1);
+  expect(swatchStyle.border).toBe("0px");
   const boxes = await swatches.evaluateAll((els) =>
     els.map((el) => ({
       x: el.getBoundingClientRect().x,

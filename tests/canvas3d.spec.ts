@@ -121,7 +121,7 @@ async function setup(page: Page, target?: string) {
 }
 async function open(page: Page) {
   await page.getByTestId("minimap").click({ button: "right" });
-  await page.getByRole("menuitem", { name: "3D 预览", exact: true }).click();
+  await page.getByRole("menuitem", { name: "分层视图", exact: true }).click();
   await expect(page.getByRole("region", { name: "3D 画布预览" })).toBeVisible();
   await expect(page).toHaveURL(/#\/3d$/);
 }
@@ -145,13 +145,13 @@ test("minimap context menu opens an exploded hierarchy with static components, g
   await setup(page);
   const beforeView = await page.locator(".world").getAttribute("style");
   await page.getByTestId("minimap").click({ button: "right" });
-  await expect(page.getByRole("menuitem", { name: "3D 预览" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "分层视图" })).toBeVisible();
   expect(await page.locator(".world").getAttribute("style")).toBe(beforeView);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toHaveCount(0);
   await page.getByTestId("minimap").focus();
   await page.keyboard.press("Shift+F10");
-  await page.getByRole("menuitem", { name: "3D 预览" }).click();
+  await page.getByRole("menuitem", { name: "分层视图" }).click();
   await expect(page.locator(".canvas3d-layer")).toHaveCount(4);
   expect(
     await page
@@ -173,6 +173,27 @@ test("minimap context menu opens an exploded hierarchy with static components, g
   await page.getByRole("button", { name: "退出预览", exact: true }).click();
   await expect(page.locator(".canvas3d-page")).toHaveCount(0);
   expect(await page.locator(".world").getAttribute("style")).toBe(beforeView);
+});
+
+test("hovering the minimap reveals a layer button that opens 3D without panning", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.mouse.move(1200, 400);
+  const trigger = page.getByRole("button", { name: "分层视图", exact: true });
+  await expect(trigger).toBeHidden();
+  const beforeView = await page.locator(".world").getAttribute("style");
+  await page.getByTestId("minimap").hover();
+  await expect(trigger).toBeVisible();
+  await trigger.click();
+  await expect(page.getByRole("region", { name: "3D 画布预览" })).toBeVisible();
+  await expect(page).toHaveURL(/#\/3d$/);
+  await page.getByRole("button", { name: "退出预览", exact: true }).click();
+  expect(await page.locator(".world").getAttribute("style")).toBe(beforeView);
+  await page.mouse.move(1200, 400);
+  await expect(trigger).toBeHidden();
+  await page.getByTestId("minimap").focus();
+  await expect(trigger).toBeVisible();
 });
 
 test("orbit follows mouse axes, clamps pitch to 180 degrees, and keeps only two top-right actions", async ({

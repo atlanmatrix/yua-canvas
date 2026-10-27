@@ -135,10 +135,13 @@ test("title, manifest and installation icons are valid at the Pages subpath", as
       });
       window.dispatchEvent(event);
     });
-    await page
-      .getByRole("button", { name: "安装 Canvas of Yua", exact: true })
-      .click();
-    assert.equal(await page.evaluate(() => window.__installPromptCalled), true);
+    await expect(
+      page.getByRole("button", { name: "安装 Canvas of Yua", exact: true }),
+    ).toHaveCount(0);
+    assert.equal(
+      await page.evaluate(() => window.__installPromptCalled),
+      undefined,
+    );
   } finally {
     await context.close();
   }
@@ -246,7 +249,7 @@ test("3D hierarchy and component opening work offline at the Pages subpath", asy
       "已保存至本地",
     );
     await page.getByTestId("minimap").click({ button: "right" });
-    await page.getByRole("menuitem", { name: "3D 预览" }).click();
+    await page.getByRole("menuitem", { name: "分层视图" }).click();
     await expect(page.locator(".canvas3d-layer")).toHaveCount(2);
     await expect(page.getByTestId("canvas3d-scene")).toHaveCSS(
       "transform-style",

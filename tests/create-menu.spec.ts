@@ -38,6 +38,11 @@ test("hover and click open all component types; text is created at zoomed right-
   await page.getByRole("button", { name: "放大", exact: true }).click();
   const point = await position(page);
   const trigger = await menu(page);
+  const popup = page.getByRole("menu");
+  for (const label of ["新建内容", "内容操作", "画布层级"])
+    await expect(
+      popup.getByRole("group", { name: label, exact: true }),
+    ).toBeVisible();
   await trigger.hover();
   const submenu = page.getByRole("menu", { name: "新建组件", exact: true });
   await expect(submenu.getByRole("menuitem")).toHaveText([
