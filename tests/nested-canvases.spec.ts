@@ -157,7 +157,7 @@ test("toolbar and background create nested canvases with separate views, content
   expect(stored.connections).toEqual(original.connections);
 });
 
-test("creating a parent wraps the complete current canvas, inserts parents at any depth and undoes without losing content or viewport", async ({
+test("creating a parent wraps once, disallows another parent and undoes without losing content or viewport", async ({
   page,
 }) => {
   await load(page, seed());
@@ -173,12 +173,13 @@ test("creating a parent wraps the complete current canvas, inserts parents at an
     .click();
   expect(await view(page)).toEqual(originalView);
   await expect(page.getByTestId("card")).toHaveCount(2);
-  await background(page, "创建父画布");
-  await expect(page.getByTestId("card")).toHaveCount(1);
-  expect((await current(page)).cards[0].canvas).toEqual(original);
-  await page.keyboard.press("ControlOrMeta+z");
-  await expect(page.getByTestId("card")).toHaveCount(2);
-  expect(await view(page)).toEqual(originalView);
+  await page
+    .locator(".canvas")
+    .click({ button: "right", position: { x: 1100, y: 550 } });
+  await expect(
+    page.getByRole("menuitem", { name: "创建父画布", exact: true }),
+  ).toBeDisabled();
+  await page.keyboard.press("Escape");
   await page.keyboard.press("ControlOrMeta+z");
   await expect(page.getByRole("button", { name: "返回父画布" })).toHaveCount(0);
   expect((await snapshot(page)).board).toEqual(original);

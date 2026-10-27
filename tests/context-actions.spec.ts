@@ -165,7 +165,7 @@ test("selection has no toolbar; context menus group capabilities and retain mult
     ).toBeVisible();
   await expect(
     popup.getByRole("group", { name: "内容操作" }).getByRole("menuitem"),
-  ).toHaveText(["打开", "复制", "剪切", "下载"]);
+  ).toHaveText(["打开", "复制", "剪切", "Pin", "下载"]);
   await expect(
     popup.getByRole("group", { name: "分组操作" }).getByRole("menuitem"),
   ).toHaveText(["创建分组", "移出分组"]);

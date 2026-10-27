@@ -34,6 +34,13 @@ export function useMinimapGeometry(
     width: size.width / view.z,
     height: size.height / view.z,
   };
+  return { viewport, projection: projectMinimap(board, viewport) };
+}
+
+export function projectMinimap(
+  board: Board,
+  viewport: Rect,
+): MinimapProjection {
   const rects = [
     ...board.cards.map(cardRect),
     ...board.groups.flatMap((group) => (group.bounds ? [group.bounds] : [])),
@@ -63,5 +70,5 @@ export function useMinimapGeometry(
       height: MINIMAP_HEIGHT / scale,
     },
   };
-  return { viewport, projection };
+  return projection;
 }

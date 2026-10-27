@@ -62,11 +62,13 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
             width: card.width,
             height: card.height,
             color: card.color,
+            pin: card.pin,
             group: card.group,
             canvas: {
               ...(await pack(card.canvas, directory + "/")),
               version: 1,
               id: card.canvas.id,
+              parentCreated: card.canvas.parentCreated,
             },
           };
         }
@@ -115,6 +117,7 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
           color: card.color,
           group: card.group,
           mime: card.mime,
+          pin: card.pin,
           taskIds: card.tasks?.map((t) => t.id),
         };
       }),

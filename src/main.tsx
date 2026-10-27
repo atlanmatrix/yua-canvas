@@ -23,6 +23,7 @@ import {
   Check,
   Copy,
   Scissors,
+  Pin,
   ClipboardPaste,
   X,
   Trash2,
@@ -71,7 +72,12 @@ import {
   FileClipboardUnsupported,
   isTextFile,
 } from "./clipboard";
-import { useCanvasWorkspace, newBoard, canvasCard } from "./workspace";
+import {
+  useCanvasWorkspace,
+  newBoard,
+  canvasCard,
+  replaceBoard,
+} from "./workspace";
 import {
   selectedFragment,
   duplicateFragment,
@@ -88,7 +94,10 @@ import {
   nodesFromFiles,
   type ImportNode,
 } from "./directories";
-import { Minimap } from "./Minimap";
+import { CanvasOverview } from "./CanvasOverview";
+import { PinBar } from "./PinBar";
+import { HelpDialog } from "./HelpDialog";
+import { type PinnedItem } from "./pins";
 import { useMinimapGeometry } from "./minimapGeometry";
 import "./style.css";
 import { CloudPanel } from "./CloudPanel";
@@ -854,6 +863,7 @@ function App() {
     setMenu(null);
   };
   const createParentCanvas = () => {
+    if (!workspace.canCreateParent) return;
     clearCanvasUI();
     workspace.wrapParent();
   };
@@ -1446,7 +1456,7 @@ function App() {
         e.clientY >= r.top &&
         e.clientY <= r.bottom &&
         !hit?.closest(
-          '.toolbar,.floating-top,.zoom-controls,.sidebar,.minimap,[role="dialog"]',
+          '.toolbar,.floating-top,.pin-bar,.zoom-controls,.help-button,.sidebar,.canvas-overview,[role="dialog"]',
         )
       ) {
         const point = {
@@ -1850,6 +1860,53 @@ function App() {
   const current = board.cards.find(
     (c) => c.id === detail && (c.kind === "image" || c.kind === "file"),
   );
+  const updatePin = (pin: PinnedItem, name?: string) => {
+    workspace.updateRoot((root) =>
+      replaceBoard(root, pin.path, (current) => ({
+        ...current,
+        ...(pin.kind === "card"
+          ? {
+              cards: current.cards.map((card) =>
+                card.id === pin.id ? { ...card, pin: name } : card,
+              ),
+            }
+          : {
+              groups: current.groups.map((group) =>
+                group.id === pin.id ? { ...group, pin: name } : group,
+              ),
+            }),
+      })),
+    );
+  };
+  const jumpToPin = (pin: PinnedItem) => {
+    const target = pin.path.reduce(
+      (b, id) => b.cards.find((c) => c.id === id)?.canvas || b,
+      root,
+    );
+    const rect =
+      pin.kind === "card"
+        ? target.cards.find((c) => c.id === pin.id)
+        : target.groups.find((g) => g.id === pin.id)?.bounds;
+    if (!rect || !surface.current) return;
+    const bounds = "kind" in rect ? cardRect(rect) : rect;
+    navigateCanvas(pin.path);
+    const r = surface.current.getBoundingClientRect();
+    const z = Math.max(
+      0.2,
+      Math.min(
+        1.2,
+        (r.width - 120) / bounds.width,
+        (r.height - 170) / bounds.height,
+      ),
+    );
+    setView({
+      z,
+      x: r.width / 2 - (bounds.x + bounds.width / 2) * z,
+      y: r.height / 2 - (bounds.y + bounds.height / 2) * z,
+    });
+    if (pin.kind === "card") setSelection([pin.id]);
+    else setSelectedGroup(pin.id);
+  };
   const menuCard =
     menu?.kind === "card"
       ? board.cards.find((card) => card.id === menu.id)
@@ -2078,6 +2135,7 @@ function App() {
             </button>
           </div>
         </div>
+        <PinBar root={root} onJump={jumpToPin} onRename={updatePin} />
         <div
           className={"canvas " + (tool === "hand" ? "hand-tool" : "")}
           ref={surface}
@@ -2712,7 +2770,13 @@ function App() {
             </div>
           )}
         </div>
-        <Minimap
+        <CanvasOverview
+          dragging={dragCursor}
+          root={root}
+          path={path}
+          view={view}
+          navigation={navigation}
+          onSwitch={navigateCanvas}
           board={board}
           viewport={viewport}
           projection={projection}
@@ -2809,6 +2873,7 @@ function App() {
             <Maximize size={16} />
           </button>
         </div>
+        <HelpDialog />
       </main>
       <input
         ref={fileInput}
@@ -2883,7 +2948,11 @@ function App() {
                 <ArrowLeft size={14} />
                 返回父画布
               </button>
-              <button role="menuitem" onClick={createParentCanvas}>
+              <button
+                role="menuitem"
+                disabled={!workspace.canCreateParent}
+                onClick={createParentCanvas}
+              >
                 <FolderUp size={14} />
                 创建父画布
               </button>
@@ -2945,6 +3014,32 @@ function App() {
                     <Scissors size={14} />
                     剪切
                   </button>
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      updatePin(
+                        {
+                          path,
+                          id: menuCard.id,
+                          kind: "card",
+                          name: menuCard.pin || "",
+                        },
+                        menuCard.pin
+                          ? undefined
+                          : (
+                              menuCard.title ||
+                              menuCard.text ||
+                              (menuCard.kind === "todo" ? "任务" : "组件")
+                            )
+                              .slice(0, 100)
+                              .trim() || "组件",
+                      );
+                      setMenu(null);
+                    }}
+                  >
+                    <Pin size={14} />
+                    {menuCard.pin ? "取消 Pin" : "Pin"}
+                  </button>
                   {menuCard.kind === "canvas" && (
                     <button
                       role="menuitem"
@@ -2983,6 +3078,30 @@ function App() {
                   >
                     <Scissors size={14} />
                     剪切
+                  </button>
+                </MenuSection>
+              )}
+              {menuGroup && (
+                <MenuSection label="定位">
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      updatePin(
+                        {
+                          path,
+                          id: menuGroup.id,
+                          kind: "group",
+                          name: menuGroup.name,
+                        },
+                        menuGroup.pin
+                          ? undefined
+                          : menuGroup.name.slice(0, 100).trim() || "分组",
+                      );
+                      setMenu(null);
+                    }}
+                  >
+                    <Pin size={14} />
+                    {menuGroup.pin ? "取消 Pin" : "Pin"}
                   </button>
                 </MenuSection>
               )}

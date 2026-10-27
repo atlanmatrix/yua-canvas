@@ -4,3 +4,5 @@
 - 使用现有检出目录，不要自行创建 Git worktree。
 - 项目默认使用浏览器 IndexedDB；用户已授权增加可选的 Cloudflare Workers、D1、R2 后端，实现账号同步与分享。未连接云端时保留本地模式。
 - 修改后运行 `npm run build`。涉及交互或存储的修改运行 `npm test`；涉及 Pages 的修改验证 `/yua-canvas/` 子路径下的生产构建和资源加载。
+
+- 用户要求：work 已合并回 main；后续修改直接在 main 提交并推送，无需再次询问。

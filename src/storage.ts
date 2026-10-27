@@ -2,6 +2,7 @@ import { validEndpoint, type Connection } from "./connections";
 import { cardRect } from "./geometry";
 export type Card = {
   id: string;
+  pin?: string;
   kind: "text" | "image" | "file" | "todo" | "canvas";
   title: string;
   text: string;
@@ -22,6 +23,7 @@ export type Task = { id: string; text: string; done: boolean };
 export type Rect = { x: number; y: number; width: number; height: number };
 export type Group = {
   id: string;
+  pin?: string;
   name: string;
   color?: string;
   bounds?: Rect;
@@ -135,6 +137,7 @@ export type View = { x: number; y: number; z: number };
 export type Navigation = { path: string[]; views: Record<string, View> };
 export type Board = {
   version: 1;
+  parentCreated?: boolean;
   id?: string;
   cards: Card[];
   groups: Group[];
@@ -270,6 +273,11 @@ export async function importBoard(
       boardIds.has(data.id))
   )
     throw Error("画布标识无效");
+  if (
+    data.parentCreated !== undefined &&
+    typeof data.parentCreated !== "boolean"
+  )
+    throw Error("父画布状态无效");
   const boardId: string | undefined =
     data.id || (depth ? crypto.randomUUID() : undefined);
   if (boardId) boardIds.add(boardId);
@@ -295,6 +303,7 @@ export async function importBoard(
       throw new Error("分组尺寸无效");
     return {
       id: g.id,
+      ...(validPin(g.pin) !== undefined ? { pin: validPin(g.pin) } : {}),
       name: g.name.slice(0, 200),
       color: g.color,
       parent: typeof g.parent === "string" ? g.parent : undefined,
@@ -398,6 +407,7 @@ export async function importBoard(
         width: c.width as number | undefined,
         height: c.height as number | undefined,
         id: c.id,
+        ...(validPin(c.pin) !== undefined ? { pin: validPin(c.pin) } : {}),
         kind: c.kind as Card["kind"],
         title: c.title,
         text: c.text,
@@ -444,6 +454,7 @@ export async function importBoard(
   return initializeGroups({
     version: 1,
     id: boardId,
+    ...(data.parentCreated ? { parentCreated: true } : {}),
     cards,
     groups,
     connections,
@@ -499,4 +510,11 @@ export async function readCanvasClipboard(): Promise<
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
+}
+
+function validPin(value: unknown): string | undefined {
+  if (value === undefined) return;
+  if (typeof value !== "string" || !value.trim() || value.length > 100)
+    throw Error("Pin 名称无效");
+  return value.trim();
 }

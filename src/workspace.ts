@@ -126,12 +126,17 @@ export function useCanvasWorkspace() {
         ? replaceBoard(root, target, (b) =>
             typeof action === "function"
               ? action(b)
-              : importedContent(action, b.id),
+              : {
+                  ...importedContent(action, b.id),
+                  ...(b.parentCreated ? { parentCreated: true } : {}),
+                },
           )
         : root;
     }, options);
+  const canCreateParent = !active.path.length && !history.board.parentCreated;
   const wrapParent = () => {
-    const parent = newBoard();
+    if (!canCreateParent) return;
+    const parent = { ...newBoard(), parentCreated: true };
     let updated = history.board;
     history.setBoard((root) => {
       const current = locateBoard(root, active.path);
@@ -183,5 +188,7 @@ export function useCanvasWorkspace() {
     restore,
     navigate: (next: string[]) => activate(history.board, next),
     wrapParent,
+    canCreateParent,
+    updateRoot: history.setBoard,
   };
 }

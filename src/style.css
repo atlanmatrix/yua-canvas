@@ -1666,3 +1666,36 @@ main {
 .share-group > span { position: absolute; top: -26px; white-space: nowrap; }
 .share-connections { position: absolute; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
 .share-zoom { position: fixed; bottom: 20px; right: 20px; display: flex; gap: 12px; align-items: center; background: white; border-radius: 8px; }
+
+.pin-bar { position: absolute; top: 70px; right: 20px; max-width: calc(100% - 40px); display: flex; align-items: center; gap: 6px; overflow-x: auto; white-space: nowrap; z-index: 5; padding: 3px; scrollbar-width: thin; }
+.pin-bar > svg { flex-shrink: 0; color: #6b7280; }
+.pin-bar button, .pin-bar input { flex-shrink: 0; max-width: 180px; border: 1px solid #d5dae4; border-radius: 7px; background: #fffffff2; padding: 6px 10px; font-size: 12px; color: #4b5563; overflow: hidden; text-overflow: ellipsis; }
+.pin-bar input { width: 160px; }
+.pin-bar button:hover { border-color: var(--accent); color: var(--accent); }
+.canvas-overview { position: absolute; left: 20px; bottom: 22px; width: 230px; height: 132px; z-index: 4; transition: opacity .35s ease; }
+.canvas-overview.idle { opacity: .28; }
+.canvas-overview.active, .canvas-overview:hover, .canvas-overview:has(:focus-visible) { opacity: 1; }
+.canvas-overview .minimap { left: 0; bottom: 0; }
+.canvas-levels { position: absolute; left: 205px; top: 0; bottom: 0; width: 25px; display: flex; flex-direction: column; justify-content: center; overflow-y: auto; scrollbar-width: none; }
+.canvas-levels button { display: flex; justify-content: center; align-items: center; padding: 0; min-height: 20px; flex-shrink: 0; background: transparent; border: 0; }
+.canvas-levels button span { display: block; width: 12px; height: 4px; background: #d1d1d1; transition: background .15s; }
+.canvas-levels button[aria-current="page"] span { background: #626262; }
+.canvas-levels button:hover span, .canvas-levels button:focus-visible span { background: #2563eb; }
+.level-caption { position: absolute; left: 0; bottom: 100%; margin-bottom: 6px; max-width: 230px; padding: 5px 8px; border-radius: 6px; background: #fffffff2; color: #4b5563; font-size: 11px; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.help-button { position: absolute; right: 20px; bottom: 24px; z-index: 5; display: flex; align-items: center; justify-content: center; }
+.zoom-controls { right: 74px; }
+.help-dialog { width: 680px; }
+.help-dialog p { line-height: 1.75; color: #525a69; }
+.help-dialog h3 { margin: 22px 0 8px; }
+.shortcut-list { margin: 12px 0 0; }
+.shortcut-list > div { display: grid; grid-template-columns: minmax(150px, 1.2fr) 1fr; gap: 14px; padding: 10px 0; border-bottom: 1px solid #eef0f3; }
+.shortcut-list dd { margin: 0; color: #525a69; }
+.shortcut-list kbd { font: 12px ui-monospace, monospace; }
+@media(max-width:1050px) { .canvas-overview { width: 190px; height: 106px; bottom: 87px; } .canvas-levels { left: 165px; } .help-button { bottom: 87px; } }
+@media(max-width:700px) { .canvas-overview { left: 12px; width: 164px; height: 90px; bottom: 79px; } .canvas-levels { left: 139px; } .help-button { bottom: 79px; right: 12px; } .pin-bar { right: 12px; top: 66px; max-width: calc(100% - 24px); } .shortcut-list > div { grid-template-columns: 1fr; gap: 4px; } .zoom-controls { right: 62px; } }
+@media(prefers-reduced-motion:reduce) { .canvas-overview, .canvas-levels button span { transition: none; } }
+.canvas-levels { justify-content: safe center; }
+.canvas-levels button { min-height: 18px; max-height: 22px; flex: 1 0 18px; }
+.canvas-levels button[aria-current="page"]:hover span,
+.canvas-levels button[aria-current="page"]:focus-visible span { background: #626262; }
+@media(max-width:700px) { .canvas-levels button { min-height: 15px; flex-basis: 15px; } }
