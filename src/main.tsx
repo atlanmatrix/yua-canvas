@@ -56,6 +56,7 @@ import { TodoEditor } from "./TodoEditor";
 import { TextFileEditor } from "./TextFileEditor";
 import {
   CanvasContextMenu,
+  ContextSubmenu,
   ColorPalette,
   MenuSection,
 } from "./CanvasContextMenu";
@@ -842,6 +843,35 @@ function App() {
     setSelection([card.id]);
     setSelectedGroup(undefined);
     setMenu(null);
+  };
+  const createFromMenu = (kind: Card["kind"] | "group") => {
+    if (!menu || !ready || !surface.current) return;
+    const rect = surface.current.getBoundingClientRect();
+    const point = {
+      x: (menu.x - rect.left - view.x) / view.z,
+      y: (menu.y - rect.top - view.y) / view.z,
+    };
+    setMenu(null);
+    if (kind === "text") addText(point);
+    else if (kind === "todo") addTodo(point);
+    else if (kind === "canvas") addCanvas(point);
+    else if (kind === "group") {
+      const id = uid();
+      setBoard((b) => ({
+        ...b,
+        groups: attachParents([
+          ...b.groups,
+          { id, name: "分组", bounds: { ...point, width: 360, height: 240 } },
+        ]),
+      }));
+      setSelection([]);
+      setSelectedGroup(id);
+      setSelectedConnection(undefined);
+      setEditingGroup(id);
+    } else {
+      pendingUpload.current = point;
+      (kind === "image" ? imageInput : fileInput).current?.click();
+    }
   };
   const createParentCanvas = () => {
     if (!workspace.canCreateParent) return;
@@ -2716,6 +2746,56 @@ function App() {
         <CanvasContextMenu x={menu.x} y={menu.y}>
           {menu.kind === "canvas" ? (
             <MenuSection label="画布操作">
+              <ContextSubmenu key={`${menu.x}:${menu.y}`} label="新建">
+                <button
+                  role="menuitem"
+                  disabled={!ready}
+                  onClick={() => createFromMenu("text")}
+                >
+                  <Type size={14} />
+                  文本
+                </button>
+                <button
+                  role="menuitem"
+                  disabled={!ready}
+                  onClick={() => createFromMenu("todo")}
+                >
+                  <ListTodo size={14} />
+                  任务
+                </button>
+                <button
+                  role="menuitem"
+                  disabled={!ready}
+                  onClick={() => createFromMenu("image")}
+                >
+                  <ImagePlus size={14} />
+                  图片
+                </button>
+                <button
+                  role="menuitem"
+                  disabled={!ready}
+                  onClick={() => createFromMenu("file")}
+                >
+                  <FileUp size={14} />
+                  文件
+                </button>
+                <button
+                  role="menuitem"
+                  disabled={!ready}
+                  onClick={() => createFromMenu("canvas")}
+                >
+                  <PanelsTopLeft size={14} />
+                  子画布
+                </button>
+                <button
+                  role="menuitem"
+                  disabled={!ready}
+                  onClick={() => createFromMenu("group")}
+                >
+                  <Folder size={14} />
+                  分组
+                </button>
+              </ContextSubmenu>
               {(selection.length > 0 || selectedGroup) && (
                 <button
                   role="menuitem"
