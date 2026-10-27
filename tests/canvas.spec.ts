@@ -22,13 +22,13 @@ test("notes, grouping, persistence, attachments and portable backup", async ({
   await page.getByRole("menuitem", { name: "创建分组", exact: true }).click();
   await page.getByRole("textbox", { name: "分组名称" }).fill("周末出发");
   await page.getByRole("button", { name: "保存分组" }).click();
-  await expect(page.locator(".group-row")).toContainText("周末出发");
+  await expect(page.locator(".group-title")).toContainText("周末出发");
   await expect(
     page.locator('.save-indicator[data-state="已保存至本地"]'),
   ).toBeVisible();
   await page.reload();
   await expect(page.getByTestId("card")).toHaveCount(2);
-  await expect(page.locator(".group-row")).toContainText("周末出发");
+  await expect(page.locator(".group-title")).toContainText("周末出发");
   await page.getByTestId("files").setInputFiles({
     name: "hello.txt",
     mimeType: "text/plain",
@@ -75,14 +75,12 @@ test("notes, grouping, persistence, attachments and portable backup", async ({
   });
   await page.getByRole("button", { name: "确认替换" }).click();
   await expect(page.getByTestId("card")).toHaveCount(4);
-  await page.getByRole("button", { name: "展开搜索" }).click();
-  await page.getByRole("textbox", { name: "搜索画布" }).fill("周末去山里走走");
   await page
     .getByTestId("card")
     .filter({
       hasText: "周末去山里走走",
     })
-    .dblclick();
+    .dispatchEvent("dblclick");
   await expect(page.getByRole("textbox", { name: "文本内容" })).toHaveValue(
     "周末去山里走走",
   );
@@ -91,7 +89,6 @@ test("notes, grouping, persistence, attachments and portable backup", async ({
     .getByRole("textbox", { name: "文本内容" })
     .fill("更新后的旅行计划");
   await page.keyboard.press("ControlOrMeta+Enter");
-  await page.getByRole("button", { name: "清除搜索" }).click();
   await expect(
     page.locator('.save-indicator[data-state="已保存至本地"]'),
   ).toBeVisible();
@@ -99,7 +96,7 @@ test("notes, grouping, persistence, attachments and portable backup", async ({
   await expect(page.getByTestId("card")).toHaveCount(4);
   await expect(page.getByText("更新后的旅行计划")).toBeVisible();
 });
-test("moving cards, searching, zooming and rejecting invalid imports", async ({
+test("moving cards, zooming and rejecting invalid imports", async ({
   page,
 }) => {
   await page.goto("/");
@@ -125,10 +122,6 @@ test("moving cards, searching, zooming and rejecting invalid imports", async ({
   await page.mouse.up();
   const after = await card.boundingBox();
   expect(after!.x - before!.x).toBeCloseTo(100, 0);
-  await page.getByRole("button", { name: "展开搜索" }).click();
-  await page.getByRole("textbox", { name: "搜索画布" }).fill("不存在的内容");
-  await expect(page.getByTestId("card")).toHaveCount(0);
-  await page.getByRole("button", { name: "查看全部内容" }).click();
   await expect(page.getByTestId("card")).toHaveCount(2);
   await page.getByTitle("重置缩放 (1)").click();
   await page.getByRole("button", { name: "放大", exact: true }).click();
@@ -257,8 +250,12 @@ test("pasted files support batches, preserve editable fields and ignore modal pa
   await expect(page.getByTestId("card")).toHaveCount(3);
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("card")).toHaveCount(2);
-  await page.getByRole("button", { name: "展开搜索" }).click();
-  await page.getByRole("textbox", { name: "搜索画布" }).evaluate((el) => {
+  await page.evaluate(() => {
+    const input = document.createElement("input");
+    input.id = "native-input";
+    document.body.append(input);
+  });
+  await page.locator("#native-input").evaluate((el) => {
     const clipboardData = new DataTransfer();
     clipboardData.items.add(
       new File(["ignored"], "search-ignored.txt", { type: "text/plain" }),
@@ -316,7 +313,7 @@ test("full-height canvas and keyboard editing shortcuts", async ({ page }) => {
   await page.keyboard.press("ControlOrMeta+Shift+g");
   await expect(page.locator(".group-boundary")).toHaveCount(1);
   await page.keyboard.press("ControlOrMeta+k");
-  await expect(page.getByRole("textbox", { name: "搜索画布" })).toBeFocused();
+  await expect(page.getByRole("textbox", { name: "搜索画布" })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await page.keyboard.press("+");
   await expect(
@@ -381,7 +378,7 @@ test("Markdown files open only on double-click and render safe GFM", async ({
   await expect(page.locator(".detail-image")).toBeVisible();
 });
 
-test("group title drags every member at current zoom, including filtered cards", async ({
+test("group title drags every member at current zoom, including all members", async ({
   page,
 }) => {
   await page.goto("/");
@@ -462,11 +459,8 @@ test("group title drags every member at current zoom, including filtered cards",
     [0, 300],
   ]);
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.getByRole("button", { name: "展开搜索" }).click();
-  await page.getByRole("textbox", { name: "搜索画布" }).fill("组内一");
-  await expect(page.getByTestId("card")).toHaveCount(1);
+  await expect(page.getByTestId("card")).toHaveCount(3);
   await drag(60, 24);
-  await page.getByRole("button", { name: "清除搜索" }).click();
   cards = await positions();
   expect(cards.map((c) => [c.x, c.y])).toEqual([
     [130, 60],
@@ -680,10 +674,7 @@ test("Todo tasks can be created, completed, edited and restored from a backup", 
   await page.getByRole("textbox", { name: "任务内容 2" }).fill("提交最终报告");
   await page.keyboard.press("ControlOrMeta+Enter");
   await expect(card).toContainText("提交最终报告");
-  await page.getByRole("button", { name: "展开搜索" }).click();
-  await page.getByRole("textbox", { name: "搜索画布" }).fill("提交最终");
   await expect(card).toHaveCount(1);
-  await page.getByRole("button", { name: "清除搜索" }).click();
   const downloadEvent = page.waitForEvent("download");
   await page.getByRole("button", { name: "导出画布" }).click();
   const download = await downloadEvent;

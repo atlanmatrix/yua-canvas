@@ -181,9 +181,7 @@ test("the gray canvas frame matches the full overview area across zoom, filters 
   await expect(frame).toHaveCSS("pointer-events", "none");
   await match();
   const initial = await bounds();
-  await page.getByRole("button", { name: "展开搜索" }).click();
-  await page.getByRole("textbox", { name: "搜索画布" }).fill("起点");
-  await expect(page.getByTestId("card")).toHaveCount(1);
+  await expect(page.getByTestId("card")).toHaveCount(2);
   expect(await bounds()).toEqual(initial);
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "放大", exact: true }).click();

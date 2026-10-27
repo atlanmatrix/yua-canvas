@@ -156,7 +156,7 @@ test("selection has no toolbar; context menus group capabilities and retain mult
     position: { x: 50, y: 50 },
   });
   await expect(page.locator(".card.selected")).toHaveCount(2);
-  await expect(page.getByRole("button", { name: "批量下载" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "批量下载" })).toHaveCount(0);
   await menu(page, card(page, "a"), { x: 50, y: 50 });
   const popup = page.getByRole("menu");
   for (const label of ["内容操作", "分组操作", "外观", "删除操作"])
@@ -251,7 +251,7 @@ test("context deletion targets every card type, clears stale edge selection, pru
   ]);
 });
 
-test("group menus separate dissolution from deleting descendants, reset a deleted group filter and restore layout with undo", async ({
+test("group menus separate dissolution from deleting descendants and restore layout with undo", async ({
   page,
 }) => {
   await setup(page);
@@ -261,7 +261,7 @@ test("group menus separate dissolution from deleting descendants, reset a delete
   const popup = page.getByRole("menu");
   await expect(
     popup.getByRole("group", { name: "内容操作" }).getByRole("menuitem"),
-  ).toHaveText(["剪切"]);
+  ).toHaveText(["下载", "剪切"]);
   await expect(
     popup
       .getByRole("group", { name: "分组操作" })
@@ -280,11 +280,6 @@ test("group menus separate dissolution from deleting descendants, reset a delete
   await page.keyboard.press("ControlOrMeta+z");
   expect(await snapshot(page)).toEqual(original);
   await selectEdge(page);
-  await page.getByRole("button", { name: "展开侧栏" }).click();
-  await page
-    .locator(".sidebar")
-    .getByRole("button", { name: /^项目 \d/ })
-    .click();
   await menu(page, title);
   await popup.getByRole("menuitem", { name: "删除", exact: true }).click();
   await expect(page.getByTestId("card")).toHaveCount(1);

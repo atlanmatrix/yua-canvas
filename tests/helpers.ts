@@ -19,3 +19,10 @@ export async function textWidth80(page: Page) {
     return width;
   });
 }
+
+export async function downloadSelectionMenu(page: Page) {
+  await page
+    .locator(".canvas")
+    .click({ button: "right", position: { x: 10, y: 10 } });
+  await page.getByRole("menuitem", { name: "下载", exact: true }).click();
+}

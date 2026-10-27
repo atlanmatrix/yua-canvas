@@ -1,3 +1,4 @@
+import { downloadSelectionMenu } from "./helpers";
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { unzipSync, strFromU8 } from "fflate";
 const palette = [
@@ -108,9 +109,14 @@ async function color(page: Page, target: Locator, name: string) {
 }
 async function bytes(page: Page, action: string, rightMenu = false) {
   const pending = page.waitForEvent("download");
-  await page
-    .getByRole(rightMenu ? "menuitem" : "button", { name: action, exact: true })
-    .click();
+  if (action === "批量下载") await downloadSelectionMenu(page);
+  else
+    await page
+      .getByRole(rightMenu ? "menuitem" : "button", {
+        name: action,
+        exact: true,
+      })
+      .click();
   const file = await pending,
     stream = await file.createReadStream(),
     chunks: Buffer[] = [];
@@ -135,6 +141,7 @@ test("text menus copy, download and open the clicked text; file menus download o
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     "普通文本",
   );
+  await page.keyboard.press("Escape");
   await menu(page, note);
   const text = await bytes(page, "下载", true);
   expect(text.name).toMatch(/^\d{4}-\d{2}-\d{2}_.*\.txt$/);

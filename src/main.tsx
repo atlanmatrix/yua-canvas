@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   Pencil,
   Plus,
-  Search,
   ArrowUpRight,
   Upload,
   Download,
@@ -15,7 +14,6 @@ import {
   FileUp,
   Minus,
   Maximize,
-  Layers,
   Folder,
   FolderUp,
   WrapText,
@@ -30,8 +28,6 @@ import {
   FileText,
   MoreHorizontal,
   Unlink,
-  PanelLeftClose,
-  PanelLeftOpen,
 } from "lucide-react";
 import {
   type Board,
@@ -276,10 +272,6 @@ function App() {
     [saveStatus, setSaveStatus] = useState("正在读取"),
     [selection, setSelection] = useState<string[]>([]),
     [tool, setTool] = useState<"select" | "hand">("select"),
-    [query, setQuery] = useState(""),
-    [searchOpen, setSearchOpen] = useState(false),
-    [filter, setFilter] = useState("all"),
-    [sidebar, setSidebar] = useState(false),
     [detail, setDetail] = useState<string>(),
     [renamingCanvas, setRenamingCanvas] = useState<string>(),
     [editingCard, setEditingCard] = useState<string>(),
@@ -310,8 +302,7 @@ function App() {
     hasContent: boolean;
     fresh: boolean;
   } | null>(null);
-  const searchInput = useRef<HTMLInputElement>(null),
-    surface = useRef<HTMLDivElement>(null),
+  const surface = useRef<HTMLDivElement>(null),
     connectionEditors = useRef<HTMLDivElement>(null),
     connectionLabels = useRef<SVGSVGElement>(null),
     fileInput = useRef<HTMLInputElement>(null),
@@ -426,9 +417,6 @@ function App() {
   }, []);
   useAutosave(root, view, ready, setSaveStatus, navigation);
   useEffect(() => {
-    if (searchOpen) searchInput.current?.focus();
-  }, [searchOpen]);
-  useEffect(() => {
     const el = surface.current;
     if (!el) return;
     const wheel = (e: WheelEvent) => {
@@ -472,14 +460,12 @@ function App() {
     });
     setSelectedGroup(undefined);
     setMenu(null);
-    setFilter("all");
   };
   const updateCards = (fn: (cards: Card[]) => Card[]) =>
     setBoard((b) => ({ ...b, cards: fn(b.cards) }));
   const deleteItems = (ids: string[], groupId?: string) => {
     const family = groupId ? groupTreeIds(board.groups, groupId) : undefined;
     const cardIds = new Set(ids);
-    if (family?.has(filter)) setFilter("all");
     setBoard((b) => ({
       ...b,
       groups: family
@@ -837,9 +823,6 @@ function App() {
     setSelectedConnection(undefined);
     setMenu(null);
     setDetail(undefined);
-    setFilter("all");
-    setQuery("");
-    setSearchOpen(false);
     setEditingGroup(undefined);
     setRenamingCanvas(undefined);
     setGroupDialog(null);
@@ -858,8 +841,6 @@ function App() {
     }));
     setSelection([card.id]);
     setSelectedGroup(undefined);
-    setFilter("all");
-    setQuery("");
     setMenu(null);
   };
   const createParentCanvas = () => {
@@ -941,27 +922,7 @@ function App() {
       y: (r.height - (bottom - top) * z) / 2 - top * z,
     });
   };
-  const visible = board.cards.filter(
-    (c) =>
-      c.id === editingCard ||
-      ((filter === "all" ||
-        (filter === "text" && c.kind === "text") ||
-        (filter === "image" && c.kind === "image") ||
-        (filter === "file" && c.kind === "file") ||
-        (filter === "todo" && c.kind === "todo") ||
-        (filter === "canvas" && c.kind === "canvas") ||
-        (c.group && groupTreeIds(board.groups, filter).has(c.group))) &&
-        (!query ||
-          (
-            c.title +
-            " " +
-            c.text +
-            " " +
-            (c.tasks || []).map((t) => t.text).join(" ")
-          )
-            .toLowerCase()
-            .includes(query.toLowerCase()))),
-  );
+  const visible = board.cards;
   const pointerDown = (
     e: React.PointerEvent,
     id?: string,
@@ -1439,11 +1400,9 @@ function App() {
       if (g.context.kind === "group") {
         setSelectedGroup(g.context.id);
         setSelection([]);
-      } else {
+      } else if (g.context.kind === "card") {
         setSelectedGroup(undefined);
-        if (g.context.kind === "canvas") setSelection([]);
-        else if (!selection.includes(g.context.id))
-          setSelection([g.context.id]);
+        if (!selection.includes(g.context.id)) setSelection([g.context.id]);
       }
       setMenu({ ...g.context, x: e.clientX, y: e.clientY });
     }
@@ -1456,7 +1415,7 @@ function App() {
         e.clientY >= r.top &&
         e.clientY <= r.bottom &&
         !hit?.closest(
-          '.toolbar,.floating-top,.pin-bar,.zoom-controls,.help-button,.sidebar,.canvas-overview,[role="dialog"]',
+          '.toolbar,.floating-top,.pin-bar,.zoom-controls,.help-button,.canvas-overview,[role="dialog"]',
         )
       ) {
         const point = {
@@ -1632,11 +1591,11 @@ function App() {
       clipboardBusy.current = false;
     }
   };
-  const downloadSelected = async () => {
+  const downloadSelected = async (ids: string[], groupId?: string) => {
     if (archiveBusy) return;
     setArchiveBusy(true);
     try {
-      const fragment = archiveSelection(board, selection, selectedGroup);
+      const fragment = archiveSelection(board, ids, groupId);
       download(
         await createArchive(fragment),
         `yua-canvas-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`,
@@ -1688,7 +1647,6 @@ function App() {
           setCreatePreview(null);
         }
         setSelectedGroup(undefined);
-        setSearchOpen(false);
         setMenu(null);
         setEditingGroup(undefined);
         setRenamingCanvas(undefined);
@@ -1730,10 +1688,6 @@ function App() {
           setSelection([]);
           setSelectedGroup(undefined);
           setMenu(null);
-        } else if (key === "k") {
-          e.preventDefault();
-          setSearchOpen(true);
-          searchInput.current?.focus();
         } else if (key === "a") {
           e.preventDefault();
           setSelectedConnection(undefined);
@@ -1944,141 +1898,8 @@ function App() {
         if (gesture.current) cancelGesture();
       }}
     >
-      <aside className={"sidebar " + (!sidebar ? "collapsed" : "")}>
-        <div className="section-label">素材库</div>
-        <nav>
-          {[
-            { id: "all", name: "全部内容", icon: Layers },
-            { id: "text", name: "文本", icon: Type },
-            { id: "todo", name: "任务", icon: ListTodo },
-            { id: "canvas", name: "子画布", icon: PanelsTopLeft },
-            { id: "image", name: "图片", icon: ImagePlus },
-            { id: "file", name: "文件", icon: FileText },
-          ].map(({ id, name, icon: Icon }) => (
-            <button
-              key={id}
-              className={"nav-item " + (filter === id ? "active" : "")}
-              onClick={() => setFilter(id)}
-            >
-              <Icon size={17} />
-              <span>{name}</span>
-              <small>
-                {
-                  board.cards.filter((c) => id === "all" || c.kind === id)
-                    .length
-                }
-              </small>
-            </button>
-          ))}
-        </nav>
-        <div className="section-label group-heading">
-          我的分组 <span>{board.groups.length}</span>
-        </div>
-        <div className="groups-list">
-          {board.groups.length
-            ? board.groups.map((g) => (
-                <div className="group-row" key={g.id}>
-                  <button
-                    className={"nav-item " + (filter === g.id ? "active" : "")}
-                    style={{
-                      paddingLeft: 12 + groupDepth(board.groups, g.id) * 12,
-                    }}
-                    onClick={() => {
-                      setFilter(g.id);
-                      fit(
-                        board.cards.filter(
-                          (c) =>
-                            c.group &&
-                            groupTreeIds(board.groups, g.id).has(c.group),
-                        ),
-                        board.groups.filter((group) =>
-                          groupTreeIds(board.groups, g.id).has(group.id),
-                        ),
-                      );
-                    }}
-                  >
-                    <Folder size={16} />
-                    <span>{g.name}</span>
-                    <small>
-                      {
-                        board.cards.filter(
-                          (c) =>
-                            c.group &&
-                            groupTreeIds(board.groups, g.id).has(c.group),
-                        ).length
-                      }
-                    </small>
-                  </button>
-                  <button
-                    title="重命名分组"
-                    className="group-more"
-                    onClick={() => setGroupDialog({ id: g.id, name: g.name })}
-                  >
-                    <MoreHorizontal size={15} />
-                  </button>
-                </div>
-              ))
-            : null}
-        </div>
-      </aside>
       <main>
         <div className="floating-top">
-          <button
-            className="floating-button"
-            aria-label={sidebar ? "收起侧栏" : "展开侧栏"}
-            title={sidebar ? "收起侧栏" : "展开侧栏"}
-            onClick={() => setSidebar(!sidebar)}
-          >
-            {sidebar ? (
-              <PanelLeftClose size={18} />
-            ) : (
-              <PanelLeftOpen size={18} />
-            )}
-          </button>
-          <div
-            onBlur={(e) => {
-              if (
-                !query.trim() &&
-                !e.currentTarget.contains(e.relatedTarget as Node | null)
-              ) {
-                setQuery("");
-                setSearchOpen(false);
-              }
-            }}
-            className={
-              "search " +
-              (!searchOpen ? "search-collapsed " : "") +
-              (query ? "has-query" : "")
-            }
-          >
-            <button
-              aria-label={searchOpen ? "收起搜索" : "展开搜索"}
-              title="搜索 (⌘/Ctrl K)"
-              aria-expanded={searchOpen}
-              onClick={() => setSearchOpen(!searchOpen)}
-            >
-              <Search size={16} />
-            </button>
-            <input
-              aria-label="搜索画布"
-              placeholder="搜索"
-              hidden={!searchOpen}
-              ref={searchInput}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-            {searchOpen && query && (
-              <button
-                title="清除搜索"
-                onClick={() => {
-                  setQuery("");
-                  searchInput.current?.focus();
-                }}
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
           {path.length > 0 && (
             <nav className="canvas-navigation" aria-label="画布路径">
               <button
@@ -2094,17 +1915,6 @@ function App() {
           )}
           <div className="floating-actions">
             <CloudPanel board={root} ready={ready} restore={restore} />
-            {(selection.length > 1 || selectedGroup) && (
-              <button
-                className="floating-button batch-download"
-                aria-label="批量下载"
-                title="批量下载 ZIP"
-                disabled={archiveBusy}
-                onClick={() => void downloadSelected()}
-              >
-                <Download size={18} />
-              </button>
-            )}
             <span
               className={
                 "save-indicator " + (saveStatus === "保存失败" ? "error" : "")
@@ -2240,7 +2050,7 @@ function App() {
                 <ConnectionArrow
                   id="canvas-connection-arrow"
                   size={10 / view.z}
-                  color="#9ca3af"
+                  color="#d1d5db"
                 />
                 <ConnectionArrow
                   id="canvas-connection-arrow-selected"
@@ -2317,13 +2127,6 @@ function App() {
                 const cards = visible.filter(
                   (c) => c.group && family.has(c.group),
                 );
-                if (
-                  !cards.length &&
-                  (query ||
-                    (filter !== "all" &&
-                      !groupTreeIds(board.groups, filter).has(g.id)))
-                )
-                  return null;
                 const bounds = g.bounds!;
                 return (
                   <div
@@ -2755,20 +2558,6 @@ function App() {
               />
             )}
           </div>
-          {board.cards.length > 0 && !visible.length && (
-            <div className="no-results">
-              <Search size={28} />
-              <button
-                className="button"
-                onClick={() => {
-                  setQuery("");
-                  setFilter("all");
-                }}
-              >
-                查看全部内容
-              </button>
-            </div>
-          )}
         </div>
         <CanvasOverview
           dragging={dragCursor}
@@ -2927,6 +2716,19 @@ function App() {
         <CanvasContextMenu x={menu.x} y={menu.y}>
           {menu.kind === "canvas" ? (
             <MenuSection label="画布操作">
+              {(selection.length > 0 || selectedGroup) && (
+                <button
+                  role="menuitem"
+                  disabled={archiveBusy}
+                  onClick={() => {
+                    setMenu(null);
+                    void downloadSelected(selection, selectedGroup);
+                  }}
+                >
+                  <Download size={14} />
+                  下载
+                </button>
+              )}
               <button
                 role="menuitem"
                 onClick={() => {
@@ -3056,7 +2858,9 @@ function App() {
                     role="menuitem"
                     onClick={() => {
                       setMenu(null);
-                      void downloadCard(menuCard);
+                      if (menuCardIds.length > 1)
+                        void downloadSelected(menuCardIds);
+                      else void downloadCard(menuCard);
                     }}
                   >
                     <Download size={14} />
@@ -3066,6 +2870,17 @@ function App() {
               )}
               {menuGroup && (
                 <MenuSection label="内容操作">
+                  <button
+                    role="menuitem"
+                    disabled={archiveBusy}
+                    onClick={() => {
+                      setMenu(null);
+                      void downloadSelected([], menuGroup.id);
+                    }}
+                  >
+                    <Download size={14} />
+                    下载
+                  </button>
                   <button
                     role="menuitem"
                     onClick={() => {
@@ -3257,7 +3072,6 @@ function App() {
                         c.group === id ? { ...c, group: undefined } : c,
                       ),
                     }));
-                    setFilter("all");
                     setGroupDialog(null);
                   }}
                 >
@@ -3346,8 +3160,6 @@ function App() {
                   setBoard(confirmImport);
                   setConfirmImport(null);
                   setSelection([]);
-                  setFilter("all");
-                  setQuery("");
                   setDetail(undefined);
                   fit(confirmImport.cards, confirmImport.groups);
                   notify("画布已导入");

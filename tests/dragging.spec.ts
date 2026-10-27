@@ -147,11 +147,10 @@ test("toolbar Todo cards drag to exact positions, join groups and cancel outside
   await expect(
     membership(page.getByTestId("card").filter({ hasText: "拖入任务" })),
   ).toHaveAttribute("data-group-name", "外组");
-  await page.getByRole("button", { name: "展开侧栏" }).click();
   await drag(
     page,
     page.getByRole("button", { name: "添加任务", exact: true }),
-    { x: 70, y: 450 },
+    { x: -10, y: 450 },
   );
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByTestId("card")).toHaveCount(4);

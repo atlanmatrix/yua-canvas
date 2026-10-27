@@ -1,3 +1,4 @@
+import { downloadSelectionMenu } from "./helpers";
 import { openTextEditor } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
@@ -19,7 +20,8 @@ const note = (id: string, x: number, y: number, text = id) => ({
 });
 async function download(page: Page, name: string) {
   const pending = page.waitForEvent("download");
-  await page.getByRole("button", { name, exact: true }).click();
+  if (name === "批量下载") await downloadSelectionMenu(page);
+  else await page.getByRole("button", { name, exact: true }).click();
   const file = await pending;
   const stream = await file.createReadStream();
   const chunks: Buffer[] = [];
@@ -290,21 +292,17 @@ test("ZIP metadata preserves intentionally resized frames and ungrouped cards on
     "a.txt": strToU8("部分越界"),
     "b.txt": strToU8("未分组"),
   };
-  await page
-    .getByTestId("files")
-    .setInputFiles({
-      name: "layout.zip",
-      mimeType: "application/zip",
-      buffer: Buffer.from(zipSync(entries)),
-    });
+  await page.getByTestId("files").setInputFiles({
+    name: "layout.zip",
+    mimeType: "application/zip",
+    buffer: Buffer.from(zipSync(entries)),
+  });
   await expect(page.getByTestId("card")).toHaveCount(2);
   const check = async () => {
-    const frame = await page
-      .locator(".group-boundary")
-      .evaluate((el) => ({
-        width: parseFloat((el as HTMLElement).style.width),
-        height: parseFloat((el as HTMLElement).style.height),
-      }));
+    const frame = await page.locator(".group-boundary").evaluate((el) => ({
+      width: parseFloat((el as HTMLElement).style.width),
+      height: parseFloat((el as HTMLElement).style.height),
+    }));
     expect(frame).toEqual({ width: 180, height: 120 });
     await expect(
       page.getByTestId("card").filter({ hasText: "部分越界" }),

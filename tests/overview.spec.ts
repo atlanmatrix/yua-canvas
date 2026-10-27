@@ -7,27 +7,13 @@ async function saved(page: Page) {
   ).toBeVisible();
 }
 
-test("sidebar and search start collapsed and search opens on click or shortcut", async ({
+test("sidebar and search are fully removed, including the old shortcut", async ({
   page,
 }) => {
   await page.goto("/");
-  await expect(page.locator(".sidebar")).toHaveClass(/collapsed/);
-  await expect(page.getByRole("textbox", { name: "搜索画布" })).toHaveCount(0);
-  await page.getByRole("button", { name: "展开侧栏" }).click();
-  await expect(page.locator(".sidebar")).not.toHaveClass(/collapsed/);
-  await page.getByRole("button", { name: "收起侧栏" }).click();
-  await page.getByRole("button", { name: "展开搜索" }).click();
-  const input = page.getByRole("textbox", { name: "搜索画布" });
-  await expect(input).toBeFocused();
-  await input.fill("测试");
-  await page.getByRole("button", { name: "收起搜索" }).click();
-  await expect(input).toHaveCount(0);
-  await page.locator(".canvas").click({ position: { x: 250, y: 150 } });
+  await expect(page.locator("aside,.sidebar,.search")).toHaveCount(0);
   await page.keyboard.press("ControlOrMeta+k");
-  await expect(input).toBeFocused();
-  await expect(input).toHaveValue("测试");
-  await page.keyboard.press("Escape");
-  await expect(input).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "搜索画布" })).toHaveCount(0);
 });
 
 test("autosave waits 600ms after the last interaction and persists only the latest content silently", async ({
@@ -58,7 +44,7 @@ test("autosave waits 600ms after the last interaction and persists only the late
   await page.clock.runFor(500);
   expect(await writes()).toHaveLength(0);
   // Even an operation without a board edit restarts the pending countdown.
-  await page.getByRole("button", { name: "展开侧栏" }).click();
+  await page.getByRole("button", { name: "缩小", exact: true }).click();
   await page.clock.runFor(599);
   expect(await writes()).toHaveLength(0);
   await page.keyboard.press("ArrowRight");
@@ -93,7 +79,7 @@ const card = (id: string, kind: string, x: number, y: number) => ({
     : {}),
 });
 
-test("minimap fits all elements and groups at any spread, ignores search filters and navigates", async ({
+test("minimap fits all elements and groups at any spread and navigates", async ({
   page,
 }) => {
   await page.goto("/");
@@ -161,11 +147,8 @@ test("minimap fits all elements and groups at any spread, ignores search filters
       });
     });
   expect(await allFit()).toBe(true);
-  await page.getByRole("button", { name: "展开搜索" }).click();
-  await page.getByRole("textbox", { name: "搜索画布" }).fill("远处笔记");
-  await expect(page.getByTestId("card")).toHaveCount(1);
+  await expect(page.getByTestId("card")).toHaveCount(4);
   await expect(map.locator("[data-minimap-card]")).toHaveCount(4);
-  await page.getByRole("button", { name: "清除搜索" }).click();
   const far = map.locator('[data-minimap-card="任务列表"]');
   const b = await far.boundingBox();
   // At this scale a whole card is less than one pixel wide. Check the exact

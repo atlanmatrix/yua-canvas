@@ -182,7 +182,7 @@ export function ShareViewer({ token }: { token: string }) {
               <ConnectionArrow
                 id="canvas-connection-arrow"
                 size={8}
-                color="#8a8a8a"
+                color="#d1d5db"
               />
               {board.connections?.map((c) => {
                 const from = endpointPoint(c.from, board.cards, {}),
@@ -192,7 +192,7 @@ export function ShareViewer({ token }: { token: string }) {
                   <g key={c.id}>
                     <path
                       d={curve(from, to, c.from.side, c.to.side)}
-                      stroke="#8a8a8a"
+                      stroke="#d1d5db"
                       strokeWidth="2"
                       fill="none"
                       markerEnd="url(#canvas-connection-arrow)"

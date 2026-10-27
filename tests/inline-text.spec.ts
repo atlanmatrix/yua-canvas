@@ -128,8 +128,7 @@ test("double-click edits text in place, keeps native text interactions and saves
   await expect(input).toBeVisible();
   await page.reload();
   await expect(card(page).locator(".note-body")).toContainText("第 12 行");
-  await page.getByRole("button", { name: "展开侧栏" }).click();
-  await expect(page.getByRole("button", { name: /^文本 \d/ })).toBeVisible();
+  await expect(page.locator(".sidebar")).toHaveCount(0);
 });
 
 test("one edit is one undo step and Escape restores text, dimensions, colors, group frames and connections", async ({
@@ -201,19 +200,16 @@ test("new texts edit on the canvas, discard empty and cancelled drafts, and undo
   await expect(page.getByTestId("card")).toContainText("保留文本");
 });
 
-test("clicking another card ends editing before a new drag starts and search does not remove the active editor", async ({
+test("clicking another card ends editing before a new drag starts", async ({
   page,
 }) => {
   await setup(page);
-  await page.getByRole("button", { name: "展开搜索" }).click();
-  await page.getByRole("textbox", { name: "搜索画布" }).fill("原来的内容");
   await card(page).dblclick();
   await content(page).fill("新的内容");
   await expect(content(page)).toBeFocused();
   await expect(card(page)).toBeVisible();
   await page.keyboard.press("ControlOrMeta+Enter");
-  await expect(page.getByTestId("card")).toHaveCount(0);
-  await page.getByRole("button", { name: "清除搜索" }).click();
+  await expect(page.getByTestId("card")).toHaveCount(2);
   await card(page).dblclick();
   await content(page).fill("拖动之前的修改");
   const other = page.locator('[data-card-id="other"]'),

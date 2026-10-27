@@ -1,3 +1,4 @@
+import { downloadSelectionMenu } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 const note = (id: string, x = 80, y = 120) => ({
   id,
@@ -27,25 +28,23 @@ const child = {
 };
 async function setup(page: Page) {
   await page.goto("/");
-  await page
-    .getByTestId("import")
-    .setInputFiles({
-      name: "nav.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(
-        JSON.stringify({
-          version: 1,
-          cards: [note("根级内容"), child],
-          groups: [
-            {
-              id: "g",
-              name: "空分组",
-              bounds: { x: 80, y: 350, width: 240, height: 160 },
-            },
-          ],
-        }),
-      ),
-    });
+  await page.getByTestId("import").setInputFiles({
+    name: "nav.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(
+      JSON.stringify({
+        version: 1,
+        cards: [note("根级内容"), child],
+        groups: [
+          {
+            id: "g",
+            name: "空分组",
+            bounds: { x: 80, y: 350, width: 240, height: 160 },
+          },
+        ],
+      }),
+    ),
+  });
   await page.getByRole("button", { name: "确认替换" }).click();
   await expect(page.getByTestId("card")).toHaveCount(2);
 }
@@ -198,34 +197,33 @@ test("JSON and ZIP preserve pin labels, duplicate pins locate independent copies
   const raw = Buffer.concat(chunks),
     data = JSON.parse(raw.toString());
   expect(data.cards.filter((c: any) => c.pin === "根级内容")).toHaveLength(2);
-  await page
-    .getByTestId("import")
-    .setInputFiles({
-      name: "pins.json",
-      mimeType: "application/json",
-      buffer: raw,
-    });
+  await page.getByTestId("import").setInputFiles({
+    name: "pins.json",
+    mimeType: "application/json",
+    buffer: raw,
+  });
   await page.getByRole("button", { name: "确认替换" }).click();
   await expect(
     rail.getByRole("button", { name: "根级内容", exact: true }),
   ).toHaveCount(2);
-  await page.locator(".card-text").first().click({position:{x:5,y:5}});
+  await page
+    .locator(".card-text")
+    .first()
+    .click({ position: { x: 5, y: 5 } });
   await page
     .locator(".card-text")
     .last()
     .click({ modifiers: ["ControlOrMeta"] });
   const zipPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "批量下载", exact: true }).click();
+  await downloadSelectionMenu(page);
   const zip = await (await zipPromise).createReadStream(),
     parts: Buffer[] = [];
   for await (const c of zip!) parts.push(c);
-  await page
-    .getByTestId("import")
-    .setInputFiles({
-      name: "pins.zip",
-      mimeType: "application/zip",
-      buffer: Buffer.concat(parts),
-    });
+  await page.getByTestId("import").setInputFiles({
+    name: "pins.zip",
+    mimeType: "application/zip",
+    buffer: Buffer.concat(parts),
+  });
   await expect(
     rail.getByRole("button", { name: "根级内容", exact: true }),
   ).toHaveCount(4);

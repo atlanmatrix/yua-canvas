@@ -227,8 +227,13 @@ test("clipboard write failure keeps cut source and input retains native cut beha
   await page.keyboard.press("ControlOrMeta+x");
   await expect(page.getByRole("status")).toContainText("剪切失败");
   await expect(page.getByTestId("card")).toHaveCount(3);
-  await page.getByRole("button", { name: "展开搜索" }).click();
-  const input = page.getByRole("textbox", { name: "搜索画布" });
+  await page.evaluate(() => {
+    const input = document.createElement("input");
+    input.id = "native-cut";
+    input.style.cssText = "position:fixed;top:10px;left:10px;z-index:100";
+    document.body.append(input);
+  });
+  const input = page.locator("#native-cut");
   await input.fill("native");
   await input.selectText();
   await page.keyboard.press("ControlOrMeta+x");

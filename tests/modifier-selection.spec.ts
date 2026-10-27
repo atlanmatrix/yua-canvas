@@ -96,7 +96,7 @@ for (const modifier of ["Meta", "Control"] as const) {
     await click("image");
     await click("todo");
     expect(await selection(page)).toEqual(["file", "image", "text", "todo"]);
-    await expect(page.getByRole("button", { name: "批量下载" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "批量下载" })).toHaveCount(0);
     await click("file");
     expect(await selection(page)).toEqual(["image", "text", "todo"]);
     await click("image", ["Shift"]);

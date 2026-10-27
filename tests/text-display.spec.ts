@@ -1,3 +1,4 @@
+import { downloadSelectionMenu } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 import { unzipSync, strFromU8 } from "fflate";
 import { textWidth80 } from "./helpers";
@@ -31,7 +32,8 @@ async function camera(page: Page) {
 }
 async function download(page: Page, label: string) {
   const pending = page.waitForEvent("download");
-  await page.getByRole("button", { name: label, exact: true }).click();
+  if (label === "批量下载") await downloadSelectionMenu(page);
+  else await page.getByRole("button", { name: label, exact: true }).click();
   const stream = await (await pending).createReadStream(),
     chunks: Buffer[] = [];
   for await (const chunk of stream!) chunks.push(chunk);
@@ -230,7 +232,7 @@ test("width resizing recalculates automatic height without vertical resize handl
   ).toBe(true);
 });
 
-test("toolbar includes child canvas creation and empty search collapses only after focus leaves", async ({
+test("toolbar keeps creation tools without a search interface", async ({
   page,
 }) => {
   await ready(page);
@@ -241,25 +243,6 @@ test("toolbar includes child canvas creation and empty search collapses only aft
       els.map((el) => el.getAttribute("aria-label")),
     ),
   ).toEqual(["添加任务", "上传图片", "上传文件", "导入目录", "创建子画布"]);
-  await page.getByRole("button", { name: "展开搜索" }).click();
-  const input = page.getByRole("textbox", { name: "搜索画布" });
-  await expect(input).toBeFocused();
-  await page.getByRole("button", { name: "放大", exact: true }).click();
-  await expect(input).toHaveCount(0);
-  await page.getByRole("button", { name: "展开搜索" }).click();
-  await input.fill("关键词");
-  await page.getByRole("button", { name: "放大", exact: true }).click();
-  await expect(input).toHaveValue("关键词");
-  await page.getByRole("button", { name: "清除搜索" }).click();
-  await expect(input).toBeFocused();
-  await expect(input).toHaveValue("");
-  await page.getByRole("button", { name: "添加任务", exact: true }).click();
-  await expect(input).toHaveCount(0);
-  await page.keyboard.press("Escape");
   await page.keyboard.press("ControlOrMeta+k");
-  await expect(input).toBeFocused();
-  await input.fill("   ");
-  await page.getByRole("button", { name: "放大", exact: true }).click();
-  await expect(input).toHaveCount(0);
-  await page.screenshot({ path: "/tmp/yua-four-tools-search.png" });
+  await expect(page.locator(".search")).toHaveCount(0);
 });

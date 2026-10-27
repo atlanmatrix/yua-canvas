@@ -1,3 +1,4 @@
+import { downloadSelectionMenu } from "./helpers";
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { unzipSync, strFromU8 } from "fflate";
 const pixel =
@@ -70,7 +71,8 @@ async function rename(page: Page, card: Locator, name: string) {
 }
 async function download(page: Page, name: string) {
   const pending = page.waitForEvent("download");
-  await page.getByRole("button", { name, exact: true }).click();
+  if (name === "批量下载") await downloadSelectionMenu(page);
+  else await page.getByRole("button", { name, exact: true }).click();
   const file = await pending,
     stream = await file.createReadStream(),
     chunks: Buffer[] = [];
