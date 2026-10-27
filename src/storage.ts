@@ -471,3 +471,32 @@ export async function readRecovery(): Promise<Board | undefined> {
     r.onerror = () => reject(r.error);
   });
 }
+
+export type CanvasClipboard = {
+  token: string;
+  fragment: { cards: Card[]; groups: Group[]; connections?: Connection[] };
+  offset: number;
+};
+export async function saveCanvasClipboard(value: CanvasClipboard) {
+  const db = await database;
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction("boards", "readwrite");
+    tx.objectStore("boards").put(value, "cut-clipboard");
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+export async function readCanvasClipboard(): Promise<
+  CanvasClipboard | undefined
+> {
+  const db = await database;
+  return new Promise((resolve, reject) => {
+    const request = db
+      .transaction("boards")
+      .objectStore("boards")
+      .get("cut-clipboard");
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}

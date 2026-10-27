@@ -22,6 +22,8 @@ import {
   ArrowLeftRight,
   Check,
   Copy,
+  Scissors,
+  ClipboardPaste,
   X,
   Trash2,
   FileText,
@@ -43,6 +45,8 @@ import {
   containingGroup,
   emptyBoard,
   readBoard,
+  readCanvasClipboard,
+  saveCanvasClipboard,
   readView,
   readNavigation,
   exportBoard,
@@ -331,6 +335,9 @@ function App() {
       moved: boolean;
     } | null>(null),
     space = useRef(false);
+  const latestBoard = useRef(board);
+  latestBoard.current = board;
+  const clipboardBusy = useRef(false);
   const activeCanvasKey = useRef(board.id || "");
   activeCanvasKey.current = board.id || "";
   const { viewport, projection } = useMinimapGeometry(board, view, surface);
@@ -391,8 +398,14 @@ function App() {
     return () => clearTimeout(t);
   }, [toast, copyFiles.length]);
   useEffect(() => {
-    Promise.all([readBoard(), readView(), readNavigation()])
-      .then(([b, savedView, savedNavigation]) => {
+    Promise.all([
+      readBoard(),
+      readView(),
+      readNavigation(),
+      readCanvasClipboard(),
+    ])
+      .then(([b, savedView, savedNavigation, clipboard]) => {
+        if (clipboard) internalCopy.current = clipboard;
         restore(b || emptyBoard, savedView, savedNavigation);
         setReady(true);
         setSaveStatus("已保存至本地");
@@ -597,6 +610,102 @@ function App() {
       notify(error instanceof Error ? error.message : "目录读取失败");
     }
   };
+  const pasteClipboard = (
+    clipboard: DataTransfer,
+    point?: { x: number; y: number },
+  ) => {
+    const marker = new DOMParser()
+      .parseFromString(clipboard.getData("text/html"), "text/html")
+      .querySelector("[data-yua-copy]")
+      ?.getAttribute("data-yua-copy");
+    if (internalCopy.current && marker === internalCopy.current.token) {
+      const fragment = internalCopy.current.fragment;
+      const positions = [
+        ...fragment.cards,
+        ...fragment.groups.flatMap((g) => (g.bounds ? [g.bounds] : [])),
+      ];
+      const offset = point
+        ? {
+            x: point.x - Math.min(...positions.map((p) => p.x)),
+            y: point.y - Math.min(...positions.map((p) => p.y)),
+          }
+        : internalCopy.current.offset;
+      const result = duplicateFragment(latestBoard.current, fragment, offset);
+      internalCopy.current.offset += 30;
+      setBoard(result.board);
+      if (result.group && !point) {
+        const family = groupTreeIds(result.board.groups, result.group);
+        fit(
+          result.board.cards.filter((c) => result.cards.includes(c.id)),
+          result.board.groups.filter((g) => family.has(g.id)),
+        );
+      }
+      setSelection(result.group ? [] : result.cards);
+      setSelectedGroup(result.group);
+      notify("已粘贴");
+      return true;
+    }
+    const transfer = captureTransfer(clipboard);
+    if (transfer.hasFiles) {
+      void addTransfer(transfer.nodes, point);
+      return true;
+    }
+    const text = clipboard.getData("text/plain");
+    if (!text.trim()) return false;
+    const id = uid();
+    setBoard((b) => ({
+      ...b,
+      cards: [
+        ...b.cards,
+        {
+          id,
+          kind: "text",
+          title: "",
+          text,
+          color: colors[0],
+          ...(point || center()),
+          ...textSize(text),
+          textMode: "wrap",
+          textAutoHeight: true,
+        },
+      ],
+    }));
+    setSelection([id]);
+    setSelectedGroup(undefined);
+    return true;
+  };
+  const pasteFromMenu = async (point: { x: number; y: number }) => {
+    const destination = activeCanvasKey.current;
+    setMenu(null);
+    try {
+      if (!navigator.clipboard?.read) throw Error("当前浏览器不支持读取剪贴板");
+      const items = await navigator.clipboard.read();
+      const data = new DataTransfer();
+      for (const item of items) {
+        for (const type of ["text/plain", "text/html"]) {
+          if (item.types.includes(type))
+            data.setData(type, await (await item.getType(type)).text());
+        }
+        const type = item.types.includes("image/png")
+          ? "image/png"
+          : item.types.find((t) => !["text/plain", "text/html"].includes(t));
+        if (type) {
+          const blob = await item.getType(type);
+          data.items.add(
+            new File(
+              [blob],
+              type === "image/png" ? "粘贴图片.png" : "粘贴附件",
+              { type },
+            ),
+          );
+        }
+      }
+      if (activeCanvasKey.current !== destination) return;
+      if (!pasteClipboard(data, point)) notify("剪贴板没有可粘贴的内容");
+    } catch {
+      notify("无法读取剪贴板，请允许访问，或使用 ⌘/Ctrl + V 粘贴");
+    }
+  };
   useEffect(() => {
     const paste = (event: ClipboardEvent) => {
       const target = event.target;
@@ -610,62 +719,8 @@ function App() {
             )))
       )
         return;
-      const clipboard = event.clipboardData;
-      if (!clipboard) return;
-      const marker = new DOMParser()
-        .parseFromString(clipboard.getData("text/html"), "text/html")
-        .querySelector("[data-yua-copy]")
-        ?.getAttribute("data-yua-copy");
-      if (internalCopy.current && marker === internalCopy.current.token) {
+      if (event.clipboardData && pasteClipboard(event.clipboardData))
         event.preventDefault();
-        const result = duplicateFragment(
-          board,
-          internalCopy.current.fragment,
-          internalCopy.current.offset,
-        );
-        internalCopy.current.offset += 30;
-        setBoard(result.board);
-        if (result.group) {
-          const family = groupTreeIds(result.board.groups, result.group);
-          fit(
-            result.board.cards.filter((c) => result.cards.includes(c.id)),
-            result.board.groups.filter((g) => family.has(g.id)),
-          );
-        }
-        setSelection(result.group ? [] : result.cards);
-        setSelectedGroup(result.group);
-        notify("已粘贴");
-        return;
-      }
-      const transfer = captureTransfer(clipboard);
-      if (transfer.hasFiles) {
-        event.preventDefault();
-        void addTransfer(transfer.nodes);
-        return;
-      }
-      const text = clipboard.getData("text/plain");
-      if (!text.trim()) return;
-      event.preventDefault();
-      const id = uid();
-      setBoard((b) => ({
-        ...b,
-        cards: [
-          ...b.cards,
-          {
-            id,
-            kind: "text",
-            title: "",
-            text,
-            color: colors[0],
-            ...center(),
-            ...textSize(text),
-            textMode: "wrap",
-            textAutoHeight: true,
-          },
-        ],
-      }));
-      setSelection([id]);
-      setSelectedGroup(undefined);
     };
     window.addEventListener("paste", paste);
     return () => window.removeEventListener("paste", paste);
@@ -1476,13 +1531,20 @@ function App() {
     );
     setMenu(null);
   };
-  const copySelected = async (cardIds?: string[]) => {
-    const group = cardIds ? undefined : selectedGroup;
+  const copySelected = async (
+    cardIds?: string[],
+    options?: { cut?: boolean; groupId?: string },
+  ) => {
+    if (clipboardBusy.current) return;
+    const group = options?.groupId || (cardIds ? undefined : selectedGroup);
+    const cutting = !!options?.cut;
+    const destination = activeCanvasKey.current;
     const fragment = selectedFragment(board, cardIds || selection, group);
     if (!fragment.cards.length && !fragment.groups.length) return;
     const token = uid();
-    notify("正在复制…");
-    internalCopy.current = { token, fragment, offset: 30 };
+    clipboardBusy.current = true;
+    notify(cutting ? "正在剪切…" : "正在复制…");
+    internalCopy.current = { token, fragment, offset: cutting ? 0 : 30 };
     try {
       if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined")
         throw Error("当前浏览器不支持系统剪贴板");
@@ -1493,7 +1555,7 @@ function App() {
       } catch (error) {
         if (error instanceof FileClipboardUnsupported)
           unsupported = error.files;
-        else if (fragment.cards.length <= 1) throw error;
+        else if (!cutting && fragment.cards.length <= 1) throw error;
       }
       const text = fragment.cards
         .map(
@@ -1502,6 +1564,22 @@ function App() {
         )
         .join("\n\n");
       await navigator.clipboard.write(canvasClipboard(copy, token, text));
+      if (cutting) {
+        await saveCanvasClipboard({ token, fragment, offset: 0 });
+        if (
+          activeCanvasKey.current !== destination ||
+          latestBoard.current !== board
+        ) {
+          notify("已复制；原画布发生变化，未删除原内容");
+          return;
+        }
+        deleteItems(
+          fragment.cards.map((c) => c.id),
+          group,
+        );
+        notify(group ? "已剪切分组" : "已剪切");
+        return;
+      }
       if (unsupported.length) {
         notify("已复制，可在画布中粘贴；系统文件请下载原文件");
         setCopyFiles(unsupported);
@@ -1519,23 +1597,29 @@ function App() {
         if (files.length) setCopyFiles(files);
       }
     } catch (error) {
-      internalCopy.current = null;
+      if (internalCopy.current?.token === token) internalCopy.current = null;
       if (
         error instanceof DOMException &&
         (error.name === "NotAllowedError" || error.name === "SecurityError")
       )
-        notify("复制失败，请允许此网站访问剪贴板后重试");
+        notify(
+          cutting
+            ? "剪切失败，原内容已保留，请允许剪贴板访问后重试"
+            : "复制失败，请允许此网站访问剪贴板后重试",
+        );
       else {
         const files = fragment.cards.filter((c) => c.kind === "file" && c.blob);
         notify(
           files.length
             ? "无法复制文件正文（编码或格式不支持），请下载原文件"
             : error instanceof Error
-              ? `复制失败：${error.message}`
+              ? `${cutting ? "剪切失败，原内容已保留" : "复制失败"}：${error.message}`
               : "复制失败，请重试",
         );
         if (files.length) setCopyFiles(files);
       }
+    } finally {
+      clipboardBusy.current = false;
     }
   };
   const downloadSelected = async () => {
@@ -1625,6 +1709,9 @@ function App() {
         if (key === "c" && (selection.length || selectedGroup)) {
           e.preventDefault();
           void copySelected();
+        } else if (key === "x" && (selection.length || selectedGroup)) {
+          e.preventDefault();
+          void copySelected(undefined, { cut: true });
         } else if (key === "z" || key === "y") {
           e.preventDefault();
           if (gesture.current) return;
@@ -2775,6 +2862,27 @@ function App() {
         <CanvasContextMenu x={menu.x} y={menu.y}>
           {menu.kind === "canvas" ? (
             <MenuSection label="画布操作">
+              <button
+                role="menuitem"
+                onClick={() => {
+                  const r = surface.current!.getBoundingClientRect();
+                  void pasteFromMenu({
+                    x: (menu.x - r.left - view.x) / view.z,
+                    y: (menu.y - r.top - view.y) / view.z,
+                  });
+                }}
+              >
+                <ClipboardPaste size={14} />
+                粘贴
+              </button>
+              <button
+                role="menuitem"
+                disabled={!path.length}
+                onClick={() => navigateCanvas(path.slice(0, -1))}
+              >
+                <ArrowLeft size={14} />
+                返回父画布
+              </button>
               <button role="menuitem" onClick={createParentCanvas}>
                 <FolderUp size={14} />
                 创建父画布
@@ -2827,6 +2935,16 @@ function App() {
                       </button>
                     </>
                   )}
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setMenu(null);
+                      void copySelected(menuCardIds, { cut: true });
+                    }}
+                  >
+                    <Scissors size={14} />
+                    剪切
+                  </button>
                   {menuCard.kind === "canvas" && (
                     <button
                       role="menuitem"
@@ -2848,6 +2966,23 @@ function App() {
                   >
                     <Download size={14} />
                     下载
+                  </button>
+                </MenuSection>
+              )}
+              {menuGroup && (
+                <MenuSection label="内容操作">
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setMenu(null);
+                      void copySelected([], {
+                        cut: true,
+                        groupId: menuGroup.id,
+                      });
+                    }}
+                  >
+                    <Scissors size={14} />
+                    剪切
                   </button>
                 </MenuSection>
               )}

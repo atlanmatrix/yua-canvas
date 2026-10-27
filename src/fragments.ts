@@ -35,10 +35,10 @@ export function selectedFragment(
 export function duplicateFragment(
   board: Board,
   fragment: Fragment,
-  offset: number,
+  offset: number | { x: number; y: number },
   preserveGroups = false,
 ) {
-  const delta = { x: offset, y: offset };
+  const delta = typeof offset === "number" ? { x: offset, y: offset } : offset;
   const ids = new Map(fragment.groups.map((g) => [g.id, crypto.randomUUID()]));
   const groups = fragment.groups.map((g) => ({
     ...g,

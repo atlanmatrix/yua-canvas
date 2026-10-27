@@ -165,7 +165,7 @@ test("selection has no toolbar; context menus group capabilities and retain mult
     ).toBeVisible();
   await expect(
     popup.getByRole("group", { name: "内容操作" }).getByRole("menuitem"),
-  ).toHaveText(["打开", "复制", "下载"]);
+  ).toHaveText(["打开", "复制", "剪切", "下载"]);
   await expect(
     popup.getByRole("group", { name: "分组操作" }).getByRole("menuitem"),
   ).toHaveText(["创建分组", "移出分组"]);
@@ -259,7 +259,9 @@ test("group menus separate dissolution from deleting descendants, reset a delete
     title = page.getByRole("button", { name: "拖动分组 项目", exact: true });
   await menu(page, title);
   const popup = page.getByRole("menu");
-  await expect(popup.getByRole("group", { name: "内容操作" })).toHaveCount(0);
+  await expect(
+    popup.getByRole("group", { name: "内容操作" }).getByRole("menuitem"),
+  ).toHaveText(["剪切"]);
   await expect(
     popup
       .getByRole("group", { name: "分组操作" })
