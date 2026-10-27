@@ -308,6 +308,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     [tool, setTool] = useState<"select" | "hand">("select"),
     [detail, setDetail] = useState<string>(),
     [miniatureDraft, setMiniatureDraft] = useState<Card>(),
+    [activeMiniature, setActiveMiniature] = useState<string>(),
     [renamingCanvas, setRenamingCanvas] = useState<string>(),
     [editingCard, setEditingCard] = useState<string>(),
     [editingTask, setEditingTask] = useState<string>(),
@@ -861,6 +862,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setMenu(null);
     setDetail(undefined);
     setMiniatureDraft(undefined);
+    setActiveMiniature(undefined);
     setEditingGroup(undefined);
     setRenamingCanvas(undefined);
     setGroupDialog(null);
@@ -926,13 +928,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       color: colors[0],
       width: 640,
       height: 520,
-      ...(point || { x: middle.x - 200, y: middle.y - 135 }),
+      ...(point || { x: middle.x - 200, y: middle.y - 205 }),
     });
     setMenu(null);
   };
   const openCard = (card: Card, task?: string) => {
     if (card.kind === "canvas") navigateCanvas([...path, card.id]);
-    else if (card.kind === "miniature") setMiniatureDraft(card);
+    else if (card.kind === "miniature") setActiveMiniature(card.id);
     else if (card.kind === "text" || card.kind === "todo")
       editCard(card, false, task);
     else setDetail(card.id);
@@ -1783,6 +1785,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         setGroupDialog(null);
         setDetail(undefined);
         setMiniatureDraft(undefined);
+        setActiveMiniature(undefined);
         setConfirmImport(null);
         setSelection([]);
         (document.activeElement as HTMLElement)?.blur();
@@ -2440,7 +2443,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   top: c.y,
                   width: cardRect(c).width,
                   height: cardRect(c).height,
-                  background: c.color,
+                  background: c.kind === "miniature" ? "transparent" : c.color,
                 }}
                 onPointerDown={(e) => {
                   e.stopPropagation();
@@ -2478,7 +2481,34 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   preview3D ? null : (
                     <Miniature
                       card={c}
-                      onEdit={() => setMiniatureDraft(c)}
+                      active={activeMiniature === c.id}
+                      onActiveChange={(active) =>
+                        setActiveMiniature(active ? c.id : undefined)
+                      }
+                      onSelect={() => {
+                        setSelection([c.id]);
+                        setSelectedGroup(undefined);
+                        setSelectedConnection(undefined);
+                      }}
+                      onLabelChange={(field, value) => {
+                        updateCards((cards) =>
+                          cards.map((card) =>
+                            card.id === c.id
+                              ? {
+                                  ...card,
+                                  [field]: value,
+                                  ...(field === "text" && card.text !== value
+                                    ? {
+                                        blob: undefined,
+                                        mime: undefined,
+                                        miniatureView: undefined,
+                                      }
+                                    : {}),
+                                }
+                              : card,
+                          ),
+                        );
+                      }}
                       onSnapshot={({ view, cover }) => {
                         if (!miniatureViewUrl(c.text, view)) return;
                         workspace.updateRoot(

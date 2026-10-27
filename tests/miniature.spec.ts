@@ -37,7 +37,7 @@ async function download(page: Page, name: string) {
   return Buffer.concat(chunks);
 }
 
-test("iframe creates a draggable, resizable scene with opt-in interaction and reload persistence", async ({
+test("double-click activates a full-size model, outside clicks deactivate and persist its view", async ({
   page,
 }) => {
   await ready(page);
@@ -55,13 +55,15 @@ test("iframe creates a draggable, resizable scene with opt-in interaction and re
   expect(moved.x).toBeCloseTo(before.x + 40, 0);
   expect(moved.y).toBeCloseTo(before.y + 25, 0);
   await mockMiniature(page, { delay: 300 });
-  await card.getByRole("button", { name: "交互 3D 场景" }).click();
+  await card
+    .locator(".miniature-model")
+    .dblclick({ position: { x: 100, y: 100 } });
   await expect(frame).toHaveAttribute("src", /city\/\?.*parentOrigin=/);
   await expect(frame).toHaveAttribute("allow", "fullscreen");
   await expect(frame).toHaveAttribute("title", title);
-  expect(await frame.evaluate((el) => el.getBoundingClientRect().height)).toBe(
-    480,
-  );
+  expect(
+    await frame.evaluate((el) => el.getBoundingClientRect().height),
+  ).toBeCloseTo(moved.height - 2, 0);
   await page
     .frameLocator(".miniature-frame")
     .getByRole("button", { name: "旋转场景" })
@@ -70,10 +72,11 @@ test("iframe creates a draggable, resizable scene with opt-in interaction and re
     page.frameLocator(".miniature-frame").getByRole("button"),
   ).toHaveText("场景已旋转");
   await expect(page.locator("[data-minimap-card] image")).toHaveCount(0);
-  await card.getByRole("button", { name: "结束场景交互" }).click();
+  await page.locator(".canvas").click({ position: { x: 10, y: 100 } });
   await expect(frame).toHaveCount(0);
   await expect(card.locator(".miniature-cover")).toBeVisible();
   await expect(page.locator("[data-minimap-card] image")).toHaveCount(1);
+  await card.click({ position: { x: 100, y: 100 } });
   const handle = card.getByTestId("card-resize-se"),
     box = (await handle.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -131,18 +134,13 @@ test("editing validates URLs, ignores executable iframe attributes, supports exa
   await expect(page.locator("iframe")).toHaveCount(0);
   await expect(page.locator("iframe[onload],iframe[srcdoc]")).toHaveCount(0);
   expect(await page.evaluate(() => (window as any).__unsafe)).toBeUndefined();
-  await page
-    .getByRole("button", { name: "编辑 miniature", exact: true })
-    .click();
+  await page.locator(".miniature-name").dblclick();
   await page.getByRole("textbox", { name: "场景名称" }).fill("更名");
   await page.keyboard.press("Escape");
   await expect(page.locator(".miniature-cover")).toHaveAttribute("alt", title);
-  await page
-    .getByRole("button", { name: "编辑 miniature", exact: true })
-    .click();
-  await page.getByRole("button", { name: "使用示例场景" }).click();
+  await page.locator(".miniature-name").dblclick();
   await page.getByRole("textbox", { name: "场景名称" }).fill("更名");
-  await page.getByRole("button", { name: "保存场景" }).click();
+  await page.getByRole("textbox", { name: "场景名称" }).press("Enter");
   await expect(page.locator(".miniature-cover")).toHaveAttribute("alt", "更名");
   await page.keyboard.press("ControlOrMeta+z");
   await expect(page.locator(".miniature-cover")).toHaveAttribute("alt", title);
@@ -279,7 +277,9 @@ test("read-only shares embed miniature scenes without exposing editor controls",
   await expect(
     page.getByRole("button", { name: "编辑 miniature" }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "交互 3D 场景" }).click();
+  await page
+    .locator(".miniature-model")
+    .dblclick({ position: { x: 100, y: 100 } });
   await page
     .frameLocator(".miniature-frame")
     .getByRole("button", { name: "旋转场景" })
@@ -361,7 +361,9 @@ test("messages from a different origin, window or request cannot alter the saved
   const original = JSON.parse((await download(page, "导出画布")).toString())
     .cards[0];
   await mockMiniature(page, { delay: 1000 });
-  await page.getByRole("button", { name: "交互 3D 场景" }).click();
+  await page
+    .locator(".miniature-model")
+    .dblclick({ position: { x: 100, y: 100 } });
   await expect(page.locator("iframe")).toBeVisible();
   await page.evaluate(
     ({ src, cover }) => {
@@ -419,10 +421,12 @@ test("an unsupported capture protocol times out without leaving a background ifr
   await expect(page.locator(".miniature-placeholder")).toHaveText(
     "暂无静态预览",
   );
-  await page.getByRole("button", { name: "交互 3D 场景" }).click();
+  await page
+    .locator(".miniature-model")
+    .dblclick({ position: { x: 100, y: 100 } });
   await page.clock.fastForward(13000);
   await expect(page.locator("iframe")).toHaveCount(1);
-  await page.getByRole("button", { name: "结束场景交互" }).click();
+  await page.locator(".canvas").click({ position: { x: 10, y: 100 } });
   await page.clock.fastForward(13000);
   await expect(page.locator("iframe")).toHaveCount(0);
 });

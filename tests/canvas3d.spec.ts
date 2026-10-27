@@ -278,7 +278,7 @@ for (const id of ["深层文本", "todo", "file", "image", "miniature", "nested"
       ).toHaveValue("待办内容");
     else if (id === "miniature")
       await expect(
-        page.getByRole("dialog", { name: "编辑 miniature" }),
+        page.locator('.miniature[data-active="true"]'),
       ).toBeVisible();
     else if (id === "nested")
       await expect(page.locator('[data-card-id="孙级文本"]')).toBeVisible();
@@ -342,7 +342,9 @@ test("two-finger zoom and pan, cancellation and suspended scene iframes work", a
     .getByRole("button", { name: "进入子画布 项目", exact: true })
     .click();
   await expect(page.locator(".miniature-cover")).toBeVisible();
-  await page.getByRole("button", { name: "交互 3D 场景" }).click();
+  await page
+    .locator(".miniature-model")
+    .dblclick({ position: { x: 100, y: 100 } });
   await expect(page.locator(".miniature-frame")).toHaveCount(1);
   await open(page);
   await expect(page.locator("iframe")).toHaveCount(0);

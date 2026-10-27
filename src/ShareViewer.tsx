@@ -221,7 +221,8 @@ export function ShareViewer({ token }: { token: string }) {
                     top: r.y,
                     width: r.width,
                     minHeight: r.height,
-                    background: c.color,
+                    background:
+                      c.kind === "miniature" ? "transparent" : c.color,
                   }}
                 >
                   {c.kind === "miniature" ? (

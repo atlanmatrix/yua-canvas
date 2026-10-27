@@ -39,7 +39,8 @@ function scheduleCapture(start: Job["start"]) {
 type Frame = { id: string; url: string; mode: "capture" | "live" | "closing" };
 type Controller = {
   sync: (card: Card, visible: boolean) => void;
-  toggle: () => void;
+  activate: () => void;
+  deactivate: () => void;
   loaded: () => void;
 };
 const coverBlob = (blob?: Blob) =>
@@ -163,8 +164,8 @@ export function useMiniatureCapture(
       armTimeout();
       const node = container.current;
       const ratio =
-        node && node.clientHeight > 38
-          ? node.clientWidth / (node.clientHeight - 38)
+        node && node.clientHeight > 0
+          ? node.clientWidth / node.clientHeight
           : 4 / 3;
       iframe.current.contentWindow.postMessage(
         {
@@ -229,15 +230,17 @@ export function useMiniatureCapture(
       }
       ensureCover();
     };
-    const toggle = () => {
+    const deactivate = () => {
       if (currentFrame?.mode === "live") {
         show({ ...currentFrame, mode: "closing" });
         clearTimeout(debounce);
         request();
-      } else {
-        stop();
-        start("live");
       }
+    };
+    const activate = () => {
+      if (currentFrame?.mode === "live") return;
+      stop();
+      start("live");
     };
     const message = async (event: MessageEvent) => {
       if (
@@ -308,7 +311,8 @@ export function useMiniatureCapture(
     };
     controller.current = {
       sync,
-      toggle,
+      activate,
+      deactivate,
       loaded: () => {
         if (!pending) request();
       },
@@ -335,7 +339,8 @@ export function useMiniatureCapture(
     frame,
     failed,
     interactive: frame?.mode === "live",
-    toggle: () => controller.current?.toggle(),
+    activate: () => controller.current?.activate(),
+    deactivate: () => controller.current?.deactivate(),
     loaded: () => controller.current?.loaded(),
   };
 }
