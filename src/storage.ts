@@ -1,9 +1,10 @@
 import { validEndpoint, type Connection } from "./connections";
 import { cardRect } from "./geometry";
+import { miniatureUrl } from "./miniatureScene";
 export type Card = {
   id: string;
   pin?: string;
-  kind: "text" | "image" | "file" | "todo" | "canvas";
+  kind: "text" | "image" | "file" | "todo" | "canvas" | "miniature";
   title: string;
   text: string;
   x: number;
@@ -323,7 +324,7 @@ export async function importBoard(
       if (
         typeof c.id !== "string" ||
         ids.has(c.id) ||
-        !["text", "image", "file", "todo", "canvas"].includes(
+        !["text", "image", "file", "todo", "canvas", "miniature"].includes(
           c.kind as string,
         ) ||
         typeof c.title !== "string" ||
@@ -335,6 +336,8 @@ export async function importBoard(
       )
         throw new Error("卡片数据无效");
       ids.add(c.id);
+      if (c.kind === "miniature" && !miniatureUrl(c.text as string))
+        throw Error("3D 场景地址无效");
       if (
         (c.width !== undefined &&
           (!Number.isFinite(c.width) ||

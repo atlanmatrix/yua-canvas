@@ -12,6 +12,7 @@ import { cardRect } from "./geometry";
 import { curve, endpointPoint, curveMidpoint } from "./connections";
 import { ConnectionArrow } from "./ConnectionArrow";
 import { Markdown } from "./Markdown";
+import { Miniature } from "./Miniature";
 function Asset({ card }: { card: Card }) {
   const [url, setUrl] = useState("");
   useEffect(() => {
@@ -210,7 +211,10 @@ export function ShareViewer({ token }: { token: string }) {
               const r = cardRect(c);
               return (
                 <article
-                  className="share-card"
+                  className={
+                    "share-card" +
+                    (c.kind === "miniature" ? " share-miniature" : "")
+                  }
                   key={c.id}
                   style={{
                     left: r.x,
@@ -220,7 +224,9 @@ export function ShareViewer({ token }: { token: string }) {
                     background: c.color,
                   }}
                 >
-                  {c.kind === "canvas" ? (
+                  {c.kind === "miniature" ? (
+                    <Miniature card={c} />
+                  ) : c.kind === "canvas" ? (
                     <button onClick={() => setStack((s) => [...s, c.canvas!])}>
                       进入 {c.title}
                     </button>

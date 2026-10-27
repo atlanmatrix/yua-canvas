@@ -165,6 +165,77 @@ main {
 .card:active {
   cursor: grabbing;
 }
+.miniature {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.miniature-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 42px 8px 12px;
+  height: 38px;
+  flex-shrink: 0;
+}
+.miniature-heading > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.miniature-heading button {
+  padding: 3px 6px;
+  flex-shrink: 0;
+  font-size: 11px;
+}
+.miniature-heading button[aria-pressed="true"] {
+  background: var(--accent);
+  color: white;
+  border-radius: 4px;
+}
+.miniature-frame {
+  display: block;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  background: #f2f5f4;
+}
+.miniature-dialog label {
+  display: block;
+  margin-bottom: 20px;
+  font-size: 12px;
+}
+.miniature-dialog input,
+.miniature-dialog textarea {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid #ced4e2;
+  border-radius: 5px;
+  font: inherit;
+}
+.miniature-dialog textarea {
+  resize: vertical;
+}
+.miniature-dialog [role="alert"] {
+  color: #b42318;
+  font-size: 12px;
+}
+.share-card.share-miniature {
+  padding: 0;
+  height: auto;
+  overflow: hidden;
+}
+.share-miniature .miniature {
+  position: absolute;
+  inset: 0;
+}
 .card-top {
   display: flex;
   align-items: center;

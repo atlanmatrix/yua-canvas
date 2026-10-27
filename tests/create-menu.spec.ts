@@ -46,6 +46,7 @@ test("hover and click open all component types; text is created at zoomed right-
     "图片",
     "文件",
     "子画布",
+    "Miniature",
     "分组",
   ]);
   await trigger.click();

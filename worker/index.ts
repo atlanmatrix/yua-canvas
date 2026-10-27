@@ -1,3 +1,5 @@
+import { miniatureUrl } from "../src/miniatureScene";
+
 interface Env {
   RATE_LIMITER: RateLimit;
   DB: D1Database;
@@ -99,7 +101,9 @@ function validateSnapshot(data: any): string[] {
     for (const c of b.cards) {
       if (
         !c ||
-        !["text", "image", "file", "todo", "canvas"].includes(c.kind) ||
+        !["text", "image", "file", "todo", "canvas", "miniature"].includes(
+          c.kind,
+        ) ||
         typeof c.id !== "string" ||
         typeof c.title !== "string" ||
         typeof c.text !== "string" ||
@@ -108,6 +112,8 @@ function validateSnapshot(data: any): string[] {
         c.blob !== undefined
       )
         fail(400, "卡片格式无效");
+      if (c.kind === "miniature" && !miniatureUrl(c.text))
+        fail(400, "3D 场景地址无效");
       if (c.kind === "file" || c.kind === "image") {
         if (
           typeof c.archiveFile !== "string" ||

@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ListTodo,
+  Box,
   PanelsTopLeft,
   ArrowLeft,
   Pencil,
@@ -103,6 +104,7 @@ import { registerPwa } from "./pwa";
 void registerPwa();
 import { CloudPanel } from "./CloudPanel";
 import { ShareViewer } from "./ShareViewer";
+import { Miniature, MiniatureDialog } from "./Miniature";
 const uid = () => crypto.randomUUID();
 const colors = ["#ffffff"];
 function Attachment({ card, large = false }: { card: Card; large?: boolean }) {
@@ -280,6 +282,7 @@ function App() {
     [selection, setSelection] = useState<string[]>([]),
     [tool, setTool] = useState<"select" | "hand">("select"),
     [detail, setDetail] = useState<string>(),
+    [miniatureDraft, setMiniatureDraft] = useState<Card>(),
     [renamingCanvas, setRenamingCanvas] = useState<string>(),
     [editingCard, setEditingCard] = useState<string>(),
     [editingTask, setEditingTask] = useState<string>(),
@@ -830,6 +833,7 @@ function App() {
     setSelectedConnection(undefined);
     setMenu(null);
     setDetail(undefined);
+    setMiniatureDraft(undefined);
     setEditingGroup(undefined);
     setRenamingCanvas(undefined);
     setGroupDialog(null);
@@ -861,6 +865,7 @@ function App() {
     if (kind === "text") addText(point);
     else if (kind === "todo") addTodo(point);
     else if (kind === "canvas") addCanvas(point);
+    else if (kind === "miniature") addMiniature(point);
     else if (kind === "group") {
       const id = uid();
       setBoard((b) => ({
@@ -884,8 +889,23 @@ function App() {
     clearCanvasUI();
     workspace.wrapParent();
   };
+  const addMiniature = (point?: { x: number; y: number }) => {
+    const middle = center();
+    setMiniatureDraft({
+      id: "",
+      kind: "miniature",
+      title: "",
+      text: "",
+      color: colors[0],
+      width: 640,
+      height: 520,
+      ...(point || { x: middle.x - 200, y: middle.y - 135 }),
+    });
+    setMenu(null);
+  };
   const openCard = (card: Card, task?: string) => {
     if (card.kind === "canvas") navigateCanvas([...path, card.id]);
+    else if (card.kind === "miniature") setMiniatureDraft(card);
     else if (card.kind === "text" || card.kind === "todo")
       editCard(card, false, task);
     else setDetail(card.id);
@@ -1461,6 +1481,7 @@ function App() {
         if (g.createKind === "canvas") addCanvas(point);
         else if (g.createKind === "text") addText(point);
         else if (g.createKind === "todo") addTodo(point);
+        else if (g.createKind === "miniature") addMiniature(point);
         else {
           pendingUpload.current = point;
           (g.createKind === "image" ? imageInput : fileInput).current?.click();
@@ -1688,6 +1709,7 @@ function App() {
         setRenamingCanvas(undefined);
         setGroupDialog(null);
         setDetail(undefined);
+        setMiniatureDraft(undefined);
         setConfirmImport(null);
         setSelection([]);
         (document.activeElement as HTMLElement)?.blur();
@@ -2340,6 +2362,7 @@ function App() {
                 {c.kind !== "text" &&
                   c.kind !== "image" &&
                   c.kind !== "canvas" &&
+                  c.kind !== "miniature" &&
                   !(c.kind === "file" && isTextFile(c)) && (
                     <div className="card-top">
                       <span>
@@ -2352,7 +2375,9 @@ function App() {
                       </span>
                     </div>
                   )}
-                {c.kind === "canvas" ? (
+                {c.kind === "miniature" ? (
+                  <Miniature card={c} onEdit={() => setMiniatureDraft(c)} />
+                ) : c.kind === "canvas" ? (
                   <>
                     <div className="canvas-card-preview">
                       <button
@@ -2689,6 +2714,15 @@ function App() {
             >
               <PanelsTopLeft size={20} />
             </button>
+            <button
+              title="添加 miniature · 3D 场景"
+              aria-label="添加 miniature"
+              disabled={!ready}
+              onPointerDown={(e) => startToolbarDrag(e, "miniature")}
+              onClick={() => toolbarClick(() => addMiniature())}
+            >
+              <Box size={20} />
+            </button>
           </div>
         </div>
         <div className="zoom-controls">
@@ -2812,6 +2846,14 @@ function App() {
                 <button
                   role="menuitem"
                   disabled={!ready}
+                  onClick={() => createFromMenu("miniature")}
+                >
+                  <Box size={14} />
+                  Miniature
+                </button>
+                <button
+                  role="menuitem"
+                  disabled={!ready}
                   onClick={() => createFromMenu("group")}
                 >
                   <Folder size={14} />
@@ -2878,7 +2920,9 @@ function App() {
             <>
               {menuCard && (
                 <MenuSection label="内容操作">
-                  {(menuCard.kind === "text" || menuCard.kind === "canvas") && (
+                  {(menuCard.kind === "text" ||
+                    menuCard.kind === "canvas" ||
+                    menuCard.kind === "miniature") && (
                     <>
                       <button
                         role="menuitem"
@@ -3273,6 +3317,36 @@ function App() {
           </div>
         </div>
       )}
+      {miniatureDraft && (
+        <MiniatureDialog
+          key={miniatureDraft.id}
+          card={miniatureDraft}
+          onClose={() => setMiniatureDraft(undefined)}
+          onSave={(title, src) => {
+            const fresh = !miniatureDraft.id;
+            const card = {
+              ...miniatureDraft,
+              id: miniatureDraft.id || uid(),
+              title,
+              text: src,
+            };
+            setBoard((b) => ({
+              ...b,
+              cards: fresh
+                ? [
+                    ...b.cards,
+                    { ...card, group: containingGroup(card, b.groups) },
+                  ]
+                : b.cards.map((c) =>
+                    c.id === card.id ? { ...c, title, text: src } : c,
+                  ),
+            }));
+            setSelection([card.id]);
+            setSelectedGroup(undefined);
+            setMiniatureDraft(undefined);
+          }}
+        />
+      )}
       {createPreview && (
         <div
           className="creation-preview"
@@ -3286,6 +3360,8 @@ function App() {
         >
           {createPreview.kind === "canvas" ? (
             <PanelsTopLeft />
+          ) : createPreview.kind === "miniature" ? (
+            <Box />
           ) : createPreview.kind === "text" ? (
             <Type />
           ) : createPreview.kind === "todo" ? (

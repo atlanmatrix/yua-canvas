@@ -280,3 +280,49 @@ test("attachment integrity and share-scoped access", async () => {
   await request("/shares/" + share.id, "DELETE", {});
   assert.equal((await get(id)).status, 404);
 });
+
+test("miniature snapshots sync and share; unsafe scene URLs are rejected", async () => {
+  const snapshot = board(
+    "https://atlanmatrix.github.io/codex-playground/city/",
+  );
+  snapshot.cards[0].kind = "miniature";
+  snapshot.cards[0].title = "被自然收回的城市街角";
+  for (const text of [
+    "javascript:alert(1)",
+    "data:text/html,unsafe",
+    "/relative",
+  ]) {
+    const invalid = structuredClone(snapshot);
+    invalid.cards[0].text = text;
+    assert.equal(
+      (
+        await request(
+          "/canvas",
+          "PUT",
+          { baseRevision: 0, snapshot: invalid },
+          other,
+        )
+      ).status,
+      400,
+    );
+  }
+  assert.equal(
+    (await request("/canvas", "PUT", { baseRevision: 0, snapshot }, other))
+      .status,
+    200,
+  );
+  const shared = await request(
+    "/shares",
+    "POST",
+    { expiresInDays: 7, expectedRevision: 1 },
+    other,
+  );
+  assert.equal(shared.status, 200);
+  const resolved = await request(
+    "/shares/resolve",
+    "POST",
+    { token: shared.data.token },
+    null,
+  );
+  assert.deepEqual(resolved.data.snapshot.cards, snapshot.cards);
+});

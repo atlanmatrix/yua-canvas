@@ -208,7 +208,8 @@ export async function readArchive(
         used.add(filePath);
         let text = "",
           tasks;
-        if (meta.kind === "text") text = strFromU8(content);
+        if (meta.kind === "text" || meta.kind === "miniature")
+          text = strFromU8(content);
         if (meta.kind === "todo") {
           let todo;
           try {
