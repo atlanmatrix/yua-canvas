@@ -74,6 +74,9 @@ import { TextFileEditor } from "./TextFileEditor";
 import { MermaidEditor } from "./MermaidEditor";
 import { Attachment } from "./Attachment";
 import { PaintLayer } from "./PaintLayer";
+import { PaintControls } from "./PaintControls";
+import { usePaintActions } from "./usePaintActions";
+import { todoFocusAt } from "./todoCaret";
 import {
   PreviewFrame,
   TypeIcon,
@@ -273,6 +276,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     [renamingCanvas, setRenamingCanvas] = useState<string>(),
     [editingCard, setEditingCard] = useState<string>(),
     [editingTask, setEditingTask] = useState<string>(),
+    [editingTaskOffset, setEditingTaskOffset] = useState<number>(),
     [groupDialog, setGroupDialog] = useState<{
       name: string;
       id?: string;
@@ -294,6 +298,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     } | null>(null);
   const [brushColor, setBrushColor] = useState("#27272a");
   const [brushWidth, setBrushWidth] = useState(4);
+  const paint = usePaintActions(
+    board.id || JSON.stringify(path),
+    board.strokes,
+    (strokes) => setBoard((b) => ({ ...b, strokes }), { preserveLayout: true }),
+  );
   const [remarkDraft, setRemarkDraft] = useState<{
     id: string;
     kind: "card" | "group";
@@ -514,6 +523,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   const addNodes = async (
     nodes: ImportNode[],
     point?: { x: number; y: number },
+    pastedImages = false,
   ) => {
     if (!nodes.length) throw Error("浏览器未提供目录内容，请使用导入目录");
     const p = point || center();
@@ -530,6 +540,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       const next = await cardsFromFiles(
         incoming.filter((f) => !isZip(f)),
         p,
+        pastedImages,
       );
       const fragments = await Promise.all(
         archives.map((file) => readArchive(file, p)),
@@ -607,9 +618,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   const addTransfer = async (
     nodes: Promise<ImportNode[]>,
     point?: { x: number; y: number },
+    pastedImages = false,
   ) => {
     try {
-      await addNodes(await nodes, point);
+      await addNodes(await nodes, point, pastedImages);
     } catch (error) {
       notify(error instanceof Error ? error.message : "目录读取失败");
     }
@@ -651,7 +663,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     }
     const transfer = captureTransfer(clipboard);
     if (transfer.hasFiles) {
-      void addTransfer(transfer.nodes, point);
+      void addTransfer(transfer.nodes, point, true);
       return true;
     }
     const text = clipboard.getData("text/plain");
@@ -761,7 +773,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       end();
     }
   };
-  const editCard = (card: Card, fresh = false, task?: string) => {
+  const editCard = (
+    card: Card,
+    fresh = false,
+    task?: string,
+    offset?: number,
+    appendTask = false,
+  ) => {
     if (editSession.current) finishEditing(editSession.current.id);
     begin();
     if (fresh)
@@ -790,7 +808,15 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       fresh,
     };
     setEditingCard(card.id);
-    setEditingTask(task);
+    if (appendTask && tasks) {
+      const next = { id: uid(), text: "", done: false };
+      changeTodo(card.id, [...tasks, next]);
+      setEditingTask(next.id);
+      setEditingTaskOffset(0);
+    } else {
+      setEditingTask(task);
+      setEditingTaskOffset(offset);
+    }
     setSelection([card.id]);
     setSelectedGroup(undefined);
     setSelectedConnection(undefined);
@@ -990,12 +1016,18 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     });
     setMenu(null);
   };
-  const openCard = (card: Card, task?: string) => {
+  const openCard = (
+    card: Card,
+    task?: string,
+    offset?: number,
+    appendTask = false,
+  ) => {
     if (card.masked) return;
     if (
       presentationHidden(board, card.group) &&
       (card.kind === "text" || card.kind === "todo")
     ) {
+      if (card.kind === "todo") editCard(card, false, task, offset, appendTask);
       setDetail(card.id);
       return;
     }
@@ -1020,7 +1052,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     else if (card.kind === "canvas") navigateCanvas([...path, card.id]);
     else if (card.kind === "miniature") setActiveMiniature(card.id);
     else if (card.kind === "text" || card.kind === "todo")
-      editCard(card, false, task);
+      editCard(card, false, task, offset, appendTask);
     else setDetail(card.id);
   };
   const saveApplication = (text: string) => {
@@ -1037,7 +1069,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               200,
               Math.ceil(
                 context?.measureText(`使用 VS Code 打开 ${title}`).width || 300,
-              ) + 40,
+              ) + 66,
             ),
           )
         : 420;
@@ -1966,6 +1998,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       const key = e.key.toLowerCase(),
         mod = e.ctrlKey || e.metaKey;
       if (key === "escape") {
+        if (tool === "draw") setTool("select");
+        if (editSession.current && detail === editSession.current.id)
+          finishEditing(detail, true);
         cancelViewAnimation();
         cancelGesture();
         if (gesture.current?.kind === "link") gesture.current = null;
@@ -2659,9 +2694,19 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                             { preserveLayout: true, recordHistory: false },
                           )
                         }
-                        onOpen={(card) => {
-                          if (card.kind === "text" || card.kind === "todo")
-                            setDetail(card.id);
+                        onOpen={(card, event) => {
+                          if (card.kind === "todo" && event) {
+                            const focus = todoFocusAt(
+                              event,
+                              event.target as Element,
+                            );
+                            openCard(
+                              card,
+                              focus.task,
+                              focus.offset,
+                              !focus.task,
+                            );
+                          } else if (card.kind === "text") setDetail(card.id);
                           else openCard(card);
                         }}
                         onContextMenu={(e, card) => {
@@ -2865,6 +2910,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     return;
                   }
                   if (c.kind === "vscode") return;
+                  if (c.kind === "todo" && !e.ctrlKey && !e.metaKey) {
+                    const focus = todoFocusAt(e, e.target as Element);
+                    openCard(c, focus.task, focus.offset, !focus.task);
+                    return;
+                  }
                   if (!e.ctrlKey && !e.metaKey)
                     openCard(
                       c,
@@ -3090,6 +3140,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                         <TodoEditor
                           tasks={c.tasks || []}
                           initialTask={editingTask}
+                          initialOffset={editingTaskOffset}
                           onChange={(tasks) => changeTodo(c.id, tasks)}
                           onFinish={(cancelled) =>
                             finishEditing(c.id, cancelled)
@@ -3130,7 +3181,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                                   )
                                 }
                               />
-                              <span>{task.text}</span>
+                              <span data-task-text>{task.text}</span>
                             </div>
                           ))}
                         </div>
@@ -3343,12 +3394,15 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             color={brushColor}
             width={brushWidth}
             canDraw={() => !space.current}
-            onCommit={(stroke) =>
-              setBoard(
-                (b) => ({ ...b, strokes: [...(b.strokes || []), stroke] }),
-                { preserveLayout: true },
-              )
-            }
+            hidden={!!board.strokesHidden}
+            onBegin={() => {
+              if (board.strokesHidden)
+                setBoard((b) => ({ ...b, strokesHidden: false }), {
+                  preserveLayout: true,
+                  recordHistory: false,
+                });
+            }}
+            onCommit={paint.append}
           />
         </div>
         <CanvasOverview
@@ -3377,7 +3431,41 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             }));
           }}
         />
+        {tool === "draw" && (
+          <PaintControls
+            color={brushColor}
+            width={brushWidth}
+            hidden={!!board.strokesHidden}
+            canUndo={paint.canUndo}
+            hasStrokes={!!board.strokes?.length}
+            onColor={setBrushColor}
+            onWidth={setBrushWidth}
+            onUndo={paint.undo}
+            onClear={paint.clear}
+            onHidden={() =>
+              setBoard((b) => ({ ...b, strokesHidden: !b.strokesHidden }), {
+                preserveLayout: true,
+                recordHistory: false,
+              })
+            }
+            onExit={() => setTool("select")}
+          />
+        )}
         <div className="bottom-tools">
+          <button
+            className="paint-tool-toggle floating-button"
+            aria-label="画笔"
+            title="画笔 (P)"
+            aria-pressed={tool === "draw"}
+            disabled={!ready}
+            onClick={() => {
+              if (editSession.current) finishEditing(editSession.current.id);
+              setTool(tool === "draw" ? "select" : "draw");
+              setMenu(null);
+            }}
+          >
+            <Paintbrush size={20} />
+          </button>
           <div className="toolbar">
             <button
               title="添加任务 (T)"
@@ -3388,42 +3476,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             >
               <ListTodo size={20} />
             </button>
-            <button
-              aria-label="画笔"
-              title="画笔 (P)"
-              aria-pressed={tool === "draw"}
-              disabled={!ready}
-              onClick={() => {
-                if (editSession.current) finishEditing(editSession.current.id);
-                setTool(tool === "draw" ? "select" : "draw");
-                setMenu(null);
-              }}
-            >
-              <Paintbrush size={20} />
-            </button>
-            {tool === "draw" && (
-              <div
-                className="brush-controls"
-                role="group"
-                aria-label="画笔设置"
-              >
-                <input
-                  type="color"
-                  aria-label="画笔颜色"
-                  value={brushColor}
-                  onChange={(e) => setBrushColor(e.target.value)}
-                />
-                <input
-                  type="range"
-                  min="1"
-                  max="24"
-                  aria-label="画笔粗细"
-                  value={brushWidth}
-                  onChange={(e) => setBrushWidth(Number(e.target.value))}
-                />
-                <output>{brushWidth}</output>
-              </div>
-            )}
             <button
               title="上传图片 (I)"
               aria-label="上传图片"
@@ -4238,7 +4290,14 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               </span>
               <button
                 aria-label="关闭详情"
-                onClick={() => setDetail(undefined)}
+                onClick={() => {
+                  if (
+                    editSession.current &&
+                    editSession.current.id === current.id
+                  )
+                    finishEditing(current.id);
+                  setDetail(undefined);
+                }}
               >
                 <X size={20} />
               </button>
@@ -4284,14 +4343,21 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 ) : (
                   <TodoEditor
                     tasks={current.tasks || []}
+                    initialTask={editingTask}
+                    initialOffset={editingTaskOffset}
                     onChange={(tasks) =>
-                      updateCards((cards) =>
-                        cards.map((c) =>
-                          c.id === current.id ? { ...c, tasks } : c,
-                        ),
-                      )
+                      editSession.current?.id === current.id
+                        ? changeTodo(current.id, tasks)
+                        : updateCards((cards) =>
+                            cards.map((c) =>
+                              c.id === current.id ? { ...c, tasks } : c,
+                            ),
+                          )
                     }
-                    onFinish={() => setDetail(undefined)}
+                    onFinish={(cancelled) => {
+                      finishEditing(current.id, cancelled);
+                      setDetail(undefined);
+                    }}
                   />
                 )}
               </div>

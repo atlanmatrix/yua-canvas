@@ -408,7 +408,9 @@ export function Canvas3D({
                   );
                 })}
               <svg className="share-paint">
-                <StrokeView strokes={layer.board.strokes} />
+                {!layer.board.strokesHidden && (
+                  <StrokeView strokes={layer.board.strokes} />
+                )}
               </svg>
             </div>
           </div>

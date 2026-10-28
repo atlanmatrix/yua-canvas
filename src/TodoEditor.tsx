@@ -5,17 +5,20 @@ import type { Task } from "./storage";
 export function TodoEditor({
   tasks,
   initialTask,
+  initialOffset,
   onChange,
   onFinish,
 }: {
   tasks: Task[];
   initialTask?: string;
+  initialOffset?: number;
   onChange: (tasks: Task[]) => void;
   onFinish: (cancelled?: boolean) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const focusTask = useRef(initialTask || tasks[0]?.id);
   const focusPending = useRef(true);
+  const caretOffset = useRef(initialOffset);
   useLayoutEffect(() => {
     if (!focusPending.current) return;
     focusPending.current = false;
@@ -26,8 +29,17 @@ export function TodoEditor({
       row?.querySelector<HTMLInputElement>('input[type="text"]') ||
       root.current!.querySelector<HTMLButtonElement>(".todo-add");
     element?.focus({ preventScroll: true });
-    if (element instanceof HTMLInputElement)
-      element.setSelectionRange(element.value.length, element.value.length);
+    if (element instanceof HTMLInputElement) {
+      const offset = Math.max(
+        0,
+        Math.min(
+          element.value.length,
+          caretOffset.current ?? element.value.length,
+        ),
+      );
+      element.setSelectionRange(offset, offset);
+      caretOffset.current = undefined;
+    }
     if (row) {
       const list = root.current!.querySelector<HTMLElement>(".todo-list")!;
       const bounds = row.getBoundingClientRect(),
@@ -41,6 +53,7 @@ export function TodoEditor({
   }, [tasks]);
   const add = (index = tasks.length) => {
     const task = { id: crypto.randomUUID(), text: "", done: false };
+    caretOffset.current = 0;
     focusTask.current = task.id;
     focusPending.current = true;
     const next = [...tasks];
@@ -57,7 +70,11 @@ export function TodoEditor({
           e.preventDefault();
       }}
       onPointerUp={(e) => e.stopPropagation()}
-      onDoubleClick={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        if (!(e.target as Element).closest("[data-task-id],input,button"))
+          add();
+      }}
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null))
           onFinish();

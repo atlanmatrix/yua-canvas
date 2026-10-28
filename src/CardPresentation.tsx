@@ -175,7 +175,11 @@ export function StaticContent({
     return (
       <div className="todo-list">
         {card.tasks?.map((t) => (
-          <div key={t.id} className={`todo-row ${t.done ? "completed" : ""}`}>
+          <div
+            key={t.id}
+            data-task-id={t.id}
+            className={`todo-row ${t.done ? "completed" : ""}`}
+          >
             <input
               type="checkbox"
               aria-label={t.text}
@@ -183,7 +187,7 @@ export function StaticContent({
               readOnly={!onToggleTask}
               onChange={() => onToggleTask?.(card, t.id)}
             />
-            <span>{t.text}</span>
+            <span data-task-text>{t.text}</span>
           </div>
         ))}
       </div>
@@ -228,7 +232,7 @@ export function GroupList({
   group: Group;
   cards: Card[];
   onSelect?: (id: string) => void;
-  onOpen?: (card: Card) => void;
+  onOpen?: (card: Card, event?: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent, card: Card) => void;
   renderContent?: (card: Card) => ReactNode;
 }) {
@@ -271,7 +275,7 @@ export function GroupList({
         className="group-list-detail"
         data-context-card-id={active?.id}
         onContextMenu={(e) => active && onContextMenu?.(e, active)}
-        onDoubleClick={() => active && !active.masked && onOpen?.(active)}
+        onDoubleClick={(e) => active && !active.masked && onOpen?.(active, e)}
       >
         {active ? (
           <>

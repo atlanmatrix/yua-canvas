@@ -235,7 +235,7 @@ export function Minimap({
                 selected={selection.includes(c.id)}
               />
             ))}
-          <StrokeView strokes={board.strokes} />
+          {!board.strokesHidden && <StrokeView strokes={board.strokes} />}
           <rect
             className="minimap-viewport"
             data-testid="minimap-viewport"

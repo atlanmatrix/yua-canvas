@@ -246,14 +246,13 @@ test("toolbar keeps creation tools without a search interface", async ({
 }) => {
   await ready(page);
   const tools = page.locator(".toolbar > button");
-  await expect(tools).toHaveCount(7);
+  await expect(tools).toHaveCount(6);
   expect(
     await tools.evaluateAll((els) =>
       els.map((el) => el.getAttribute("aria-label")),
     ),
   ).toEqual([
     "添加任务",
-    "画笔",
     "上传图片",
     "上传文件",
     "导入目录",

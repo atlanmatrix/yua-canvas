@@ -2103,3 +2103,112 @@ main {
     box-shadow: 0 3px 12px #00000012;
   }
 }
+
+.vscode-pill {
+  align-items: center;
+  gap: 8px;
+}
+.vscode-icon {
+  flex-shrink: 0;
+}
+.app-terminal-line {
+  position: relative;
+  display: block;
+  padding-left: 20px;
+  min-height: 1.65em;
+}
+.app-terminal-prompt {
+  position: absolute;
+  left: 0;
+  top: 0.28em;
+  color: #8b94a3;
+  user-select: none;
+  pointer-events: none;
+}
+.paint-tool-toggle {
+  position: absolute;
+  right: calc(100% + 12px);
+  top: 0;
+  width: 51px;
+  height: 100%;
+  border-radius: 10px;
+}
+.paint-tool-toggle[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-color: var(--accent-border);
+}
+.paint-controls {
+  position: absolute;
+  z-index: 30;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  padding: 7px 10px;
+  background: #fff;
+  border: 1px solid #d6dbe5;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px #3e4d6c0a;
+}
+.paint-controls > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  color: #64748b;
+  flex-shrink: 0;
+}
+.paint-controls > button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.paint-controls > button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.paint-controls-divider {
+  height: 22px;
+  width: 1px;
+  background: #e4e4e7;
+}
+.paint-controls .brush-controls {
+  border: 0;
+  padding: 0;
+  gap: 7px;
+}
+@media (max-width: 700px) {
+  .paint-tool-toggle {
+    width: 44px;
+  }
+  .paint-controls {
+    top: 64px;
+    gap: 3px;
+    padding: 6px;
+  }
+  .paint-controls > svg {
+    display: none;
+  }
+  .paint-controls .brush-controls input[type="range"] {
+    width: 60px;
+  }
+  .paint-controls > button {
+    width: 30px;
+  }
+  .paint-controls .brush-controls {
+    position: static;
+    transform: none;
+    background: none;
+    border: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+  .paint-controls .brush-controls output {
+    width: 14px;
+  }
+}

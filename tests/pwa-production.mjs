@@ -515,7 +515,7 @@ test("application associations restore offline under the Pages path and only lau
     await page.getByRole("button", { name: "执行命令" }).click();
     const urls = await page.evaluate(() => window.__nativeLaunches);
     assert.equal(urls.length, 2);
-    assert.equal(urls[0], "vscode://file/Users/alice/demo");
+    assert.equal(urls[0], "vscode://file/Users/alice/demo?windowId=_blank");
     assert.equal(
       Buffer.from(
         new URL(urls[1]).pathname.split("/").at(-1),

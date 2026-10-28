@@ -37,6 +37,7 @@ export function fileMime(name: string) {
 export async function cardsFromFiles(
   files: File[],
   point: { x: number; y: number },
+  pastedImages = false,
 ): Promise<Card[]> {
   return Promise.all(
     files.map(async (file, index) => {
@@ -52,11 +53,18 @@ export async function cardsFromFiles(
           const image = new Image();
           image.src = url;
           await image.decode();
-          const scale = Math.min(
-            480 / image.naturalWidth,
-            720 / image.naturalHeight,
-            Math.max(1, 80 / Math.max(image.naturalWidth, image.naturalHeight)),
-          );
+          const scale = pastedImages
+            ? image.naturalWidth > 2560 || image.naturalHeight > 1440
+              ? 0.5
+              : 1
+            : Math.min(
+                480 / image.naturalWidth,
+                720 / image.naturalHeight,
+                Math.max(
+                  1,
+                  80 / Math.max(image.naturalWidth, image.naturalHeight),
+                ),
+              );
           size = {
             width: image.naturalWidth * scale,
             height: image.naturalHeight * scale,
@@ -70,7 +78,10 @@ export async function cardsFromFiles(
       return {
         id: crypto.randomUUID(),
         kind,
-        displayMode: "medium" as const,
+        displayMode:
+          pastedImages && kind === "image"
+            ? ("large" as const)
+            : ("medium" as const),
         title: file.name,
         text: "",
         x: point.x + (index % 4) * 270,

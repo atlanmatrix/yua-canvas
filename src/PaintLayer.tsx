@@ -24,6 +24,8 @@ export function StrokeView({ strokes = [] }: { strokes?: Stroke[] }) {
 export function PaintLayer({
   strokes,
   active,
+  hidden = false,
+  onBegin,
   view,
   color,
   width,
@@ -32,6 +34,8 @@ export function PaintLayer({
 }: {
   strokes?: Stroke[];
   active: boolean;
+  hidden?: boolean;
+  onBegin?: () => void;
   view: View;
   color: string;
   width: number;
@@ -78,6 +82,7 @@ export function PaintLayer({
       onPointerDown={(e) => {
         if (!active || e.button !== 0 || e.ctrlKey || e.metaKey || !canDraw())
           return;
+        onBegin?.();
         (document.activeElement as HTMLElement | null)?.blur();
         e.preventDefault();
         e.stopPropagation();
@@ -120,7 +125,9 @@ export function PaintLayer({
       }}
     >
       <g transform={`translate(${view.x},${view.y}) scale(${view.z})`}>
-        <StrokeView strokes={draft ? [...(strokes || []), draft] : strokes} />
+        {(!hidden || draft) && (
+          <StrokeView strokes={draft ? [...(strokes || []), draft] : strokes} />
+        )}
       </g>
     </svg>
   );

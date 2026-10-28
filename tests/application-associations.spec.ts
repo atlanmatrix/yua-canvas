@@ -57,7 +57,7 @@ test.beforeEach(async ({ page }) => {
 
 test("VS Code links encode local paths and the Mac installer validates as a shell script", async () => {
   expect(vscodeUrl("/Users/name/项目 #1/a?b")).toBe(
-    "vscode://file/Users/name/%E9%A1%B9%E7%9B%AE%20%231/a%3Fb",
+    "vscode://file/Users/name/%E9%A1%B9%E7%9B%AE%20%231/a%3Fb?windowId=_blank",
   );
   expect(
     decodeURIComponent(new URL(vscodeUrl("C:\\Work\\My Project")).pathname),
@@ -110,6 +110,7 @@ test("application submenu follows New; VS Code capsules launch once, drag withou
     name: "使用 VS Code 打开 demo folder",
     exact: true,
   });
+  await expect(pill.locator(".vscode-icon")).toBeVisible();
   await expect(pill).toHaveCSS("background-color", "rgb(18, 18, 18)");
   await expect(pill).toHaveCSS("color", "rgb(255, 255, 255)");
   await expect(card.locator(".card-top,footer,.card-download")).toHaveCount(0);
@@ -166,6 +167,9 @@ test("iTerm2 preserves multiline commands, copies exactly and only launches a pa
   await page.getByRole("button", { name: "保存关联" }).click();
   const card = page.locator(".card-iterm2");
   await expect(card.locator("pre code")).toHaveText(commands);
+  await expect(card.locator(".app-terminal-prompt")).toHaveCount(
+    commands.split("\n").length,
+  );
   await expect(card.locator(".card-top,footer,.card-download")).toHaveCount(0);
   await page.mouse.move(20, 400);
   await expect(card.locator(".app-terminal-actions")).toHaveCSS("opacity", "0");

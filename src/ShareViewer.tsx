@@ -321,7 +321,7 @@ export function ShareViewer({ token }: { token: string }) {
                 );
               })}
             <svg className="share-paint">
-              <StrokeView strokes={board.strokes} />
+              {!board.strokesHidden && <StrokeView strokes={board.strokes} />}
             </svg>
           </div>
           <div className="share-zoom">

@@ -187,7 +187,7 @@ test("Todo edits inline, preserves task IDs and links, autosaves and restores th
   await page.keyboard.press("Escape");
   expect(await snapshot(page)).toEqual(edited);
   await todo.locator(".card-top").dblclick();
-  const count = edited.cards[0].tasks.length;
+  const count = edited.cards[0].tasks.length + 1;
   for (let i = count; i > 0; i--)
     await editor
       .getByRole("button", { name: `删除任务 ${i}`, exact: true })
@@ -198,7 +198,6 @@ test("Todo edits inline, preserves task IDs and links, autosaves and restores th
   await page.keyboard.press("ControlOrMeta+Enter");
   expect((await snapshot(page)).cards[0].tasks).toEqual([]);
   await todo.locator(".card-top").dblclick();
-  await editor.getByRole("button", { name: "添加任务", exact: true }).click();
   await editor.getByRole("textbox", { name: "任务内容 1" }).fill("重建的任务");
   await page.keyboard.press("ControlOrMeta+Enter");
   await expect(

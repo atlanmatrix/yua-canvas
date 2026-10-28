@@ -148,7 +148,7 @@ test("selection has no toolbar; context menus group capabilities and retain mult
     await card(page, id).click({ position: { x: 50, y: 50 } });
     await expect(card(page, id)).toHaveClass(/selected/);
     await expect(page.locator(".selection-bar")).toHaveCount(0);
-    await expect(page.locator(".toolbar > button")).toHaveCount(7);
+    await expect(page.locator(".toolbar > button")).toHaveCount(6);
   }
   await card(page, "a").click({ position: { x: 50, y: 50 } });
   await card(page, "d").click({

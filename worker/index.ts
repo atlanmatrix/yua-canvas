@@ -102,6 +102,7 @@ function validateSnapshot(data: any): string[] {
     )
       fail(400, "画布格式无效");
     if (
+      (b.strokesHidden !== undefined && typeof b.strokesHidden !== "boolean") ||
       !validStrokes(b.strokes) ||
       b.groups.some((g: any) => !validPresentation(g, true))
     )

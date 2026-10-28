@@ -155,6 +155,8 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
     return {
       cards,
       strokes: "strokes" in source ? source.strokes : undefined,
+      strokesHidden:
+        "strokesHidden" in source ? source.strokesHidden : undefined,
       groups: source.groups,
       connections: source.connections || [],
     };
@@ -301,6 +303,7 @@ export async function readArchive(
         cards,
         groups: data.groups,
         strokes: data.strokes,
+        strokesHidden: data.strokesHidden,
         connections: data.connections,
       }),
       (path, mime) => {

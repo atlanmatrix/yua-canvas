@@ -40,6 +40,7 @@ export function vscodeUrl(value: string) {
   return (
     "vscode://file" +
     (path.startsWith("/") ? "" : "/") +
-    path.split("/").map(encodeURIComponent).join("/")
+    path.split("/").map(encodeURIComponent).join("/") +
+    "?windowId=_blank"
   );
 }

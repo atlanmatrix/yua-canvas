@@ -1,4 +1,5 @@
-import { Copy, Play } from "lucide-react";
+import { VSCodeIcon } from "./VSCodeIcon";
+import { Copy, Play, ChevronRight } from "lucide-react";
 import type { Card } from "./storage";
 import { localPathName } from "./appAssociations";
 
@@ -16,6 +17,7 @@ export function ApplicationCard({
   if (card.kind === "vscode" && readonly)
     return (
       <div className="vscode-pill app-association-readonly">
+        <VSCodeIcon />
         <span>使用 VS Code 打开 {localPathName(card.text)}</span>
       </div>
     );
@@ -34,6 +36,7 @@ export function ApplicationCard({
             onOpen?.(e.detail === 0);
         }}
       >
+        <VSCodeIcon />
         <span>使用 VS Code 打开 {localPathName(card.text)}</span>
       </button>
     );
@@ -54,7 +57,21 @@ export function ApplicationCard({
             e.stopPropagation();
         }}
       >
-        <code>{card.text}</code>
+        <code>
+          {card.text.split("\n").map((line, index, lines) => (
+            <span className="app-terminal-line" key={index}>
+              <ChevronRight
+                className="app-terminal-prompt"
+                size={14}
+                aria-hidden="true"
+              />
+              <span>
+                {line}
+                {index < lines.length - 1 ? "\n" : ""}
+              </span>
+            </span>
+          ))}
+        </code>
       </pre>
       {!readonly && (
         <div

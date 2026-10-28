@@ -179,6 +179,7 @@ export type Board = {
   cards: Card[];
   groups: Group[];
   strokes?: Stroke[];
+  strokesHidden?: boolean;
   connections?: Connection[];
 };
 export const emptyBoard: Board = { version: 1, cards: [], groups: [] };
@@ -577,9 +578,17 @@ export async function importBoard(
       };
     },
   );
+  if (
+    data.strokesHidden !== undefined &&
+    typeof data.strokesHidden !== "boolean"
+  )
+    throw Error("画笔显示设置无效");
   if (!validStrokes(data.strokes)) throw Error("画笔数据无效");
   return initializeGroups({
     ...(data.strokes !== undefined ? { strokes: data.strokes } : {}),
+    ...(data.strokesHidden !== undefined
+      ? { strokesHidden: data.strokesHidden }
+      : {}),
     version: 1,
     id: boardId,
     ...(data.parentCreated !== undefined
