@@ -441,6 +441,93 @@ test("PDF workers, fonts and Mermaid render offline at the Pages subpath and res
   }
 });
 
+test("application associations restore offline under the Pages path and only launch on explicit clicks", async () => {
+  const context = await browser.newContext();
+  try {
+    await context.addInitScript(() => {
+      window.__nativeLaunches = [];
+      document.addEventListener(
+        "click",
+        (event) => {
+          const link = event.target.closest?.("a");
+          if (link && /^(vscode:|yua-canvas:)/.test(link.href)) {
+            event.preventDefault();
+            window.__nativeLaunches.push(link.href);
+          }
+        },
+        true,
+      );
+    });
+    const page = await app(context);
+    const commands = "cd /tmp/project\nprintf '%s\\n' ready";
+    const snapshot = {
+      version: 1,
+      groups: [],
+      cards: [
+        {
+          id: "code",
+          kind: "vscode",
+          title: "demo",
+          text: "/Users/alice/demo",
+          x: 100,
+          y: 150,
+          width: 340,
+          height: 44,
+          color: "#ffffff",
+        },
+        {
+          id: "term",
+          kind: "iterm2",
+          title: "iTerm2",
+          text: commands,
+          x: 100,
+          y: 250,
+          width: 420,
+          height: 180,
+          color: "#ffffff",
+        },
+      ],
+    };
+    await page.getByTestId("import").setInputFiles({
+      name: "apps.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(snapshot)),
+    });
+    await page.getByRole("button", { name: "确认替换" }).click();
+    await page.getByRole("button", { name: "关闭提示" }).click();
+    await expect(page.locator(".save-indicator")).toHaveAttribute(
+      "data-state",
+      "已保存至本地",
+    );
+    await page.evaluate(() => {
+      localStorage.setItem("yua-local-launcher-key", "a".repeat(64));
+      localStorage.setItem("yua-local-launcher-installed", "1");
+    });
+    await context.setOffline(true);
+    await page.reload();
+    await expect(page.locator(".vscode-pill")).toHaveText(
+      "使用 VS Code 打开 demo",
+    );
+    await expect(page.locator(".app-terminal pre")).toHaveText(commands);
+    assert.deepEqual(await page.evaluate(() => window.__nativeLaunches), []);
+    await page.locator(".vscode-pill").click();
+    await page.locator(".card-iterm2").hover();
+    await page.getByRole("button", { name: "执行命令" }).click();
+    const urls = await page.evaluate(() => window.__nativeLaunches);
+    assert.equal(urls.length, 2);
+    assert.equal(urls[0], "vscode://file/Users/alice/demo");
+    assert.equal(
+      Buffer.from(
+        new URL(urls[1]).pathname.split("/").at(-1),
+        "base64url",
+      ).toString(),
+      commands,
+    );
+  } finally {
+    await context.close();
+  }
+});
+
 test("update saves pending canvas edits and does not reload other open tabs", async () => {
   const context = await browser.newContext();
   try {

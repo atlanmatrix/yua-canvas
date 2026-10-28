@@ -3,6 +3,8 @@ import {
   Box,
   FileText,
   Network,
+  Code2,
+  Terminal,
   Image as ImageIcon,
   ListTodo,
   PanelsTopLeft,
@@ -15,6 +17,8 @@ import { curve, curveMidpoint, endpointPoint } from "./connections";
 import { ConnectionArrow } from "./ConnectionArrow";
 import { isTextFile, fileText } from "./clipboard";
 import { Diagram } from "./Markdown";
+import { ApplicationCard } from "./ApplicationCard";
+import { isApplicationKind } from "./appAssociations";
 import { canvas3DLayers, type Canvas3DLayer } from "./canvas3dGeometry";
 import "./canvas3d.css";
 
@@ -28,6 +32,8 @@ const icons = {
   canvas: PanelsTopLeft,
   miniature: Box,
   mermaid: Network,
+  vscode: Code2,
+  iterm2: Terminal,
 };
 
 function ComponentPreview({ card }: { card: Card }) {
@@ -54,6 +60,8 @@ function ComponentPreview({ card }: { card: Card }) {
   if ((card.kind === "image" || card.kind === "miniature") && image)
     return <img src={image} alt={card.title} draggable={false} />;
   if (card.kind === "text") return <pre>{card.text.slice(0, 3000)}</pre>;
+  if (isApplicationKind(card.kind))
+    return <ApplicationCard card={card} readonly />;
   if (card.kind === "mermaid")
     return (
       <div className="mermaid-preview">

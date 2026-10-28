@@ -1244,6 +1244,34 @@ main {
   left: -100000px;
   pointer-events: none;
 }
+.card-vscode { border: 0; border-radius: 999px; box-shadow: none; }
+.share-card:has(> .vscode-pill), .share-card:has(> .app-terminal) { padding: 0; overflow: visible; }
+.share-card:has(> .vscode-pill) { border: 0; border-radius: 999px; box-shadow: none; }
+.share-card:has(> .app-terminal) { border-color: #30343b; border-radius: 12px; }
+.vscode-pill { display: flex; width: 100%; height: 100%; min-height: 40px; padding: 10px 20px; border-radius: 999px; background: #121212; color: #fff; font-size: 14px; font-weight: 500; cursor: pointer; }
+.vscode-pill > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vscode-pill:disabled { opacity: 1; cursor: default; }
+.card-iterm2 { border-color: #30343b; border-radius: 12px; box-shadow: 0 4px 14px #0002; }
+.app-terminal { position: relative; width: 100%; height: 100%; min-height: 0; overflow: hidden; border-radius: inherit; background: #17191e; color: #e5e7eb; }
+.app-terminal pre { position: absolute; inset: 34px 0 0; margin: 0; padding: 10px 16px 16px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; scrollbar-width: thin; }
+.app-terminal code { font: inherit; }
+.app-terminal-dots { position: absolute; top: 14px; left: 16px; display: flex; gap: 6px; }
+.app-terminal-dots i { width: 8px; height: 8px; border-radius: 50%; background: #ff5f57; }
+.app-terminal-dots i:nth-child(2) { background: #febc2e; }
+.app-terminal-dots i:nth-child(3) { background: #28c840; }
+.app-terminal-actions { position: absolute; right: 8px; top: 6px; display: flex; gap: 4px; opacity: 0; pointer-events: none; transition: opacity 150ms ease; }
+.card-iterm2:hover .app-terminal-actions, .card-iterm2:focus-within .app-terminal-actions { opacity: 1; pointer-events: auto; }
+.app-terminal-actions button { width: 28px; height: 28px; padding: 0; border-radius: 6px; color: #e5e7eb; }
+.app-terminal-actions button:hover { background: #ffffff18; }
+.application-dialog { width: 560px; }
+.application-dialog label { display: block; font-size: 13px; }
+.application-dialog input, .application-dialog textarea { display: block; width: 100%; margin: 8px 0 20px; padding: 10px 12px; border: 1px solid #d5dae4; border-radius: 8px; }
+.application-dialog textarea { resize: vertical; min-height: 180px; max-height: 50dvh; font: 13px/1.65 ui-monospace, monospace; }
+.application-dialog [role="alert"], .local-launcher-dialog [role="alert"] { color: #b42318; font-size: 12px; }
+.local-launcher-setup-link { margin-right: auto; }
+.local-launcher-dialog ol { padding-left: 22px; font-size: 13px; line-height: 1.85; }
+.local-launcher-dialog .modal-bottom { justify-content: space-between; }
+@media (hover: none) { .app-terminal-actions { opacity: 1; pointer-events: auto; } }
 .mermaid-preview { position: relative; flex: 1; min-width: 0; min-height: 0; width: 100%; height: 100%; padding: 12px; overflow: hidden; }
 .mermaid-preview .markdown-diagram { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .mermaid-preview .markdown-diagram > div { width: 100%; height: 100%; }

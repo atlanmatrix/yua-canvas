@@ -1,12 +1,22 @@
 import { validEndpoint, type Connection } from "./connections";
 import { cardRect } from "./geometry";
 import { miniatureUrl, miniatureViewUrl } from "./miniatureScene";
+import { isApplicationKind, validApplicationText } from "./appAssociations";
 export type PinColor = "info" | "warn" | "danger" | "normal";
 export type Card = {
   id: string;
   pin?: string;
   pinColor?: PinColor;
-  kind: "text" | "image" | "file" | "todo" | "canvas" | "miniature" | "mermaid";
+  kind:
+    | "text"
+    | "image"
+    | "file"
+    | "todo"
+    | "canvas"
+    | "miniature"
+    | "mermaid"
+    | "vscode"
+    | "iterm2";
   title: string;
   text: string;
   x: number;
@@ -344,6 +354,8 @@ export async function importBoard(
           "canvas",
           "miniature",
           "mermaid",
+          "vscode",
+          "iterm2",
         ].includes(c.kind as string) ||
         typeof c.title !== "string" ||
         typeof c.text !== "string" ||
@@ -354,6 +366,11 @@ export async function importBoard(
       )
         throw new Error("卡片数据无效");
       ids.add(c.id);
+      if (
+        isApplicationKind(c.kind as string) &&
+        !validApplicationText(c.kind as "vscode" | "iterm2", c.text)
+      )
+        throw Error("应用关联配置无效");
       if (
         c.pdfPage !== undefined &&
         (c.kind !== "file" ||

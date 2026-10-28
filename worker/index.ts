@@ -1,4 +1,8 @@
 import { miniatureUrl, miniatureViewUrl } from "../src/miniatureScene";
+import {
+  isApplicationKind,
+  validApplicationText,
+} from "../src/appAssociations";
 
 interface Env {
   RATE_LIMITER: RateLimit;
@@ -109,6 +113,8 @@ function validateSnapshot(data: any): string[] {
           "canvas",
           "miniature",
           "mermaid",
+          "vscode",
+          "iterm2",
         ].includes(c.kind) ||
         typeof c.id !== "string" ||
         typeof c.title !== "string" ||
@@ -118,6 +124,8 @@ function validateSnapshot(data: any): string[] {
         c.blob !== undefined
       )
         fail(400, "卡片格式无效");
+      if (isApplicationKind(c.kind) && !validApplicationText(c.kind, c.text))
+        fail(400, "应用关联配置无效");
       if (c.kind === "miniature" && !miniatureUrl(c.text))
         fail(400, "3D 场景地址无效");
       if (

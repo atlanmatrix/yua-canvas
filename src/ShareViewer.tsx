@@ -15,6 +15,8 @@ import { Markdown, Diagram } from "./Markdown";
 import { PdfPreview } from "./PdfPreview";
 import { isPdfFile, isMarkdownFile, fileText } from "./clipboard";
 import { Miniature } from "./Miniature";
+import { ApplicationCard } from "./ApplicationCard";
+import { isApplicationKind } from "./appAssociations";
 function Asset({ card }: { card: Card }) {
   const [url, setUrl] = useState("");
   useEffect(() => {
@@ -224,14 +226,18 @@ export function ShareViewer({ token }: { token: string }) {
                     width: r.width,
                     minHeight: r.height,
                     height:
-                      isPdfFile(c) || c.kind === "mermaid"
+                      isPdfFile(c) ||
+                      c.kind === "mermaid" ||
+                      isApplicationKind(c.kind)
                         ? r.height
                         : undefined,
                     background:
                       c.kind === "miniature" ? "transparent" : c.color,
                   }}
                 >
-                  {c.kind === "miniature" ? (
+                  {isApplicationKind(c.kind) ? (
+                    <ApplicationCard card={c} readonly />
+                  ) : c.kind === "miniature" ? (
                     <Miniature card={c} />
                   ) : c.kind === "canvas" ? (
                     <button onClick={() => setStack((s) => [...s, c.canvas!])}>

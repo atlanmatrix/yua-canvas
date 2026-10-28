@@ -243,7 +243,9 @@ export async function readArchive(
         if (
           meta.kind === "text" ||
           meta.kind === "miniature" ||
-          meta.kind === "mermaid"
+          meta.kind === "mermaid" ||
+          meta.kind === "vscode" ||
+          meta.kind === "iterm2"
         )
           text = strFromU8(content);
         if (meta.kind === "todo") {

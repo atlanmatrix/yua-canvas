@@ -405,6 +405,60 @@ test("Mermaid and document metadata sync and share with lossless PDF attachments
   assert.deepEqual(Buffer.from(await asset.arrayBuffer()), bytes);
 });
 
+test("local application associations sync as data and reject invalid paths or command controls", async () => {
+  const snapshot = board("/Users/alice/项目 #1");
+  snapshot.cards[0].kind = "vscode";
+  snapshot.cards.push({
+    id: "terminal",
+    kind: "iterm2",
+    title: "iTerm2",
+    text: "cd /tmp/project\nprintf '%s\\n' ready",
+    x: 100,
+    y: 200,
+  });
+  const revision = (await request("/canvas")).data.revision;
+  for (const [kind, text] of [
+    ["vscode", "relative/path"],
+    ["vscode", "vscode://command/test"],
+    ["iterm2", ""],
+    ["iterm2", "echo ok\u001b[A"],
+  ]) {
+    const invalid = structuredClone(snapshot);
+    invalid.cards[0].kind = kind;
+    invalid.cards[0].text = text;
+    assert.equal(
+      (
+        await request("/canvas", "PUT", {
+          baseRevision: revision,
+          snapshot: invalid,
+        })
+      ).status,
+      400,
+    );
+  }
+  const updated = await request("/canvas", "PUT", {
+    baseRevision: revision,
+    snapshot,
+  });
+  assert.equal(updated.status, 200);
+  assert.deepEqual(
+    (await request("/canvas")).data.snapshot.cards,
+    snapshot.cards,
+  );
+  const share = await request("/shares", "POST", {
+    expiresInDays: null,
+    expectedRevision: updated.data.revision,
+  });
+  assert.equal(share.status, 200);
+  const resolved = await request(
+    "/shares/resolve",
+    "POST",
+    { token: share.data.token },
+    null,
+  );
+  assert.deepEqual(resolved.data.snapshot.cards, snapshot.cards);
+});
+
 test("miniature covers remain share-scoped assets and saved views stay on the configured scene", async () => {
   const bytes = Buffer.from(
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",

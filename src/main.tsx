@@ -28,6 +28,8 @@ import {
   Trash2,
   FileText,
   Network,
+  Terminal,
+  Code2,
   MoreHorizontal,
   Unlink,
 } from "lucide-react";
@@ -65,6 +67,15 @@ import { TextFileEditor } from "./TextFileEditor";
 import { MermaidEditor } from "./MermaidEditor";
 import { PdfPreview } from "./PdfPreview";
 import { mermaidSource, DEFAULT_MERMAID } from "./mermaidSource";
+import { ApplicationCard } from "./ApplicationCard";
+import { ApplicationDialog, type ApplicationDraft } from "./ApplicationDialog";
+import { LocalLauncherDialog } from "./LocalLauncherDialog";
+import { isApplicationKind, localPathName, vscodeUrl } from "./appAssociations";
+import {
+  itermUrl,
+  launcherInstalled,
+  openApplicationUrl,
+} from "./localAppLauncher";
 import {
   CanvasContextMenu,
   ContextSubmenu,
@@ -341,6 +352,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       id: string;
       kind: "card" | "group" | "canvas";
     } | null>(null);
+  const [applicationDraft, setApplicationDraft] = useState<ApplicationDraft>();
+  const [launcherSetup, setLauncherSetup] = useState<{ commands?: string }>();
   const internalCopy = useRef<{
     token: string;
     fragment: Fragment;
@@ -913,6 +926,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setMenu(null);
     setDetail(undefined);
     setMiniatureDraft(undefined);
+    setApplicationDraft(undefined);
+    setLauncherSetup(undefined);
     setActiveMiniature(undefined);
     setEditingGroup(undefined);
     setRenamingCanvas(undefined);
@@ -944,6 +959,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setMenu(null);
     if (kind === "text") addText(point);
     else if (kind === "todo") addTodo(point);
+    else if (isApplicationKind(kind))
+      setApplicationDraft({ kind, ...point, text: "" });
     else if (kind === "mermaid" || kind === "file") {
       const id = uid();
       const card: Card = {
@@ -1013,11 +1030,102 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setMenu(null);
   };
   const openCard = (card: Card, task?: string) => {
-    if (card.kind === "canvas") navigateCanvas([...path, card.id]);
+    if (isApplicationKind(card.kind))
+      setApplicationDraft({
+        kind: card.kind,
+        id: card.id,
+        x: card.x,
+        y: card.y,
+        text: card.text,
+      });
+    else if (card.kind === "canvas") navigateCanvas([...path, card.id]);
     else if (card.kind === "miniature") setActiveMiniature(card.id);
     else if (card.kind === "text" || card.kind === "todo")
       editCard(card, false, task);
     else setDetail(card.id);
+  };
+  const saveApplication = (text: string) => {
+    if (!applicationDraft) return;
+    const draft = applicationDraft;
+    const title = draft.kind === "vscode" ? localPathName(text) : "iTerm2";
+    const context = document.createElement("canvas").getContext("2d");
+    if (context) context.font = "500 14px system-ui";
+    const width =
+      draft.kind === "vscode"
+        ? Math.min(
+            760,
+            Math.max(
+              200,
+              Math.ceil(
+                context?.measureText(`使用 VS Code 打开 ${title}`).width || 300,
+              ) + 40,
+            ),
+          )
+        : 420;
+    const height =
+      draft.kind === "vscode"
+        ? 44
+        : Math.min(460, Math.max(180, 66 + text.split("\n").length * 22));
+    const id = draft.id || uid();
+    setBoard((b) =>
+      draft.id
+        ? {
+            ...b,
+            cards: b.cards.map((card) =>
+              card.id === draft.id
+                ? {
+                    ...card,
+                    text,
+                    title,
+                    ...(draft.kind === "vscode" ? { width, height } : {}),
+                  }
+                : card,
+            ),
+          }
+        : {
+            ...b,
+            cards: [
+              ...b.cards,
+              {
+                id,
+                kind: draft.kind,
+                title,
+                text,
+                x: draft.x,
+                y: draft.y,
+                color: "#ffffff",
+                width,
+                height,
+                group: containingGroup(
+                  { x: draft.x, y: draft.y, width, height },
+                  b.groups,
+                ),
+              },
+            ],
+          },
+    );
+    setSelection([id]);
+    setSelectedGroup(undefined);
+    setApplicationDraft(undefined);
+  };
+  const runApplication = (card: Card) => {
+    try {
+      if (card.kind === "vscode") openApplicationUrl(vscodeUrl(card.text));
+      else if (card.kind === "iterm2") {
+        if (!launcherInstalled()) setLauncherSetup({ commands: card.text });
+        else openApplicationUrl(itermUrl(card.text));
+      }
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "无法打开本地应用");
+    }
+  };
+  const copyCommands = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      notify("命令已复制");
+    } catch {
+      notify("无法复制命令，请允许剪贴板访问后重试");
+    }
   };
   const addTodo = (point?: { x: number; y: number }) => {
     editCard(
@@ -1134,7 +1242,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     if (
       (e.target as HTMLElement).closest("button,input,textarea,label") &&
       !groupId &&
-      !modifierPan
+      !modifierPan &&
+      !(e.target as Element).closest(".vscode-pill")
     )
       return;
     if (e.button === 1 || modifierPan) e.preventDefault();
@@ -1867,6 +1976,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         setGroupDialog(null);
         setDetail(undefined);
         setMiniatureDraft(undefined);
+        if (launcherSetup) {
+          setLauncherSetup(undefined);
+          return;
+        }
+        setApplicationDraft(undefined);
         setActiveMiniature(undefined);
         setConfirmImport(null);
         setSelection([]);
@@ -2608,6 +2722,18 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 }}
                 onClick={(e) => {
                   if (
+                    c.kind === "vscode" &&
+                    !lastPointerMoved.current &&
+                    !e.ctrlKey &&
+                    !e.metaKey &&
+                    !e.shiftKey &&
+                    e.detail < 2 &&
+                    !(e.target as Element).closest(
+                      ".connection-port,.resize-handle",
+                    )
+                  )
+                    runApplication(c);
+                  if (
                     c.editableFile &&
                     !lastPointerMoved.current &&
                     !(e.target as Element).closest("button,a,input,textarea") &&
@@ -2618,6 +2744,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
+                  if (c.kind === "vscode") return;
                   if (!e.ctrlKey && !e.metaKey)
                     openCard(
                       c,
@@ -2633,6 +2760,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   c.kind !== "canvas" &&
                   c.kind !== "miniature" &&
                   c.kind !== "mermaid" &&
+                  !isApplicationKind(c.kind) &&
                   !isPdfFile(c) &&
                   !(c.kind === "file" && isTextFile(c)) && (
                     <div className="card-top">
@@ -2646,7 +2774,20 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       </span>
                     </div>
                   )}
-                {c.kind === "miniature" ? (
+                {isApplicationKind(c.kind) ? (
+                  <ApplicationCard
+                    card={c}
+                    onOpen={(fromKeyboard) => {
+                      if (
+                        c.kind !== "vscode" ||
+                        fromKeyboard ||
+                        !lastPointerMoved.current
+                      )
+                        runApplication(c);
+                    }}
+                    onCopy={() => void copyCommands(c.text)}
+                  />
+                ) : c.kind === "miniature" ? (
                   preview3D ? null : (
                     <Miniature
                       card={c}
@@ -2979,23 +3120,26 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     )}
                   </button>
                 )}
-                <button
-                  className="card-download"
-                  aria-label={`下载 ${c.title || (c.kind === "todo" ? "任务" : c.kind === "mermaid" ? "Mermaid" : "文本")}`}
-                  title="下载"
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                  }}
-                  onDoubleClick={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    downloadCard(c);
-                  }}
-                >
-                  <Download size={17} />
-                </button>
+                {!isApplicationKind(c.kind) && (
+                  <button
+                    className="card-download"
+                    aria-label={`下载 ${c.title || (c.kind === "todo" ? "任务" : c.kind === "mermaid" ? "Mermaid" : "文本")}`}
+                    title="下载"
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                    }}
+                    onDoubleClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      downloadCard(c);
+                    }}
+                  >
+                    <Download size={17} />
+                  </button>
+                )}
                 {selection.includes(c.id) &&
-                  (c.kind === "text" && c.textAutoHeight
+                  ((c.kind === "text" && c.textAutoHeight) ||
+                  c.kind === "vscode"
                     ? ["e", "w"]
                     : ["n", "s", "e", "w", "ne", "nw", "se", "sw"]
                   ).map((edge) => (
@@ -3251,6 +3395,27 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     分组
                   </button>
                 </ContextSubmenu>
+                <ContextSubmenu
+                  key={`applications-${menu.x}:${menu.y}`}
+                  label="新建应用关联"
+                >
+                  <button
+                    role="menuitem"
+                    disabled={!ready}
+                    onClick={() => createFromMenu("vscode")}
+                  >
+                    <Code2 size={14} />
+                    VS Code
+                  </button>
+                  <button
+                    role="menuitem"
+                    disabled={!ready}
+                    onClick={() => createFromMenu("iterm2")}
+                  >
+                    <Terminal size={14} />
+                    iTerm2
+                  </button>
+                </ContextSubmenu>
               </MenuSection>
               <MenuSection label="内容操作">
                 {(selection.length > 0 || selectedGroup) && (
@@ -3321,6 +3486,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     menuCard.kind === "miniature" ||
                     menuCard.kind === "mermaid" ||
                     menuCard.kind === "file" ||
+                    isApplicationKind(menuCard.kind) ||
                     menuCard.editableFile) && (
                     <button
                       role="menuitem"
@@ -3336,7 +3502,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       }}
                     >
                       <ArrowUpRight size={14} />
-                      打开
+                      {isApplicationKind(menuCard.kind) ? "配置关联" : "打开"}
                     </button>
                   )}
                   <button
@@ -3714,6 +3880,37 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             )}
           </div>
         </div>
+      )}
+      {applicationDraft && (
+        <ApplicationDialog
+          key={
+            applicationDraft.id ||
+            `${applicationDraft.kind}:${applicationDraft.x}:${applicationDraft.y}`
+          }
+          draft={applicationDraft}
+          onSave={saveApplication}
+          onClose={() => setApplicationDraft(undefined)}
+          onSetup={() => setLauncherSetup({})}
+        />
+      )}
+      {launcherSetup && (
+        <LocalLauncherDialog
+          pending={!!launcherSetup.commands}
+          onClose={() => setLauncherSetup(undefined)}
+          onReady={() => {
+            const commands = launcherSetup.commands;
+            setLauncherSetup(undefined);
+            if (commands) {
+              try {
+                openApplicationUrl(itermUrl(commands));
+              } catch (error) {
+                notify(
+                  error instanceof Error ? error.message : "无法打开 iTerm2",
+                );
+              }
+            }
+          }}
+        />
       )}
       {confirmImport && (
         <div className="modal-backdrop">
