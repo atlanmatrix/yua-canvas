@@ -98,6 +98,7 @@ import {
 import { cardDownload } from "./downloads";
 import { type Endpoint, type Side, endpointPoint, curve } from "./connections";
 import { useAutosave } from "./autosave";
+import { useAnimatedView } from "./useAnimatedView";
 import { ConnectionArrow } from "./ConnectionArrow";
 import {
   captureTransfer,
@@ -269,7 +270,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     names,
     navigation,
     view,
-    setView,
     setBoard,
     restore,
     begin,
@@ -278,6 +278,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     redo,
     cancel,
   } = workspace;
+  const { setView, animateView, cancelViewAnimation } = useAnimatedView(
+    view,
+    workspace.setView,
+    preview3D ? "3d" : board.id || "",
+  );
   const latestWorkspace = useRef({ root, view, navigation });
   latestWorkspace.current = { root, view, navigation };
   const [dragCursor, setDragCursor] = useState(false);
@@ -861,6 +866,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     );
   };
   const clearCanvasUI = () => {
+    cancelViewAnimation();
     if (editSession.current) finishEditing(editSession.current.id);
     cancelGesture();
     setSelection([]);
@@ -1776,6 +1782,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       const key = e.key.toLowerCase(),
         mod = e.ctrlKey || e.metaKey;
       if (key === "escape") {
+        cancelViewAnimation();
         cancelGesture();
         if (gesture.current?.kind === "link") gesture.current = null;
         setLinkDraft(null);
@@ -1992,6 +1999,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       if (e.code === "Space") space.current = false;
     };
     const blur = () => {
+      cancelViewAnimation();
       setLinkModifier(false);
       cancelGesture();
       space.current = false;
@@ -2055,7 +2063,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         (r.height - 170) / bounds.height,
       ),
     );
-    setView({
+    animateView({
       z,
       x: r.width / 2 - (bounds.x + bounds.width / 2) * z,
       y: r.height / 2 - (bounds.y + bounds.height / 2) * z,
@@ -2082,6 +2090,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       inert={preview3D}
       onPointerMoveCapture={(e) => setLinkModifier(e.metaKey || e.ctrlKey)}
       onPointerDownCapture={(e) => {
+        cancelViewAnimation();
         setLinkModifier(e.metaKey || e.ctrlKey);
         if (
           editSession.current &&
@@ -2089,6 +2098,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         )
           finishEditing(editSession.current.id);
       }}
+      onWheelCapture={cancelViewAnimation}
       className={
         "app " +
         (preview3D ? "previewing-3d " : "") +

@@ -246,6 +246,9 @@ test("Pin boxes fit their actual labels and share the right edge on desktop and 
     .getByRole("textbox", { name: "Pin 名称" })
     .fill("一个长度不同的 Pin 名称");
   await page.getByRole("textbox", { name: "Pin 名称" }).press("Enter");
+  await expect(
+    rail.getByRole("button", { name: "一个长度不同的 Pin 名称", exact: true }),
+  ).toBeVisible();
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 844 });
     const boxes = await rail.getByRole("button").evaluateAll((elements) =>

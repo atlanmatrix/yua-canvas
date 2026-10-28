@@ -96,7 +96,10 @@ export function PinBar({
                   trigger: e.currentTarget,
                 });
               }}
-              onClick={() => onJump(pin)}
+              onClick={(e) => {
+                // The second click belongs to renaming; keep its editor still.
+                if (e.detail < 2) onJump(pin);
+              }}
               onDoubleClick={() => {
                 setName(pin.name);
                 setEditing(key);
