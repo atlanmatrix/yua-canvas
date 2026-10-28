@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
 const near = { x: 100, y: 180, width: 180, height: 100 };
+const peer = { x: -500, y: -300, width: 180, height: 100 };
 const far = { x: 4200, y: 2600, width: 1400, height: 900 };
 const group = { x: 3000, y: -1800, width: 900, height: 1000 };
 async function setup(page: Page) {
@@ -14,6 +15,7 @@ async function setup(page: Page) {
         cards: [
           ...[
             { id: "near", bounds: near },
+            { id: "peer", bounds: peer },
             { id: "far", bounds: far },
           ].map(({ id, bounds }) => ({
             id,
@@ -95,16 +97,27 @@ test("pins pan and zoom together with easing, retain content geometry and save t
   const original = await geometry();
   const from = await view(page);
   const to = await target(page, far);
+  const area = (await page.locator(".canvas").boundingBox())!;
+  const center = (v: typeof from) => ({
+    x: (area.width / 2 - v.x) / v.z,
+    y: (area.height / 2 - v.y) / v.z,
+  });
+  const fromCenter = center(from),
+    toCenter = center(to);
   await pin(page, "far").click();
   await expectView(page, from);
   const progress: number[] = [0];
   for (let i = 0; i < 6; i++) {
     await page.clock.runFor(100);
     const current = await view(page);
-    const p = (current.x - from.x) / (to.x - from.x);
+    const c = center(current);
+    const p = (c.x - fromCenter.x) / (toCenter.x - fromCenter.x);
     expect(p).toBeGreaterThan(progress.at(-1)!);
-    expect((current.y - from.y) / (to.y - from.y)).toBeCloseTo(p, 3);
-    expect((current.z - from.z) / (to.z - from.z)).toBeCloseTo(p, 3);
+    expect((c.y - fromCenter.y) / (toCenter.y - fromCenter.y)).toBeCloseTo(
+      p,
+      3,
+    );
+    expect(current.z).toBeGreaterThanOrEqual(0.2);
     progress.push(p);
   }
   // Movement accelerates out of the start and slows down before arriving.
@@ -123,6 +136,40 @@ test("pins pan and zoom together with easing, retain content geometry and save t
   await expect.poll(async () => (await view(page)).z).toBeCloseTo(to.z, 4);
   await expectView(page, to);
 });
+
+for (const [name, bounds] of [
+  ["peer", peer],
+  ["far", far],
+] as const) {
+  test(`pin ${name} eases out about 20% below both endpoint scales before zooming in`, async ({
+    page,
+  }) => {
+    await setup(page);
+    await pin(page, "near").click();
+    await page.clock.runFor(650);
+    const from = await view(page);
+    const to = await target(page, bounds);
+    const minimum = Math.min(from.z, to.z) * 0.8;
+    await pin(page, name).click();
+    await expectView(page, from);
+    await page.clock.runFor(80);
+    const early = await view(page);
+    const earlyProgress = (from.z - early.z) / (from.z - minimum);
+    expect(earlyProgress).toBeGreaterThan(0);
+    expect(earlyProgress).toBeLessThan(0.3);
+    await page.clock.runFor(160);
+    const pulledBack = await view(page);
+    expect(pulledBack.z).toBeCloseTo(minimum, 2);
+    await page.clock.runFor(120);
+    const returning = await view(page);
+    expect(returning.z).toBeGreaterThan(pulledBack.z);
+    expect(returning.z).toBeLessThan(to.z);
+    await page.clock.runFor(120);
+    expect((await view(page)).z).toBeGreaterThan(returning.z);
+    await page.clock.runFor(170);
+    await expectView(page, to);
+  });
+}
 
 test("a second pin continues from the current view and groups finish centered", async ({
   page,

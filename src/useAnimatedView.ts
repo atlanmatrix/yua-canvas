@@ -7,6 +7,9 @@ import {
 } from "react";
 import type { View } from "./storage";
 
+const easeInOut = (t: number) =>
+  t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2;
+
 export function useAnimatedView(
   view: View,
   applyView: Dispatch<SetStateAction<View>>,
@@ -32,7 +35,7 @@ export function useAnimatedView(
     [applyView, cancelViewAnimation],
   );
   const animateView = useCallback(
-    (target: View) => {
+    (target: View, viewport: { width: number; height: number }) => {
       cancelViewAnimation();
       const from = current.current;
       if (
@@ -42,18 +45,37 @@ export function useAnimatedView(
         applyView(target);
         return;
       }
+      const center = { x: viewport.width / 2, y: viewport.height / 2 };
+      const fromCenter = {
+        x: (center.x - from.x) / from.z,
+        y: (center.y - from.y) / from.z,
+      };
+      const toCenter = {
+        x: (center.x - target.x) / target.z,
+        y: (center.y - target.y) / target.z,
+      };
+      // Pull back below both endpoint scales, respecting the canvas zoom limit.
+      const pulledBack = Math.max(0.2, Math.min(from.z, target.z) * 0.8);
       const started = performance.now();
       const step = (now: number) => {
         const t = Math.min(1, Math.max(0, (now - started) / 600));
-        // Cubic ease-in-out keeps pan and zoom in sync, with a soft start/stop.
-        const eased = t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2;
+        const eased = easeInOut(t);
+        // Ease out to a wider view, then ease back in with no velocity jump.
+        const z =
+          t < 0.4
+            ? from.z + (pulledBack - from.z) * easeInOut(t / 0.4)
+            : pulledBack + (target.z - pulledBack) * easeInOut((t - 0.4) / 0.6);
         applyView(
           t === 1
             ? target
             : {
-                x: from.x + (target.x - from.x) * eased,
-                y: from.y + (target.y - from.y) * eased,
-                z: from.z + (target.z - from.z) * eased,
+                x:
+                  center.x -
+                  (fromCenter.x + (toCenter.x - fromCenter.x) * eased) * z,
+                y:
+                  center.y -
+                  (fromCenter.y + (toCenter.y - fromCenter.y) * eased) * z,
+                z,
               },
         );
         frame.current = t < 1 ? requestAnimationFrame(step) : null;

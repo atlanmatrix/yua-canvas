@@ -2063,11 +2063,14 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         (r.height - 170) / bounds.height,
       ),
     );
-    animateView({
-      z,
-      x: r.width / 2 - (bounds.x + bounds.width / 2) * z,
-      y: r.height / 2 - (bounds.y + bounds.height / 2) * z,
-    });
+    animateView(
+      {
+        z,
+        x: r.width / 2 - (bounds.x + bounds.width / 2) * z,
+        y: r.height / 2 - (bounds.y + bounds.height / 2) * z,
+      },
+      r,
+    );
     if (pin.kind === "card") setSelection([pin.id]);
     else setSelectedGroup(pin.id);
   };
