@@ -1,4 +1,9 @@
 import { Attachment } from "./Attachment";
+import { ToolCard } from "./ToolCard";
+import { isToolKind } from "./tools";
+import { PreferencesControls } from "./PreferencesControls";
+import { t as tr, usePreferences } from "./i18n";
+import { surfaceColor, customColor } from "./presentation";
 import {
   PreviewFrame,
   TypeIcon,
@@ -27,7 +32,7 @@ import { curve, endpointPoint, curveMidpoint } from "./connections";
 import { ConnectionArrow } from "./ConnectionArrow";
 import { Diagram } from "./Markdown";
 import { PdfPreview } from "./PdfPreview";
-import { isPdfFile, isMarkdownFile } from "./clipboard";
+import { isPdfFile, isTextFile } from "./clipboard";
 import { Miniature } from "./Miniature";
 import { ApplicationCard } from "./ApplicationCard";
 import { isApplicationKind } from "./appAssociations";
@@ -45,11 +50,13 @@ function Asset({ card }: { card: Card }) {
     </a>
   ) : (
     <a href={url} download={card.title}>
-      下载 {card.title}
+      {tr("下载 ")}
+      {card.title}
     </a>
   );
 }
 export function ShareViewer({ token }: { token: string }) {
+  usePreferences();
   const [root, setRoot] = useState<Board>(),
     [stack, setStack] = useState<Board[]>([]),
     [error, setError] = useState(""),
@@ -91,11 +98,12 @@ export function ShareViewer({ token }: { token: string }) {
   return (
     <main className="share-viewer">
       <header>
-        <strong>画布分享 · 只读</strong>
-        <a href={location.pathname}>返回我的画布</a>
+        <PreferencesControls />
+        <strong>{tr("画布分享 · 只读")}</strong>
+        <a href={location.pathname}>{tr("返回我的画布")}</a>
         {stack.length > 0 && (
           <button onClick={() => setStack((s) => s.slice(0, -1))}>
-            返回父画布
+            {tr("返回父画布")}
           </button>
         )}
         {root && (
@@ -114,13 +122,13 @@ export function ShareViewer({ token }: { token: string }) {
                 })
               }
             >
-              下载快照
+              {tr("下载快照")}
             </button>
             <button
               onClick={() => {
                 if (
                   !confirm(
-                    "将备份当前本地工作区，并用此分享创建本地副本。继续？",
+                    tr("将备份当前本地工作区，并用此分享创建本地副本。继续？"),
                   )
                 )
                   return;
@@ -133,15 +141,15 @@ export function ShareViewer({ token }: { token: string }) {
                 })().catch((e) => setError(e.message));
               }}
             >
-              复制到我的画布
+              {tr("复制到我的画布")}
             </button>
           </>
         )}
       </header>
       {error ? (
-        <p role="alert">{error}</p>
+        <p role="alert">{tr(error)}</p>
       ) : !board ? (
-        <p role="status">正在加载分享画布…</p>
+        <p role="status">{tr("正在加载分享画布…")}</p>
       ) : (
         <div
           className="share-surface"
@@ -198,7 +206,7 @@ export function ShareViewer({ token }: { token: string }) {
                         background: g.color,
                       }}
                     >
-                      <span>{g.masked ? "已遮罩" : g.name}</span>
+                      <span>{g.masked ? tr("已遮罩") : g.name}</span>
                       {g.masked ? (
                         <Mask />
                       ) : g.displayMode === "list" ? (
@@ -254,6 +262,7 @@ export function ShareViewer({ token }: { token: string }) {
                       (c.kind === "miniature" ? " share-miniature" : "")
                     }
                     key={c.id}
+                    data-custom-color={customColor(c.color)}
                     style={{
                       left: r.x,
                       top: r.y,
@@ -261,7 +270,9 @@ export function ShareViewer({ token }: { token: string }) {
                       minHeight: r.height,
                       height: r.height,
                       background:
-                        c.kind === "miniature" ? "transparent" : c.color,
+                        c.kind === "miniature"
+                          ? "transparent"
+                          : surfaceColor(c.color),
                     }}
                   >
                     {c.masked ? (
@@ -270,7 +281,9 @@ export function ShareViewer({ token }: { token: string }) {
                       <TypeIcon card={c} />
                     ) : (
                       <PreviewFrame card={c}>
-                        {isApplicationKind(c.kind) ? (
+                        {isToolKind(c.kind) ? (
+                          <ToolCard card={c} />
+                        ) : isApplicationKind(c.kind) ? (
                           <ApplicationCard card={c} readonly />
                         ) : c.kind === "miniature" ? (
                           <Miniature card={c} />
@@ -278,7 +291,8 @@ export function ShareViewer({ token }: { token: string }) {
                           <button
                             onClick={() => setStack((s) => [...s, c.canvas!])}
                           >
-                            进入 {c.title}
+                            {tr("进入 ")}
+                            {c.title}
                           </button>
                         ) : c.kind === "text" ? (
                           <NoteText
@@ -296,7 +310,7 @@ export function ShareViewer({ token }: { token: string }) {
                           </div>
                         ) : isPdfFile(c) ? (
                           <PdfPreview card={c} />
-                        ) : isMarkdownFile(c) ? (
+                        ) : isTextFile(c) ? (
                           <FilePreview card={c} />
                         ) : c.kind === "todo" ? (
                           <ul>
@@ -327,7 +341,7 @@ export function ShareViewer({ token }: { token: string }) {
           </div>
           <div className="share-zoom">
             <button
-              aria-label="缩小"
+              aria-label={tr("缩小")}
               onClick={() =>
                 setView((v) => ({ ...v, z: Math.max(0.05, v.z / 1.2) }))
               }
@@ -336,7 +350,7 @@ export function ShareViewer({ token }: { token: string }) {
             </button>
             <span>{Math.round(view.z * 100)}%</span>
             <button
-              aria-label="放大"
+              aria-label={tr("放大")}
               onClick={() =>
                 setView((v) => ({ ...v, z: Math.min(3, v.z * 1.2) }))
               }

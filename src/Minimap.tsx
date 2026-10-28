@@ -1,6 +1,8 @@
+import { t as tr } from "./i18n";
 import { presentationHidden, groupFrame } from "./CardPresentation";
 import { StrokeView } from "./PaintLayer";
 import { memo, useEffect, useRef, useState } from "react";
+import { customColor } from "./presentation";
 import { type Board, type Card, type Rect, groupDepth } from "./storage";
 import { cardRect } from "./geometry";
 import { ConnectionArrow } from "./ConnectionArrow";
@@ -50,6 +52,7 @@ const MiniCard = memo(function MiniCard({
   return (
     <g
       data-minimap-card={card.id}
+      data-custom-color={customColor(card.color)}
       className={selected ? "minimap-card selected" : "minimap-card"}
     >
       <rect
@@ -128,8 +131,8 @@ export function Minimap({
     <button
       ref={button}
       className={"minimap " + (dragging ? "dragging" : "")}
-      aria-label="画布缩略图"
-      title="画布缩略图"
+      aria-label={tr("画布缩略图")}
+      title={tr("画布缩略图")}
       data-testid="minimap"
       onPointerDown={(e) => {
         if (e.button !== 0 || drag.current) return;

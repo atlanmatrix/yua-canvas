@@ -1,0 +1,405 @@
+.tool-component {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--ink);
+  background: transparent;
+  font-size: 14px;
+}
+.tool-heading {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  padding: 15px 17px 10px;
+  cursor: grab;
+  color: var(--muted);
+}
+.tool-heading strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.tool-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 17px 16px;
+  cursor: default;
+  user-select: text;
+}
+.tool-body input,
+.tool-body select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.tool-body button {
+  border-radius: 7px;
+  min-height: 30px;
+}
+.tool-body button:hover {
+  background: var(--surface-muted);
+}
+.tool-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.calculator-display {
+  text-align: right;
+  font:
+    26px/1.3 ui-monospace,
+    monospace !important;
+  margin-bottom: 10px;
+}
+.calculator-keys {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+}
+.calculator-keys button {
+  font-size: 18px;
+  background: var(--surface-muted);
+  min-height: 43px;
+}
+.calculator-keys button.primary {
+  background: var(--accent);
+  color: #fff;
+}
+.calculator-history {
+  color: var(--muted);
+  font:
+    11px/1.7 ui-monospace,
+    monospace;
+  text-align: right;
+  margin-top: 10px;
+  overflow-wrap: anywhere;
+}
+.tool-error {
+  color: #dc5959;
+  font-size: 12px;
+  margin: 6px 0;
+}
+.conversion-units {
+  display: grid;
+  grid-template-columns: 1fr 30px 1fr;
+  gap: 5px;
+  align-items: end;
+  margin-top: 14px;
+}
+.conversion-units label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.conversion-units select {
+  font-size: 12px;
+}
+.conversion-result {
+  display: block;
+  font:
+    30px/1.3 ui-monospace,
+    monospace;
+  margin-top: 20px;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+.conversion-result small {
+  font-size: 13px;
+  color: var(--muted);
+}
+.tool-data-status {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 12px;
+}
+.tool-data-status a {
+  margin-left: auto;
+  text-decoration: underline;
+}
+.weather-search {
+  display: flex;
+  gap: 4px;
+}
+.weather-location {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+.weather-current {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 4px;
+}
+.weather-current strong {
+  font-size: 40px;
+  font-weight: 500;
+}
+.weather-current span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.weather-details {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--muted);
+  flex-wrap: wrap;
+  margin: 8px 0 15px;
+}
+.weather-forecast {
+  display: flex;
+  gap: 7px;
+}
+.weather-forecast > div {
+  flex: 1;
+  background: var(--surface-muted);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: center;
+  font-size: 12px;
+}
+.weather-forecast span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.weather-cities {
+  display: flex;
+  flex-direction: column;
+  margin: 10px 0;
+  gap: 3px;
+}
+.weather-cities button {
+  justify-content: flex-start;
+  text-align: left;
+  font-size: 12px;
+}
+.tool-attribution {
+  display: block;
+  color: var(--muted);
+  text-align: right;
+  font-size: 10px;
+  margin-top: 8px;
+  text-decoration: underline;
+}
+.calendar-heading {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.calendar-grid {
+  flex: 1;
+  min-height: 0;
+  grid-auto-rows: minmax(0, 1fr);
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  text-align: center;
+}
+.calendar-weekday {
+  font-size: 11px;
+  color: var(--muted);
+  padding-bottom: 7px;
+}
+.calendar-grid button {
+  padding: 0;
+  aspect-ratio: auto;
+  min-height: 0;
+  font-size: 12px;
+}
+.calendar-grid button[aria-current="date"] {
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--accent);
+}
+.calendar-grid button[aria-selected="true"] {
+  background: var(--accent);
+  color: #fff;
+}
+.calendar-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 12px;
+}
+.tool-calendar .tool-body {
+  display: flex;
+  flex-direction: column;
+}
+.calendar-footer button {
+  color: var(--accent);
+}
+.preferences-controls {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.preferences-controls label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 0 8px;
+  height: 38px;
+  border-radius: 9px;
+  color: var(--muted);
+}
+.preferences-controls select {
+  appearance: none;
+  max-width: 76px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  padding: 5px 0;
+  cursor: pointer;
+}
+.preferences-controls option {
+  background: var(--surface);
+  color: var(--ink);
+}
+.hljs {
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-type {
+  color: #a626a4;
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute {
+  color: #407d26;
+}
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet {
+  color: #b75b08;
+}
+.hljs-title,
+.hljs-section,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: #2263a5;
+}
+.hljs-comment,
+.hljs-quote {
+  color: #77808a;
+  font-style: italic;
+}
+.hljs-built_in,
+.hljs-meta,
+.hljs-deletion,
+.hljs-name {
+  color: #bc3747;
+}
+.hljs-attr,
+.hljs-variable,
+.hljs-template-variable {
+  color: #815c10;
+}
+.markdown-code {
+  white-space: pre;
+  overflow: auto;
+}
+.file-content-thumbnail,
+.file-text {
+  white-space: pre;
+  overflow: auto;
+}
+.file-content-thumbnail {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink);
+  padding: 14px;
+}
+.file-content-thumbnail code,
+.file-text code {
+  font: inherit;
+}
+.code-truncated {
+  flex: none;
+  font-size: 10px;
+  color: var(--muted);
+  padding: 4px 10px;
+}
+:root[data-theme="dark"] .hljs-keyword,
+:root[data-theme="dark"] .hljs-literal,
+:root[data-theme="dark"] .hljs-type,
+:root[data-theme="dark"] .hljs-selector-tag {
+  color: #d6a1e7;
+}
+:root[data-theme="dark"] .hljs-string,
+:root[data-theme="dark"] .hljs-regexp,
+:root[data-theme="dark"] .hljs-addition {
+  color: #a6ce8c;
+}
+:root[data-theme="dark"] .hljs-number,
+:root[data-theme="dark"] .hljs-symbol {
+  color: #e6b177;
+}
+:root[data-theme="dark"] .hljs-title,
+:root[data-theme="dark"] .hljs-section,
+:root[data-theme="dark"] .hljs-selector-class {
+  color: #82b7ef;
+}
+:root[data-theme="dark"] .hljs-built_in,
+:root[data-theme="dark"] .hljs-meta,
+:root[data-theme="dark"] .hljs-name {
+  color: #eb9a9a;
+}
+:root[data-theme="dark"] .hljs-attr,
+:root[data-theme="dark"] .hljs-variable {
+  color: #dfc479;
+}
+@media (max-width: 600px) {
+  .preferences-controls label {
+    padding: 0 5px;
+    gap: 3px;
+    height: 34px;
+  }
+  .preferences-controls label svg {
+    display: none;
+  }
+  .preferences-controls select {
+    max-width: 65px;
+    font-size: 11px;
+  }
+  .floating-top {
+    left: 12px;
+    right: 12px;
+    top: 12px;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .floating-actions {
+    gap: 5px;
+  }
+}

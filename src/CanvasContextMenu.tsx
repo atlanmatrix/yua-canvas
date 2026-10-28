@@ -1,4 +1,24 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { t as tr } from "./i18n";
+import {
+  createContext,
+  useContext,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type Dispatch,
+  type SetStateAction,
+  type RefObject,
+} from "react";
+const SubmenuContext = createContext<
+  | {
+      active?: string;
+      setActive: Dispatch<SetStateAction<string | undefined>>;
+      mode: RefObject<"pointer" | "keyboard">;
+    }
+  | undefined
+>(undefined);
 
 export const BACKGROUND_COLORS = [
   { name: "白色", value: "#ffffff" },
@@ -19,8 +39,8 @@ export function ColorPalette({
 }) {
   return (
     <ColorSwatches
-      label="背景颜色"
-      optionLabel="背景色"
+      label={tr("背景颜色")}
+      optionLabel={tr("背景色")}
       colors={BACKGROUND_COLORS}
       value={value?.toLowerCase()}
       onChange={onChange}
@@ -71,9 +91,9 @@ export function ColorSwatches<T extends string>({
           key={color.value}
           className="color-swatch"
           role="menuitemradio"
-          aria-label={`${optionLabel}：${color.name}`}
+          aria-label={`${optionLabel}：${tr(color.name)}`}
           aria-checked={value === color.value}
-          title={color.name}
+          title={tr(color.name)}
           style={{ background: color.background || color.value }}
           onClick={() => onChange(color.value)}
         />
@@ -104,14 +124,31 @@ export function CanvasContextMenu({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ x, y });
+  const [position, setPosition] = useState({
+    x: Number.isFinite(x) ? x : 8,
+    y: Number.isFinite(y) ? y : 8,
+  });
+  const [active, setActive] = useState<string>();
+  const mode = useRef<"pointer" | "keyboard">("pointer");
   useLayoutEffect(() => {
     const place = () => {
       const bounds = ref.current?.getBoundingClientRect();
       if (!bounds) return;
       const next = {
-        x: Math.max(8, Math.min(x, window.innerWidth - bounds.width - 8)),
-        y: Math.max(8, Math.min(y, window.innerHeight - bounds.height - 8)),
+        x: Math.max(
+          8,
+          Math.min(
+            Number.isFinite(x) ? x : 8,
+            window.innerWidth - bounds.width - 8,
+          ),
+        ),
+        y: Math.max(
+          8,
+          Math.min(
+            Number.isFinite(y) ? y : 8,
+            window.innerHeight - bounds.height - 8,
+          ),
+        ),
       };
       setPosition((previous) =>
         previous.x === next.x && previous.y === next.y ? previous : next,
@@ -122,15 +159,23 @@ export function CanvasContextMenu({
     return () => window.removeEventListener("resize", place);
   }, [x, y, children]);
   return (
-    <div
-      ref={ref}
-      className="context-menu"
-      role="menu"
-      style={{ left: position.x, top: position.y }}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      {children}
-    </div>
+    <SubmenuContext.Provider value={{ active, setActive, mode }}>
+      <div
+        ref={ref}
+        className="context-menu"
+        role="menu"
+        onKeyDownCapture={() => {
+          mode.current = "keyboard";
+        }}
+        onPointerMoveCapture={() => {
+          mode.current = "pointer";
+        }}
+        style={{ left: position.x, top: position.y }}
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        {children}
+      </div>
+    </SubmenuContext.Provider>
   );
 }
 
@@ -141,7 +186,16 @@ export function ContextSubmenu({
   label: string;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [localOpen, setLocalOpen] = useState(false);
+  const controller = useContext(SubmenuContext),
+    id = useId();
+  const open = controller ? controller.active === id : localOpen;
+  const setOpen = (value: boolean) =>
+    controller
+      ? controller.setActive((current) =>
+          value ? id : current === id ? undefined : current,
+        )
+      : setLocalOpen(value);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const trigger = useRef<HTMLButtonElement>(null);
   const submenu = useRef<HTMLDivElement>(null);
@@ -193,7 +247,13 @@ export function ContextSubmenu({
       className="context-submenu-host"
       onPointerEnter={() => {
         cancelClose();
-        setOpen(true);
+        if (controller?.mode.current !== "keyboard") setOpen(true);
+      }}
+      onPointerMove={() => {
+        if (!open && controller?.mode.current !== "keyboard") {
+          cancelClose();
+          setOpen(true);
+        }
       }}
       onPointerLeave={() => {
         cancelClose();
@@ -242,7 +302,7 @@ export function ContextSubmenu({
           ref={submenu}
           className="context-menu context-submenu"
           role="menu"
-          aria-label={`${label}组件`}
+          aria-label={tr("{0}组件", label)}
           style={{ left: position.x, top: position.y }}
           onKeyDown={(e) => {
             e.stopPropagation();

@@ -1,10 +1,12 @@
 import type { Card } from "./storage";
+import { isToolKind } from "./tools";
 export function textDownloadName(now = new Date()): string {
   const pad = (value: number, length = 2) =>
     String(value).padStart(length, "0");
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}-${pad(now.getMilliseconds(), 3)}.txt`;
 }
 export function cardDownload(card: Card): { blob: Blob; name: string } {
+  if (isToolKind(card.kind)) return { blob: new Blob([card.text], { type: "application/json" }), name: `${card.kind}.json` };
   if (card.kind === "mermaid")
     return {
       blob: new Blob([card.text], { type: "text/vnd.mermaid" }),

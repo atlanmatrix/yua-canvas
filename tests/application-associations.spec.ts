@@ -95,7 +95,7 @@ test("application submenu follows New; VS Code capsules launch once, drag withou
     page
       .getByRole("group", { name: "新建内容", exact: true })
       .locator(":scope > .context-submenu-host > button > span:first-child"),
-  ).toHaveText(["新建", "新建应用关联"]);
+  ).toHaveText(["新建", "新建工具", "新建应用关联"]);
   await page.keyboard.press("Escape");
   await create(page, "VS Code");
   await page.getByRole("textbox", { name: "本地路径" }).fill("relative/path");

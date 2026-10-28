@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n";
 import { useState, useRef, useLayoutEffect, type ReactNode } from "react";
 import {
   Type,
@@ -18,6 +19,9 @@ import { Diagram } from "./Markdown";
 import { Attachment } from "./Attachment";
 import { Miniature } from "./Miniature";
 import { ApplicationCard } from "./ApplicationCard";
+import { ToolCard, TOOL_ICONS } from "./ToolCard";
+import { isToolKind } from "./tools";
+import { surfaceColor, customColor } from "./presentation";
 export function TypeIcon({ card }: { card: Card }) {
   const Icon = {
     text: Type,
@@ -29,16 +33,17 @@ export function TypeIcon({ card }: { card: Card }) {
     mermaid: Network,
     vscode: Code2,
     iterm2: Terminal,
+    ...TOOL_ICONS,
   }[card.kind];
   return (
-    <div className="component-type-icon" aria-label={`${card.kind} 组件`}>
+    <div className="component-type-icon" aria-label={tr("{0} 组件", card.kind)}>
       <Icon size={24} />
     </div>
   );
 }
 export function Mask() {
   return (
-    <div className="component-mask" aria-label="已遮罩">
+    <div className="component-mask" aria-label={tr("已遮罩")}>
       <EyeOff size={28} />
     </div>
   );
@@ -47,7 +52,7 @@ export function Remark({ text }: { text?: string }) {
   return text ? (
     <aside
       className="component-remark"
-      aria-label="备注"
+      aria-label={tr("备注")}
       onPointerDown={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
@@ -136,6 +141,7 @@ export function StaticContent({
   onCopyCommands,
   onOpenCanvas,
   onToggleTask,
+  onToolChange,
   activeMiniature,
   onActiveMiniatureChange,
 }: {
@@ -145,9 +151,17 @@ export function StaticContent({
   onCopyCommands?: (text: string) => void;
   onOpenCanvas?: (card: Card) => void;
   onToggleTask?: (card: Card, id: string) => void;
+  onToolChange?: (card: Card, text: string) => void;
   activeMiniature?: boolean;
   onActiveMiniatureChange?: (active: boolean) => void;
 }) {
+  if (isToolKind(card.kind))
+    return (
+      <ToolCard
+        card={card}
+        onChange={onToolChange ? (text) => onToolChange(card, text) : undefined}
+      />
+    );
   if (card.kind === "text")
     return (
       <NoteText
@@ -196,7 +210,7 @@ export function StaticContent({
     return onOpenCanvas ? (
       <button
         className="group-canvas-open"
-        aria-label={`进入子画布 ${card.title}`}
+        aria-label={tr("进入子画布 {0}", card.title)}
         onClick={() => onOpenCanvas(card)}
       >
         <PanelsTopLeft size={36} />
@@ -248,7 +262,7 @@ export function GroupList({
         if (!e.ctrlKey && !e.metaKey) e.stopPropagation();
       }}
     >
-      <nav aria-label="分组组件列表">
+      <nav aria-label={tr("分组组件列表")}>
         {cards.map((c) => (
           <button
             key={c.id}
@@ -263,10 +277,10 @@ export function GroupList({
             <TypeIcon card={c} />
             <span>
               {c.masked
-                ? "已遮罩"
+                ? tr("已遮罩")
                 : c.title ||
                   c.text.slice(0, 40) ||
-                  (c.kind === "todo" ? "任务" : "组件")}
+                  (c.kind === "todo" ? tr("任务") : tr("组件"))}
             </span>
           </button>
         ))}
@@ -281,10 +295,11 @@ export function GroupList({
           <>
             <div
               className={`group-list-card card-${active.kind}`}
+              data-custom-color={customColor(active.color)}
               style={{
                 width: cardRect(active).width,
                 height: cardRect(active).height,
-                background: active.color,
+                background: surfaceColor(active.color),
               }}
             >
               {active.masked ? (

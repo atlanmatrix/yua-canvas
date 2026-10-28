@@ -7,7 +7,7 @@
   inset: 0;
   z-index: 40;
   background: #edf1f5;
-  color: #334155;
+  color: var(--ink);
   outline: none;
 }
 .canvas3d-stage {
@@ -17,7 +17,7 @@
   touch-action: none;
   user-select: none;
   cursor: grab;
-  background: radial-gradient(ellipse at 45% 35%, #fff 0%, #edf1f5 70%);
+  background: radial-gradient(ellipse at 45% 35%, var(--surface) 0%, #edf1f5 70%);
 }
 .canvas3d-stage:active {
   cursor: grabbing;
@@ -125,7 +125,7 @@
   gap: 7px;
   padding: 8px 12px;
   height: 34px;
-  color: #64748b;
+  color: var(--muted);
   border-bottom: 1px solid #94a3b820;
   font-size: 12px;
 }
@@ -181,7 +181,7 @@
   position: absolute;
   top: 6px;
   left: 12px;
-  color: #64748b;
+  color: var(--muted);
   font-size: 13px;
 }
 .canvas3d-connections {
@@ -194,10 +194,10 @@
   stroke-width: 2;
 }
 .canvas3d-connections text {
-  fill: #64748b;
+  fill: var(--muted);
   font-size: 12px;
   paint-order: stroke;
-  stroke: #f1f5f9;
+  stroke: var(--surface-muted);
   stroke-width: 4px;
   stroke-linejoin: round;
 }

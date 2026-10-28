@@ -1,4 +1,7 @@
+import { t as tr } from "./i18n";
 import { instantiateSvg } from "./svgPreview";
+import { usePreferences } from "./i18n";
+import { CodePreview } from "./CodePreview";
 import {
   Children,
   isValidElement,
@@ -122,6 +125,7 @@ const DiagramContent = memo(function DiagramContent({
   standalone?: boolean;
   onSize?: (width: number, height: number) => void;
 }) {
+  usePreferences();
   const instance = useRef(`preview-${crypto.randomUUID()}`);
   const [result, setResult] = useState<DiagramResult & { state: string }>({
     svg: "",
@@ -150,7 +154,7 @@ const DiagramContent = memo(function DiagramContent({
     <div
       className="markdown-diagram"
       data-diagram-state={result.state}
-      aria-label={`${language} 图表`}
+      aria-label={tr("{0} 图表", language)}
     >
       {result.svg ? (
         <div dangerouslySetInnerHTML={{ __html: svg }} />
@@ -158,7 +162,7 @@ const DiagramContent = memo(function DiagramContent({
         result.state === "error" ? (
           <CircleAlert
             className="diagram-error"
-            aria-label="Mermaid 语法有误，双击编辑"
+            aria-label={tr("Mermaid 语法有误，双击编辑")}
           />
         ) : null
       ) : (
@@ -274,6 +278,15 @@ const markdownComponents: Components = {
           <Diagram
             source={String(code.props.children || "").trimEnd()}
             language={language}
+          />
+        );
+      if (language)
+        return (
+          <CodePreview
+            source={String(code.props.children || "")}
+            language={language}
+            className="markdown-code"
+            lazy={false}
           />
         );
     }

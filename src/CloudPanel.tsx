@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { Cloud, X } from "lucide-react";
 import { api, CloudError, packCloud, unpackCloud, uploadCloud } from "./cloud";
@@ -191,8 +192,8 @@ export function CloudPanel({
     <>
       <button
         className="floating-button"
-        aria-label="云同步与分享"
-        title="云同步与分享"
+        aria-label={tr("云同步与分享")}
+        title={tr("云同步与分享")}
         onClick={() => setOpen(true)}
       >
         <Cloud size={18} />
@@ -203,31 +204,37 @@ export function CloudPanel({
             className="modal compact cloud-panel"
             role="dialog"
             aria-modal="true"
-            aria-label="云同步与分享"
+            aria-label={tr("云同步与分享")}
           >
             <div className="modal-heading">
-              <h2>云同步与分享</h2>
-              <button aria-label="关闭云同步" onClick={() => setOpen(false)}>
+              <h2>{tr("云同步与分享")}</h2>
+              <button
+                aria-label={tr("关闭云同步")}
+                onClick={() => setOpen(false)}
+              >
                 <X size={18} />
               </button>
             </div>
-            <p role="status">{status}</p>
+            <p role="status">{tr(status)}</p>
             {!user ? (
               <>
                 <p>
-                  本地数据继续保存在此浏览器。登录并连接后，同步整个工作区及附件。
+                  {tr(
+                    "本地数据继续保存在此浏览器。登录并连接后，同步整个工作区及附件。",
+                  )}
                 </p>
                 {available && (
                   <a className="cloud-login" href="/api/auth/login">
-                    使用 GitHub 登录
+                    {tr("使用 GitHub 登录")}
                   </a>
                 )}
               </>
             ) : (
               <>
                 <p>
-                  账号：{user.name} ·{" "}
-                  {enabled ? "自动同步已开启" : "自动同步未开启"}
+                  {tr("账号：")}
+                  {user.name} ·{" "}
+                  {enabled ? tr("自动同步已开启") : tr("自动同步未开启")}
                 </p>
                 <div className="cloud-actions">
                   <button
@@ -238,7 +245,7 @@ export function CloudPanel({
                       void lock(() => reconcile(user.owner_id, true));
                     }}
                   >
-                    连接并同步
+                    {tr("连接并同步")}
                   </button>
                   <button
                     disabled={busy}
@@ -248,7 +255,7 @@ export function CloudPanel({
                       setStatus("自动同步已暂停");
                     }}
                   >
-                    暂停同步
+                    {tr("暂停同步")}
                   </button>
                   <button
                     disabled={busy}
@@ -266,13 +273,15 @@ export function CloudPanel({
                       })
                     }
                   >
-                    退出登录
+                    {tr("退出登录")}
                   </button>
                 </div>
                 {conflict && (
                   <div className="cloud-conflict">
                     <p>
-                      同步已暂停，不会覆盖任何一端。采用云端前会在本机保留一份恢复副本。
+                      {tr(
+                        "同步已暂停，不会覆盖任何一端。采用云端前会在本机保留一份恢复副本。",
+                      )}
                     </p>
                     <div className="cloud-actions">
                       <button
@@ -281,7 +290,7 @@ export function CloudPanel({
                           void download(current.current, "本地画布备份.json")
                         }
                       >
-                        下载本地副本
+                        {tr("下载本地副本")}
                       </button>
                       <button
                         disabled={busy}
@@ -294,14 +303,16 @@ export function CloudPanel({
                           })
                         }
                       >
-                        备份本地并采用云端
+                        {tr("备份本地并采用云端")}
                       </button>
                       <button
                         disabled={busy}
                         onClick={() => {
                           if (
                             !confirm(
-                              "将以当前本地内容创建云端新版本，其他设备需要重新同步。继续？",
+                              tr(
+                                "将以当前本地内容创建云端新版本，其他设备需要重新同步。继续？",
+                              ),
                             )
                           )
                             return;
@@ -313,26 +324,28 @@ export function CloudPanel({
                           });
                         }}
                       >
-                        以本地内容发布新版本
+                        {tr("以本地内容发布新版本")}
                       </button>
                     </div>
                   </div>
                 )}
                 <hr />
                 <p>
-                  分享整个工作区的只读快照。持有链接的人可以查看并下载附件。
+                  {tr(
+                    "分享整个工作区的只读快照。持有链接的人可以查看并下载附件。",
+                  )}
                 </p>
                 <label>
-                  链接有效期{" "}
+                  {tr("链接有效期")}{" "}
                   <select
-                    aria-label="分享有效期"
+                    aria-label={tr("分享有效期")}
                     value={days}
                     onChange={(e) => setDays(e.target.value)}
                   >
-                    <option value="1">1 天</option>
-                    <option value="7">7 天</option>
-                    <option value="30">30 天</option>
-                    <option value="">永久</option>
+                    <option value="1">{tr("1 天")}</option>
+                    <option value="7">{tr("7 天")}</option>
+                    <option value="30">{tr("30 天")}</option>
+                    <option value="">{tr("永久")}</option>
                   </select>
                 </label>
                 <button
@@ -360,13 +373,13 @@ export function CloudPanel({
                     })
                   }
                 >
-                  生成分享链接
+                  {tr("生成分享链接")}
                 </button>
                 {link && (
                   <label>
-                    分享地址
+                    {tr("分享地址")}
                     <input
-                      aria-label="分享地址"
+                      aria-label={tr("分享地址")}
                       readOnly
                       value={link}
                       onFocus={(e) => e.target.select()}
@@ -379,7 +392,7 @@ export function CloudPanel({
                           .catch(() => setStatus("请选中地址后手动复制"))
                       }
                     >
-                      复制链接
+                      {tr("复制链接")}
                     </button>
                   </label>
                 )}
@@ -389,10 +402,10 @@ export function CloudPanel({
                       <span>
                         {new Date(s.created_at).toLocaleString()} ·{" "}
                         {s.revoked_at
-                          ? "已撤销"
+                          ? tr("已撤销")
                           : s.expires_at && s.expires_at < Date.now()
-                            ? "已过期"
-                            : "可访问"}
+                            ? tr("已过期")
+                            : tr("可访问")}
                       </span>
                       <button
                         disabled={busy || !!s.revoked_at}
@@ -404,7 +417,7 @@ export function CloudPanel({
                           })
                         }
                       >
-                        撤销
+                        {tr("撤销")}
                       </button>
                     </div>
                   ))}
@@ -422,7 +435,7 @@ export function CloudPanel({
                   .catch(error)
               }
             >
-              下载上次同步前的本地副本
+              {tr("下载上次同步前的本地副本")}
             </button>
           </section>
         </div>

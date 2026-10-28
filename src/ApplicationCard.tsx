@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n";
 import { VSCodeIcon } from "./VSCodeIcon";
 import { Copy, Play, ChevronRight } from "lucide-react";
 import type { Card } from "./storage";
@@ -18,7 +19,10 @@ export function ApplicationCard({
     return (
       <div className="vscode-pill app-association-readonly">
         <VSCodeIcon />
-        <span>使用 VS Code 打开 {localPathName(card.text)}</span>
+        <span>
+          {tr("使用 VS Code 打开 ")}
+          {localPathName(card.text)}
+        </span>
       </div>
     );
   if (card.kind === "vscode")
@@ -37,7 +41,10 @@ export function ApplicationCard({
         }}
       >
         <VSCodeIcon />
-        <span>使用 VS Code 打开 {localPathName(card.text)}</span>
+        <span>
+          {tr("使用 VS Code 打开 ")}
+          {localPathName(card.text)}
+        </span>
       </button>
     );
   return (
@@ -81,12 +88,16 @@ export function ApplicationCard({
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
         >
-          <button aria-label="复制命令" title="复制命令" onClick={onCopy}>
+          <button
+            aria-label={tr("复制命令")}
+            title={tr("复制命令")}
+            onClick={onCopy}
+          >
             <Copy size={16} />
           </button>
           <button
-            aria-label="执行命令"
-            title="在 iTerm2 中执行"
+            aria-label={tr("执行命令")}
+            title={tr("在 iTerm2 中执行")}
             onClick={(e) => {
               if (e.detail < 2) onOpen?.(e.detail === 0);
             }}

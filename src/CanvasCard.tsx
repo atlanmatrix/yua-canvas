@@ -30,6 +30,10 @@ import { TextFormatToolbar } from "./TextFormatToolbar";
 import type { TextStyle } from "./presentation";
 import { todoFocusAt } from "./todoCaret";
 import { previewMetrics } from "./previewCache";
+import { ToolCard } from "./ToolCard";
+import { isToolKind } from "./tools";
+import { surfaceColor, customColor } from "./presentation";
+import { t as tr, usePreferences } from "./i18n";
 export type CanvasCardActions = {
   setBoard: ReturnType<typeof useCanvasWorkspace>["setBoard"];
   updateRoot: ReturnType<typeof useCanvasWorkspace>["updateRoot"];
@@ -99,6 +103,7 @@ export const CanvasCard = memo(function CanvasCard({
   actions: CanvasCardActions;
 }) {
   previewMetrics.cardRenders++;
+  usePreferences();
   const {
     setBoard,
     setMenu,
@@ -132,6 +137,7 @@ export const CanvasCard = memo(function CanvasCard({
       key={c.id}
       data-testid="card"
       data-card-id={c.id}
+      data-custom-color={customColor(c.color)}
       onContextMenu={(e) => {
         if ((e.target as HTMLElement).closest(".canvas-editor")) return;
         e.preventDefault();
@@ -161,14 +167,14 @@ export const CanvasCard = memo(function CanvasCard({
       tabIndex={-1}
       aria-label={
         c.masked
-          ? "已遮罩组件"
+          ? tr("已遮罩组件")
           : c.displayMode === "small"
-            ? `${c.kind} 组件`
+            ? tr("{0} 组件", c.kind)
             : c.kind === "text"
               ? c.text.slice(0, 80)
               : c.kind === "mermaid"
-                ? "Mermaid 图表"
-                : c.title || "任务"
+                ? tr("Mermaid 图表")
+                : c.title || tr("任务")
       }
       data-group-name={groupName || ""}
       style={{
@@ -176,7 +182,8 @@ export const CanvasCard = memo(function CanvasCard({
         top: c.y,
         width: cardRect(c).width,
         height: cardRect(c).height,
-        background: c.kind === "miniature" ? "transparent" : c.color,
+        background:
+          c.kind === "miniature" ? "transparent" : surfaceColor(c.color),
       }}
       onPointerDown={(e) => {
         e.stopPropagation();
@@ -253,6 +260,7 @@ export const CanvasCard = memo(function CanvasCard({
             c.kind !== "canvas" &&
             c.kind !== "miniature" &&
             c.kind !== "mermaid" &&
+            !isToolKind(c.kind) &&
             !isApplicationKind(c.kind) &&
             !isPdfFile(c) &&
             !(c.kind === "file" && isTextFile(c)) && (
@@ -267,7 +275,18 @@ export const CanvasCard = memo(function CanvasCard({
                 </span>
               </div>
             )}
-          {isApplicationKind(c.kind) ? (
+          {isToolKind(c.kind) ? (
+            <ToolCard
+              card={c}
+              onChange={(text) =>
+                updateCards((cards) =>
+                  cards.map((card) =>
+                    card.id === c.id ? { ...card, text } : card,
+                  ),
+                )
+              }
+            />
+          ) : isApplicationKind(c.kind) ? (
             <ApplicationCard
               card={c}
               onOpen={(fromKeyboard) => {
@@ -359,8 +378,8 @@ export const CanvasCard = memo(function CanvasCard({
               </svg>
               <div className="canvas-card-preview">
                 <button
-                  aria-label={`进入子画布 ${c.title}`}
-                  title="进入子画布"
+                  aria-label={tr("进入子画布 {0}", c.title)}
+                  title={tr("进入子画布")}
                   onPointerDown={(e) => e.stopPropagation()}
                   onDoubleClick={(e) => e.stopPropagation()}
                   onClick={(e) => {
@@ -376,7 +395,7 @@ export const CanvasCard = memo(function CanvasCard({
                 {renaming ? (
                   <GroupNameEditor
                     name={c.title}
-                    label="画布名称"
+                    label={tr("画布名称")}
                     onCancel={() => setRenamingCanvas(undefined)}
                     onSave={(title) => {
                       updateCards((cards) =>
@@ -388,7 +407,7 @@ export const CanvasCard = memo(function CanvasCard({
                     }}
                   />
                 ) : (
-                  <span>{c.title || "子画布"}</span>
+                  <span>{c.title || tr("子画布")}</span>
                 )}
               </div>
             </>
@@ -534,7 +553,13 @@ export const CanvasCard = memo(function CanvasCard({
           <button
             key={side}
             className={`connection-port port-${side} ${activePort(c.id, side) ? "target-active" : ""}`}
-            aria-label={`连接 ${c.masked || c.displayMode === "small" ? "组件" : c.title || c.text.slice(0, 20) || "任务"} ${side}`}
+            aria-label={tr(
+              "连接 {0} {1}",
+              c.masked || c.displayMode === "small"
+                ? "组件"
+                : c.title || c.text.slice(0, 20) || "任务",
+              side,
+            )}
             data-port-card={c.id}
             data-port-side={side}
             onPointerDown={(e) => startConnection(e, { card: c.id, side })}
@@ -559,7 +584,7 @@ export const CanvasCard = memo(function CanvasCard({
                   top: (offset?.y ?? 54 + index * 32) - 1,
                   visibility: offset && !offset.visible ? "hidden" : undefined,
                 }}
-                aria-label={`连接任务 ${task.text} ${side}`}
+                aria-label={tr("连接任务 {0} {1}", task.text, side)}
                 data-port-card={c.id}
                 data-port-side={side}
                 data-port-task={task.id}
@@ -581,9 +606,11 @@ export const CanvasCard = memo(function CanvasCard({
         <button
           className="text-display-toggle"
           aria-label={
-            c.textMode === "scroll" ? "切换为换行模式" : "切换为滚动模式"
+            c.textMode === "scroll"
+              ? tr("切换为换行模式")
+              : tr("切换为滚动模式")
           }
-          title={c.textMode === "scroll" ? "换行" : "滚动"}
+          title={c.textMode === "scroll" ? tr("换行") : tr("滚动")}
           aria-pressed={c.textMode === "scroll"}
           onPointerDown={(e) => e.stopPropagation()}
           onDoubleClick={(e) => e.stopPropagation()}
@@ -619,8 +646,16 @@ export const CanvasCard = memo(function CanvasCard({
       {!c.masked && c.displayMode !== "small" && !isApplicationKind(c.kind) && (
         <button
           className="card-download"
-          aria-label={`下载 ${c.title || (c.kind === "todo" ? "任务" : c.kind === "mermaid" ? "Mermaid" : "文本")}`}
-          title="下载"
+          aria-label={tr(
+            "下载 {0}",
+            c.title ||
+              (c.kind === "todo"
+                ? "任务"
+                : c.kind === "mermaid"
+                  ? "Mermaid"
+                  : "文本"),
+          )}
+          title={tr("下载")}
           onPointerDown={(e) => {
             e.stopPropagation();
           }}

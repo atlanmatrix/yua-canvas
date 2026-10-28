@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Pin } from "lucide-react";
@@ -55,14 +56,14 @@ export function PinBar({
   if (!pins.length) return null;
   return (
     <>
-      <nav className="pin-bar" aria-label="Pin 定位">
+      <nav className="pin-bar" aria-label={tr("Pin 定位")}>
         <Pin size={13} aria-hidden="true" />
         {pins.map((pin) => {
           const key = JSON.stringify([pin.path, pin.kind, pin.id]);
           return editing === key ? (
             <input
               key={key}
-              aria-label="Pin 名称"
+              aria-label={tr("Pin 名称")}
               maxLength={100}
               autoFocus
               value={name}
@@ -84,7 +85,7 @@ export function PinBar({
             <button
               key={key}
               data-pin-color={pin.color || "normal"}
-              title={pin.name + "（双击重命名，右键设置颜色）"}
+              title={pin.name + tr("（双击重命名，右键设置颜色）")}
               aria-haspopup="menu"
               onContextMenu={(e) => {
                 e.preventDefault();
@@ -145,10 +146,10 @@ export function PinBar({
             }}
           >
             <CanvasContextMenu x={menu.x} y={menu.y}>
-              <MenuSection label="外观">
+              <MenuSection label={tr("外观")}>
                 <ColorSwatches
-                  label="Pin 颜色"
-                  optionLabel="Pin 颜色"
+                  label={tr("Pin 颜色")}
+                  optionLabel={tr("Pin 颜色")}
                   colors={colors}
                   value={menu.pin.color || "normal"}
                   onChange={(color) => {

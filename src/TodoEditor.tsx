@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n";
 import { useLayoutEffect, useRef } from "react";
 import { Plus, X } from "lucide-react";
 import type { Task } from "./storage";
@@ -108,7 +109,7 @@ export function TodoEditor({
           >
             <input
               type="checkbox"
-              aria-label={`完成任务 ${index + 1}`}
+              aria-label={tr("完成任务 {0}", index + 1)}
               checked={task.done}
               onChange={() =>
                 onChange(
@@ -120,7 +121,7 @@ export function TodoEditor({
             />
             <input
               type="text"
-              aria-label={`任务内容 ${index + 1}`}
+              aria-label={tr("任务内容 {0}", index + 1)}
               value={task.text}
               onChange={(e) =>
                 onChange(
@@ -145,7 +146,7 @@ export function TodoEditor({
             />
             <button
               type="button"
-              aria-label={`删除任务 ${index + 1}`}
+              aria-label={tr("删除任务 {0}", index + 1)}
               onPointerDown={(e) => e.preventDefault()}
               onClick={() => {
                 if (
@@ -168,8 +169,8 @@ export function TodoEditor({
       <button
         type="button"
         className="todo-add"
-        aria-label="添加任务"
-        title="添加任务"
+        aria-label={tr("添加任务")}
+        title={tr("添加任务")}
         onClick={() => add()}
       >
         <Plus size={16} />

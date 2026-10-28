@@ -1,4 +1,9 @@
+import { t as tr } from "./i18n";
 import { PreviewBoundary } from "./PreviewBoundary";
+import { usePreferences } from "./i18n";
+import { CodePreview } from "./CodePreview";
+import { Diagram } from "./Markdown";
+import { languageForFile } from "./textFormats";
 import { readPreviewText } from "./previewCache";
 import { memo, useEffect, useRef, useState } from "react";
 import { FileText } from "lucide-react";
@@ -15,6 +20,7 @@ const AttachmentContent = memo(function AttachmentContent({
   large?: boolean;
   onPdfPageChange?: (page: number) => void;
 }) {
+  usePreferences();
   const [asset, setAsset] = useState<{
       url: string;
       blob: Blob;
@@ -84,13 +90,17 @@ const AttachmentContent = memo(function AttachmentContent({
       </div>
     );
   if (!large && card.kind === "file" && isTextFile(card))
-    return (
-      <pre
+    return languageForFile(card.title) === "mermaid" ? (
+      <div className="mermaid-preview">
+        <Diagram source={fileText} language="mermaid" standalone />
+      </div>
+    ) : (
+      <CodePreview
+        source={fileText}
+        language={languageForFile(card.title)}
         className="file-content-thumbnail"
-        aria-label={`${card.title} 内容预览`}
-      >
-        {fileText}
-      </pre>
+        label={tr("{0} 内容预览", card.title)}
+      />
     );
   if (
     large &&
@@ -99,13 +109,12 @@ const AttachmentContent = memo(function AttachmentContent({
   )
     return <Markdown>{fileText}</Markdown>;
   if (large && fileText)
-    return (
-      <pre className="file-text">
-        {fileText}
-        {(card.blob?.size || 0) > 1024 * 1024
-          ? "\n…（仅预览前 1 MB，完整内容请下载）"
-          : ""}
-      </pre>
+    return languageForFile(card.title) === "mermaid" ? (
+      <div className="mermaid-preview">
+        <Diagram source={fileText} language="mermaid" standalone />
+      </div>
+    ) : (
+      <CodePreview source={fileText} language={languageForFile(card.title)} />
     );
   if (card.kind === "image")
     return (

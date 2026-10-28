@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { type Stroke, strokePath } from "./presentation";
 import type { View } from "./storage";
@@ -78,7 +79,7 @@ export function PaintLayer({
     <svg
       ref={surface}
       className={`paint-layer ${active ? "paint-active" : ""}`}
-      aria-label="画笔图层"
+      aria-label={tr("画笔图层")}
       onPointerDown={(e) => {
         if (!active || e.button !== 0 || e.ctrlKey || e.metaKey || !canDraw())
           return;

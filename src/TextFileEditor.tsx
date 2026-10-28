@@ -1,8 +1,11 @@
+import { t as tr } from "./i18n";
 import { useEffect, useState, type ReactNode } from "react";
 import { Download, Pencil, Eye, Save } from "lucide-react";
 import type { Card } from "./storage";
 import { Markdown } from "./Markdown";
 import { fileMime } from "./files";
+import { CodePreview } from "./CodePreview";
+import { languageForFile } from "./textFormats";
 export type TextFormat = {
   encoding: "utf-8" | "utf-16le" | "utf-16be";
   bom: boolean;
@@ -111,37 +114,37 @@ export function TextFileEditor({
       <div className="file-edit-controls">
         {card.editableFile && (
           <input
-            aria-label="文件名"
+            aria-label={tr("文件名")}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
         )}
         <button
           className={!editing ? "active" : ""}
-          aria-label="预览文件"
+          aria-label={tr("预览文件")}
           aria-pressed={!editing}
           onClick={() => setEditing(false)}
         >
           <Eye size={15} />
-          预览
+          {tr("预览")}
         </button>
         <button
           className={editing ? "active" : ""}
-          aria-label="编辑文件"
+          aria-label={tr("编辑文件")}
           aria-pressed={editing}
           disabled={!format}
           onClick={() => setEditing(true)}
         >
           <Pencil size={15} />
-          编辑
+          {tr("编辑")}
         </button>
       </div>
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert">{tr(error)}</p>}
       <div className="detail-content">
         {editing ? (
           <textarea
             className="file-content-editor"
-            aria-label="文件内容"
+            aria-label={tr("文件内容")}
             value={text}
             autoFocus
             spellCheck={false}
@@ -163,18 +166,18 @@ export function TextFileEditor({
           card.mime === "text/markdown" ? (
             <Markdown>{text}</Markdown>
           ) : (
-            <pre className="file-text">{text}</pre>
+            <CodePreview source={text} language={languageForFile(name)} />
           )
         ) : (
           preview
         )}
       </div>
       <div className="modal-bottom file-edit-footer">
-        <small>{card.mime || "文件"}</small>
+        <small>{card.mime || tr("文件")}</small>
         <div>
           <button className="button" onClick={onDownload}>
             <Download size={15} />
-            下载原文件
+            {tr("下载原文件")}
           </button>
           <button
             className="primary"
@@ -186,7 +189,7 @@ export function TextFileEditor({
             onClick={save}
           >
             <Save size={15} />
-            保存文件
+            {tr("保存文件")}
           </button>
         </div>
       </div>

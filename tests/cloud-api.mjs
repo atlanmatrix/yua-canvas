@@ -531,3 +531,64 @@ test("miniature covers remain share-scoped assets and saved views stay on the co
     snapshot.cards[0].miniatureView,
   );
 });
+
+test("all six tool states sync and share while malformed settings are rejected atomically", async () => {
+  const states = {
+    calculator: { expression: "2^3", history: ["2^3 = 8"] },
+    currency: { amount: "12", from: "USD", to: "CNY" },
+    temperature: { amount: "-40", from: "C", to: "F" },
+    distance: { amount: "1", from: "mi", to: "km" },
+    weather: { city: "Tokyo", latitude: 35.68, longitude: 139.69 },
+    calendar: { month: "2026-10", selected: "2026-10-28" },
+  };
+  const snapshot = {
+    version: 1,
+    cards: Object.entries(states).map(([kind, state], i) => ({
+      id: kind,
+      kind,
+      title: kind,
+      text: JSON.stringify(state),
+      x: i * 400,
+      y: 20,
+      displayMode: "medium",
+    })),
+    groups: [],
+  };
+  const revision = (await request("/canvas")).data.revision;
+  for (const [kind, text] of [
+    ["currency", '{"from":"INVALID"}'],
+    ["weather", '{"latitude":100}'],
+    ["calculator", "not json"],
+    ["calendar", '{"month":"2026-99"}'],
+  ]) {
+    const invalid = structuredClone(snapshot);
+    invalid.cards[0].kind = kind;
+    invalid.cards[0].text = text;
+    assert.equal(
+      (
+        await request("/canvas", "PUT", {
+          baseRevision: revision,
+          snapshot: invalid,
+        })
+      ).status,
+      400,
+    );
+  }
+  const updated = await request("/canvas", "PUT", {
+    baseRevision: revision,
+    snapshot,
+  });
+  assert.equal(updated.status, 200);
+  const share = await request("/shares", "POST", {
+    expiresInDays: 7,
+    expectedRevision: updated.data.revision,
+  });
+  assert.equal(share.status, 200);
+  const resolved = await request(
+    "/shares/resolve",
+    "POST",
+    { token: share.data.token },
+    null,
+  );
+  assert.deepEqual(resolved.data.snapshot.cards, snapshot.cards);
+});

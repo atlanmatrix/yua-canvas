@@ -9,6 +9,7 @@ import {
 import { type Board, importBoard } from "./storage";
 import { type Fragment, selectedFragment } from "./fragments";
 import { cardDownload, textDownloadName } from "./downloads";
+import { isToolKind } from "./tools";
 import { cardsFromFiles, fileMime } from "./files";
 
 export const METADATA = "yua-canvas.metadata.json";
@@ -256,7 +257,8 @@ export async function readArchive(
           meta.kind === "miniature" ||
           meta.kind === "mermaid" ||
           meta.kind === "vscode" ||
-          meta.kind === "iterm2"
+          meta.kind === "iterm2" ||
+          isToolKind(meta.kind)
         )
           text = strFromU8(content);
         if (meta.kind === "todo") {

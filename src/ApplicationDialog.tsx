@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n";
 import { useState } from "react";
 import { X } from "lucide-react";
 import {
@@ -48,7 +49,7 @@ export function ApplicationDialog({
         className="modal application-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label={`${draft.id ? "配置" : "新建"} ${name} 关联`}
+        aria-label={tr("{0} {1} 关联", draft.id ? "配置" : "新建", name)}
         onSubmit={(e) => {
           e.preventDefault();
           save();
@@ -56,16 +57,20 @@ export function ApplicationDialog({
       >
         <div className="modal-heading">
           <h2>{name}</h2>
-          <button type="button" aria-label="关闭应用关联" onClick={onClose}>
+          <button
+            type="button"
+            aria-label={tr("关闭应用关联")}
+            onClick={onClose}
+          >
             <X size={20} />
           </button>
         </div>
         {draft.kind === "vscode" ? (
           <label>
-            本地路径
+            {tr("本地路径")}
             <input
               autoFocus
-              aria-label="本地路径"
+              aria-label={tr("本地路径")}
               placeholder="/Users/name/project"
               value={value}
               onChange={(e) => {
@@ -76,10 +81,10 @@ export function ApplicationDialog({
           </label>
         ) : (
           <label>
-            命令
+            {tr("命令")}
             <textarea
               autoFocus
-              aria-label="iTerm2 命令"
+              aria-label={tr("iTerm2 命令")}
               spellCheck={false}
               rows={8}
               placeholder={"cd /Users/name/project\nnpm run dev"}
@@ -102,7 +107,7 @@ export function ApplicationDialog({
             />
           </label>
         )}
-        {error && <p role="alert">{error}</p>}
+        {error && <p role="alert">{tr(error)}</p>}
         <div className="modal-bottom">
           {draft.kind === "iterm2" && (
             <button
@@ -110,14 +115,14 @@ export function ApplicationDialog({
               className="button local-launcher-setup-link"
               onClick={onSetup}
             >
-              本机打开器设置
+              {tr("本机打开器设置")}
             </button>
           )}
           <button type="button" className="button" onClick={onClose}>
-            取消
+            {tr("取消")}
           </button>
           <button type="submit" className="primary">
-            保存关联
+            {tr("保存关联")}
           </button>
         </div>
       </form>

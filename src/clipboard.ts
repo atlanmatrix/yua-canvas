@@ -1,4 +1,5 @@
 import type { Card } from "./storage";
+import { languageForFile } from "./textFormats";
 export type ClipboardCopy = { items: ClipboardItem[]; message: string };
 export class FileClipboardUnsupported extends Error {
   constructor(public files: Card[]) {
@@ -7,6 +8,7 @@ export class FileClipboardUnsupported extends Error {
 }
 export const isTextFile = (card: Card) =>
   card.editableFile ||
+  !!languageForFile(card.title) ||
   card.mime?.startsWith("text/") ||
   /(?:^|\.)env(?:\.[^/]+)*$/i.test(card.title) ||
   /\.(txt|md|markdown|mdown|csv|json|xml|yaml|yml|log|js|ts|tsx|jsx|css|html|svg)$/i.test(

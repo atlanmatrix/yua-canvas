@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { RefreshCw, WifiOff } from "lucide-react";
 import { registerPwa } from "./pwa";
@@ -67,17 +68,17 @@ export function PwaControls({
         <span
           className="pwa-offline"
           role="status"
-          title="离线模式：继续保存到本地，联网后可恢复云同步"
+          title={tr("离线模式：继续保存到本地，联网后可恢复云同步")}
         >
           <WifiOff size={16} />
-          离线
+          {tr("离线")}
         </span>
       )}
       {waiting && (
         <button
           className="floating-button"
-          aria-label="更新应用"
-          title="发现新版本，保存画布后更新并重新加载"
+          aria-label={tr("更新应用")}
+          title={tr("发现新版本，保存画布后更新并重新加载")}
           disabled={updating}
           onClick={() => {
             setUpdating(true);
@@ -101,7 +102,7 @@ export function PwaControls({
       )}
       {error && (
         <span className="pwa-error" role="alert">
-          {error}
+          {tr(error)}
         </span>
       )}
     </>

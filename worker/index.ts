@@ -1,4 +1,5 @@
 import { validPresentation, validStrokes } from "../src/presentation";
+import { TOOL_KINDS, isToolKind, validToolText } from "../src/tools";
 import { miniatureUrl, miniatureViewUrl } from "../src/miniatureScene";
 import {
   isApplicationKind,
@@ -122,6 +123,7 @@ function validateSnapshot(data: any): string[] {
           "mermaid",
           "vscode",
           "iterm2",
+          ...TOOL_KINDS,
         ].includes(c.kind) ||
         typeof c.id !== "string" ||
         typeof c.title !== "string" ||
@@ -132,6 +134,7 @@ function validateSnapshot(data: any): string[] {
       )
         fail(400, "卡片格式无效");
       if (!validPresentation(c)) fail(400, "组件显示设置无效");
+      if (isToolKind(c.kind) && !validToolText(c.kind, c.text)) fail(400, "工具配置无效");
       if (isApplicationKind(c.kind) && !validApplicationText(c.kind, c.text))
         fail(400, "应用关联配置无效");
       if (c.kind === "miniature" && !miniatureUrl(c.text))

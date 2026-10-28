@@ -32,6 +32,29 @@ test.beforeEach(async ({ page }) => {
     page.getByRole("button", { name: "添加任务", exact: true }),
   ).toBeEnabled();
 });
+test("context menus stay in bounds for keyboard or synthetic events without pointer coordinates", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
+  await page
+    .locator(".canvas")
+    .evaluate((el) =>
+      el.dispatchEvent(
+        new Event("contextmenu", { bubbles: true, cancelable: true }),
+      ),
+    );
+  const menu = page.getByRole("menu", { exact: true });
+  await expect(menu).toBeVisible();
+  const bounds = await menu.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(8);
+  expect(bounds!.y).toBeGreaterThanOrEqual(8);
+  expect(errors.some((message) => message.includes("NaN"))).toBe(false);
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+});
 test("hover and click open all component types; text is created at zoomed right-click point", async ({
   page,
 }) => {
@@ -47,7 +70,6 @@ test("hover and click open all component types; text is created at zoomed right-
   const submenu = page.getByRole("menu", { name: "新建组件", exact: true });
   await expect(submenu.getByRole("menuitem")).toHaveText([
     "文本",
-    "任务",
     "图片",
     "文件",
     "Mermaid",
@@ -73,8 +95,14 @@ test("task, Mermaid and group creation share the original anchor", async ({
   ]) {
     const point = await position(page);
     await (await menu(page)).hover();
+    if (kind === "todo")
+      await page
+        .getByRole("menuitem", { name: "新建工具", exact: true })
+        .hover();
     await page
-      .getByRole("menu", { name: "新建组件" })
+      .getByRole("menu", {
+        name: kind === "todo" ? "新建工具组件" : "新建组件",
+      })
       .getByRole("menuitem", { name: label, exact: true })
       .click();
     if (kind === "todo") {
@@ -149,7 +177,7 @@ test("submenu stays in viewport near edges and supports keyboard navigation and 
   expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(836);
   await page.keyboard.press("ArrowDown");
   await expect(
-    submenu.getByRole("menuitem", { name: "任务", exact: true }),
+    submenu.getByRole("menuitem", { name: "图片", exact: true }),
   ).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(submenu).toHaveCount(0);

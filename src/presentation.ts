@@ -126,8 +126,18 @@ export function textCss(s: TextStyle = {}) {
       [s.underline && "underline", s.strikethrough && "line-through"]
         .filter(Boolean)
         .join(" ") || "none",
-    color: s.color || "#334155",
+    color: s.color || "var(--ink)",
   };
+}
+export function surfaceColor(color?: string) {
+  return !color || ["#ffffff", "#fff", "#fffdf5"].includes(color.toLowerCase())
+    ? "var(--surface)"
+    : color;
+}
+export function customColor(color?: string) {
+  return (
+    !!color && !["#ffffff", "#fff", "#fffdf5"].includes(color.toLowerCase())
+  );
 }
 
 export function remarkBounds(

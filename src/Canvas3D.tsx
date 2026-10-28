@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n";
 import { StrokeView } from "./PaintLayer";
 import {
   Mask,
@@ -30,6 +31,12 @@ import { isTextFile, fileText } from "./clipboard";
 import { Diagram } from "./Markdown";
 import { ApplicationCard } from "./ApplicationCard";
 import { isApplicationKind } from "./appAssociations";
+import { TOOL_ICONS, ToolCard } from "./ToolCard";
+import { isToolKind } from "./tools";
+import { PreferencesControls } from "./PreferencesControls";
+import { CodePreview } from "./CodePreview";
+import { languageForFile } from "./textFormats";
+import { surfaceColor, customColor } from "./presentation";
 import { canvas3DLayers, type Canvas3DLayer } from "./canvas3dGeometry";
 import "./canvas3d.css";
 
@@ -45,6 +52,7 @@ const icons = {
   mermaid: Network,
   vscode: Code2,
   iterm2: Terminal,
+  ...TOOL_ICONS,
 };
 
 function ComponentPreview({ card }: { card: Card }) {
@@ -77,6 +85,7 @@ function ComponentPreview({ card }: { card: Card }) {
   ]);
   if (card.masked) return <Mask />;
   if (card.displayMode === "small") return <TypeIcon card={card} />;
+  if (isToolKind(card.kind)) return <ToolCard card={card} />;
   if ((card.kind === "image" || card.kind === "miniature") && image)
     return <img src={image} alt={card.title} draggable={false} />;
   if (card.kind === "text")
@@ -101,18 +110,27 @@ function ComponentPreview({ card }: { card: Card }) {
         ))}
       </ul>
     );
-  if (card.kind === "file" && text) return <pre>{text.slice(0, 3000)}</pre>;
+  if (card.kind === "file" && text)
+    return (
+      <CodePreview
+        source={text.slice(0, 3000)}
+        language={languageForFile(card.title)}
+      />
+    );
   return (
     <div className="canvas3d-component-symbol">
       {card.kind === "canvas" ? (
         <>
           <PanelsTopLeft size={42} />
-          <span>{card.canvas?.cards.length || 0} 个组件</span>
+          <span>
+            {card.canvas?.cards.length || 0}
+            {tr(" 个组件")}
+          </span>
         </>
       ) : card.kind === "miniature" ? (
         <>
           <Box size={42} />
-          <span>3D 场景</span>
+          <span>{tr("3D 场景")}</span>
         </>
       ) : (
         <>
@@ -283,7 +301,7 @@ export function Canvas3D({
                           borderColor: g.color,
                         }}
                       >
-                        <span>{g.masked ? "已遮罩" : g.name}</span>
+                        <span>{g.masked ? tr("已遮罩") : g.name}</span>
                         {g.masked ? (
                           <Mask />
                         ) : g.displayMode === "list" ? (
@@ -371,16 +389,17 @@ export function Canvas3D({
                       key={card.id}
                       className="canvas3d-component"
                       data-3d-card={card.id}
+                      data-custom-color={customColor(card.color)}
                       role="button"
                       tabIndex={0}
                       aria-label={`${layer.trail}：${name}`}
-                      title="双击进入画布并打开组件"
+                      title={tr("双击进入画布并打开组件")}
                       style={{
                         left: r.x,
                         top: r.y,
                         width: r.width,
                         height: r.height,
-                        background: card.color,
+                        background: surfaceColor(card.color),
                       }}
                       onDoubleClick={(e) => {
                         e.stopPropagation();
@@ -424,7 +443,7 @@ export function Canvas3D({
     <section
       ref={page}
       className="canvas3d-page"
-      aria-label="3D 画布预览"
+      aria-label={tr("3D 画布预览")}
       tabIndex={-1}
       onKeyDown={(e) => {
         e.stopPropagation();
@@ -471,10 +490,19 @@ export function Canvas3D({
       }}
     >
       <div className="canvas3d-actions">
-        <button onClick={reset} aria-label="重置 3D 视角" title="重置">
+        <PreferencesControls />
+        <button
+          onClick={reset}
+          aria-label={tr("重置 3D 视角")}
+          title={tr("重置")}
+        >
           <RotateCcw size={19} />
         </button>
-        <button onClick={onClose} aria-label="退出预览" title="退出预览">
+        <button
+          onClick={onClose}
+          aria-label={tr("退出预览")}
+          title={tr("退出预览")}
+        >
           <X size={20} />
         </button>
       </div>
@@ -482,7 +510,7 @@ export function Canvas3D({
         ref={stage}
         className="canvas3d-stage"
         data-testid="canvas3d-stage"
-        aria-label="拖动旋转，滚轮缩放，Shift 或右键拖动平移"
+        aria-label={tr("拖动旋转，滚轮缩放，Shift 或右键拖动平移")}
         onContextMenu={(e) => e.preventDefault()}
         onPointerDown={(e) => {
           if (![0, 1, 2].includes(e.button)) return;

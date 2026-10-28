@@ -1,9 +1,11 @@
+import { t as tr } from "./i18n";
 import { memo, useEffect, useRef, useState } from "react";
 import { ChevronUp, ChevronDown, FileWarning } from "lucide-react";
 import type { Card } from "./storage";
 import { pdfResolution, requestPdfPreview } from "./pdfPreviewCache";
 import { PreviewBoundary, usePreviewMoving } from "./PreviewBoundary";
 import type { PdfBitmap } from "./previewDisk";
+import { usePreferences } from "./i18n";
 function PdfContent({
   blob,
   page,
@@ -13,6 +15,7 @@ function PdfContent({
   page: number;
   onPageChange?: (page: number) => void;
 }) {
+  usePreferences();
   const host = useRef<HTMLDivElement>(null),
     canvas = useRef<HTMLCanvasElement>(null),
     onChange = useRef(onPageChange);
@@ -127,13 +130,13 @@ function PdfContent({
       <canvas
         ref={canvas}
         role="img"
-        aria-label={`PDF 第 ${rendered || actual} 页`}
+        aria-label={tr("PDF 第 {0} 页", rendered || actual)}
         style={{ visibility: rendered ? "visible" : "hidden", width, height }}
       />
       {error && (
         <FileWarning
           className="pdf-preview-error"
-          aria-label="PDF 无法预览，仍可下载原文件"
+          aria-label={tr("PDF 无法预览，仍可下载原文件")}
         />
       )}
       {pages && (
@@ -145,19 +148,23 @@ function PdfContent({
           onKeyDown={(e) => e.stopPropagation()}
         >
           <button
-            aria-label="上一页"
-            title="上一页"
+            aria-label={tr("上一页")}
+            title={tr("上一页")}
             disabled={!onPageChange || actual <= 1}
             onClick={() => onPageChange?.(actual - 1)}
           >
             <ChevronUp size={18} />
           </button>
           <span className="sr-only" aria-live="polite">
-            第 {actual} 页，共 {pages} 页
+            {tr("第 ")}
+            {actual}
+            {tr(" 页，共 ")}
+            {pages}
+            {tr(" 页")}
           </span>
           <button
-            aria-label="下一页"
-            title="下一页"
+            aria-label={tr("下一页")}
+            title={tr("下一页")}
             disabled={!onPageChange || actual >= pages}
             onClick={() => onPageChange?.(actual + 1)}
           >

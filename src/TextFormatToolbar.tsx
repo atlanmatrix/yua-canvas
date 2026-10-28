@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n";
 import { useEffect, useState } from "react";
 import {
   Bold,
@@ -24,7 +25,7 @@ export function TextFormatToolbar({
   return (
     <div
       role="toolbar"
-      aria-label="文本格式"
+      aria-label={tr("文本格式")}
       className="text-format-toolbar canvas-editor"
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
@@ -34,13 +35,13 @@ export function TextFormatToolbar({
       }}
     >
       <select
-        aria-label="字体"
+        aria-label={tr("字体")}
         value={style.fontFamily || "monospace"}
         onChange={(e) => update({ fontFamily: e.target.value })}
       >
         {FONT_FAMILIES.map((v, i) => (
           <option key={v} value={v}>
-            {["等宽", "无衬线", "衬线", "Georgia"][i]}
+            {[tr("等宽"), tr("无衬线"), tr("衬线"), "Georgia"][i]}
           </option>
         ))}
       </select>
@@ -48,7 +49,7 @@ export function TextFormatToolbar({
         type="number"
         min="8"
         max="96"
-        aria-label="字号"
+        aria-label={tr("字号")}
         value={fontSize}
         onBlur={() => setFontSize(String(style.fontSize || 13))}
         onChange={(e) => {
@@ -59,10 +60,10 @@ export function TextFormatToolbar({
       />
       {(
         [
-          ["bold", "加粗", Bold],
-          ["italic", "倾斜", Italic],
-          ["underline", "下划线", Underline],
-          ["strikethrough", "删除线", Strikethrough],
+          ["bold", tr("加粗"), Bold],
+          ["italic", tr("倾斜"), Italic],
+          ["underline", tr("下划线"), Underline],
+          ["strikethrough", tr("删除线"), Strikethrough],
         ] as const
       ).map(([key, label, Icon]) => (
         <button
@@ -77,20 +78,20 @@ export function TextFormatToolbar({
           <Icon size={16} />
         </button>
       ))}
-      <label title="文字颜色">
+      <label title={tr("文字颜色")}>
         <Palette size={16} />
         <input
           type="color"
-          aria-label="文字颜色"
+          aria-label={tr("文字颜色")}
           value={style.color || "#334155"}
           onChange={(e) => update({ color: e.target.value })}
         />
       </label>
-      <label title="背景色">
+      <label title={tr("背景色")}>
         <Highlighter size={16} />
         <input
           type="color"
-          aria-label="文本背景色"
+          aria-label={tr("文本背景色")}
           value={background}
           onChange={(e) => onChange(style, e.target.value)}
         />

@@ -9,6 +9,7 @@ import { validEndpoint, type Connection } from "./connections";
 import { cardRect } from "./geometry";
 import { miniatureUrl, miniatureViewUrl } from "./miniatureScene";
 import { isApplicationKind, validApplicationText } from "./appAssociations";
+import { TOOL_KINDS, isToolKind, validToolText, type ToolKind } from "./tools";
 export type PinColor = "info" | "warn" | "danger" | "normal";
 export type Card = {
   id: string;
@@ -23,7 +24,8 @@ export type Card = {
     | "miniature"
     | "mermaid"
     | "vscode"
-    | "iterm2";
+    | "iterm2"
+    | ToolKind;
   title: string;
   text: string;
   x: number;
@@ -383,6 +385,7 @@ export async function importBoard(
           "mermaid",
           "vscode",
           "iterm2",
+          ...TOOL_KINDS,
         ].includes(c.kind as string) ||
         typeof c.title !== "string" ||
         typeof c.text !== "string" ||
@@ -393,6 +396,7 @@ export async function importBoard(
       )
         throw new Error("卡片数据无效");
       if (!validPresentation(c)) throw Error("组件显示设置无效");
+      if (isToolKind(c.kind as string) && !validToolText(c.kind as ToolKind, c.text)) throw Error("工具配置无效");
       ids.add(c.id);
       if (
         isApplicationKind(c.kind as string) &&

@@ -1,4 +1,9 @@
 import { CanvasCard } from "./CanvasCard";
+import { TOOL_KINDS, TOOL_NAMES, isToolKind } from "./tools";
+import { TOOL_ICONS } from "./ToolCard";
+import { PreferencesControls } from "./PreferencesControls";
+import { t as tr, usePreferences } from "./i18n";
+import { detectTextFormat } from "./textFormats";
 import { GroupNameEditor } from "./GroupNameEditor";
 import { useLatestActions } from "./useLatestActions";
 import React, {
@@ -113,7 +118,7 @@ import {
   MenuSection,
 } from "./CanvasContextMenu";
 import { ConnectionView } from "./ConnectionView";
-import { cardsFromFiles } from "./files";
+import { cardsFromFiles, fileMime } from "./files";
 import { archiveSelection, createArchive, isZip, readArchive } from "./archive";
 import {
   clipboardCopy,
@@ -160,6 +165,8 @@ import { HelpDialog } from "./HelpDialog";
 import { type PinnedItem } from "./pins";
 import { useMinimapGeometry } from "./minimapGeometry";
 import "./style.css";
+import "./tools.css";
+import "./theme.css";
 import { PwaControls } from "./PwaControls";
 import { registerPwa } from "./pwa";
 void registerPwa();
@@ -170,6 +177,7 @@ import { miniatureViewUrl } from "./miniatureScene";
 const uid = () => crypto.randomUUID();
 const colors = ["#ffffff"];
 function App({ preview3D = false }: { preview3D?: boolean }) {
+  usePreferences();
   const workspace = useCanvasWorkspace();
   const {
     board,
@@ -627,6 +635,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     const text = clipboard.getData("text/plain");
     if (!text.trim()) return false;
     const diagram = mermaidSource(text);
+    const format = diagram === undefined ? detectTextFormat(text) : undefined;
     const id = uid();
     setBoard((b) => ({
       ...b,
@@ -634,19 +643,29 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         ...b.cards,
         {
           id,
-          kind: diagram === undefined ? "text" : "mermaid",
+          kind: diagram !== undefined ? "mermaid" : format ? "file" : "text",
           displayMode: "medium",
-          title: "",
-          text: diagram ?? text,
+          title: format ? `pasted.${format.extension}` : "",
+          text: diagram ?? (format ? "" : text),
           color: colors[0],
           ...(point || center()),
-          ...(diagram === undefined
+          ...(format
             ? {
-                ...textSize(text),
-                textMode: "wrap" as const,
-                textAutoHeight: true,
+                width: 480,
+                height: 360,
+                blob: new Blob([format.content], {
+                  type: fileMime(`pasted.${format.extension}`),
+                }),
+                mime: fileMime(`pasted.${format.extension}`),
+                editableFile: true,
               }
-            : {}),
+            : diagram === undefined
+              ? {
+                  ...textSize(text),
+                  textMode: "wrap" as const,
+                  textAutoHeight: true,
+                }
+              : {}),
         },
       ],
     }));
@@ -878,7 +897,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     workspace.navigate(next);
   };
   const addCanvas = (point = center()) => {
-    const card = canvasCard(newBoard(), "子画布", point);
+    const card = canvasCard(newBoard(), tr("子画布"), point);
     setBoard((b) => ({
       ...b,
       cards: [...b.cards, { ...card, group: containingGroup(card, b.groups) }],
@@ -897,7 +916,33 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setMenu(null);
     if (kind === "text") addText(point);
     else if (kind === "todo") addTodo(point);
-    else if (isApplicationKind(kind))
+    else if (isToolKind(kind)) {
+      const card: Card = {
+        id: uid(),
+        kind,
+        title: tr(TOOL_NAMES[kind]),
+        text: "{}",
+        color: colors[0],
+        displayMode: "medium",
+        width: 360,
+        height:
+          kind === "calculator"
+            ? 440
+            : kind === "calendar" || kind === "weather"
+              ? 370
+              : 290,
+        ...point,
+      };
+      setBoard((b) => ({
+        ...b,
+        cards: [
+          ...b.cards,
+          { ...card, group: containingGroup(card, b.groups) },
+        ],
+      }));
+      setSelection([card.id]);
+      setSelectedGroup(undefined);
+    } else if (isApplicationKind(kind))
       setApplicationDraft({ kind, ...point, text: "" });
     else if (kind === "mermaid" || kind === "file") {
       const id = uid();
@@ -905,7 +950,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         id,
         kind,
         displayMode: "medium",
-        title: kind === "file" ? "未命名.txt" : "",
+        title: kind === "file" ? tr("未命名.txt") : "",
         text: kind === "mermaid" ? DEFAULT_MERMAID : "",
         color: colors[0],
         ...point,
@@ -999,6 +1044,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         }),
         { preserveLayout: true },
       );
+    if (isToolKind(card.kind)) return;
     if (isApplicationKind(card.kind))
       setApplicationDraft({
         kind: card.kind,
@@ -2345,11 +2391,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       <main>
         <div className="floating-top">
           {path.length > 0 && (
-            <nav className="canvas-navigation" aria-label="画布路径">
+            <nav className="canvas-navigation" aria-label={tr("画布路径")}>
               <button
                 className="floating-button"
-                aria-label="返回父画布"
-                title="返回父画布"
+                aria-label={tr("返回父画布")}
+                title={tr("返回父画布")}
                 onClick={() => navigateCanvas(path.slice(0, -1))}
               >
                 <ArrowLeft size={18} />
@@ -2358,6 +2404,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             </nav>
           )}
           <div className="floating-actions">
+            <PreferencesControls />
             <CloudPanel board={root} ready={ready} restore={restore} />
             <PwaControls
               beforeUpdate={async () => {
@@ -2380,15 +2427,15 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 "save-indicator " + (saveStatus === "保存失败" ? "error" : "")
               }
               data-state={saveStatus}
-              title={saveStatus}
-              aria-label={saveStatus}
+              title={tr(saveStatus)}
+              aria-label={tr(saveStatus)}
             >
               <span />
             </span>
             <button
               className="floating-button"
-              aria-label="导入"
-              title="导入 (⌘/Ctrl O)"
+              aria-label={tr("导入")}
+              title={tr("导入 (⌘/Ctrl O)")}
               disabled={!ready}
               onClick={() => importInput.current?.click()}
             >
@@ -2396,8 +2443,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             </button>
             <button
               className="floating-button"
-              aria-label="导出画布"
-              title="导出全部画布 (⌘/Ctrl Shift E)"
+              aria-label={tr("导出画布")}
+              title={tr("导出全部画布 (⌘/Ctrl Shift E)")}
               disabled={!ready}
               onClick={exportAll}
             >
@@ -2511,7 +2558,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               transform: `translate(${view.x}px,${view.y}px) scale(${view.z})`,
             }}
           >
-            <svg className="connection-layer" aria-label="画布连线">
+            <svg className="connection-layer" aria-label={tr("画布连线")}>
               {(board.cards.length > 0 || board.groups.length > 0) && (
                 <rect
                   className="minimap-boundary"
@@ -2589,7 +2636,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             <svg
               className="connection-label-layer"
               ref={connectionLabels}
-              aria-label="连线标签"
+              aria-label={tr("连线标签")}
             />
             {[...board.groups]
               .filter((g) => !presentationHidden(board, g.parent))
@@ -2630,6 +2677,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                         renderContent={(card) => (
                           <StaticContent
                             card={card}
+                            onToolChange={(card, text) =>
+                              updateCards((cards) =>
+                                cards.map((c) =>
+                                  c.id === card.id ? { ...c, text } : c,
+                                ),
+                              )
+                            }
                             onRunApplication={runApplication}
                             onCopyCommands={(text) => void copyCommands(text)}
                             onOpenCanvas={(card) =>
@@ -2728,7 +2782,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     ) : (
                       <button
                         className="group-title"
-                        aria-label={`拖动分组 ${g.name}`}
+                        aria-label={tr("拖动分组 {0}", g.name)}
                         onPointerDown={(e) => {
                           e.stopPropagation();
                           pointerDown(e, undefined, g.id);
@@ -2759,13 +2813,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                         }}
                       >
                         <Folder size={13} />
-                        {g.masked ? "已遮罩" : g.name}
+                        {g.masked ? tr("已遮罩") : g.name}
                       </button>
                     )}
                     <button
                       className="group-fit"
-                      aria-label={`自适应分组 ${g.name}`}
-                      title="自适应"
+                      aria-label={tr("自适应分组 {0}", g.name)}
+                      title={tr("自适应")}
                       onPointerDown={(e) => e.stopPropagation()}
                       onDoubleClick={(e) => e.stopPropagation()}
                       onClick={() => fitGroup(g.id)}
@@ -2891,8 +2945,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         <div className="bottom-tools">
           <button
             className="paint-tool-toggle floating-button"
-            aria-label="画笔"
-            title="画笔 (P)"
+            aria-label={tr("画笔")}
+            title={tr("画笔 (P)")}
             aria-pressed={tool === "draw"}
             disabled={!ready}
             onClick={() => {
@@ -2905,8 +2959,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           </button>
           <div className="toolbar">
             <button
-              title="添加任务 (T)"
-              aria-label="添加任务"
+              title={tr("添加任务 (T)")}
+              aria-label={tr("添加任务")}
               disabled={!ready}
               onPointerDown={(e) => startToolbarDrag(e, "todo")}
               onClick={() => toolbarClick(() => addTodo())}
@@ -2914,8 +2968,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               <ListTodo size={20} />
             </button>
             <button
-              title="上传图片 (I)"
-              aria-label="上传图片"
+              title={tr("上传图片 (I)")}
+              aria-label={tr("上传图片")}
               disabled={!ready}
               onPointerDown={(e) => startToolbarDrag(e, "image")}
               onClick={() =>
@@ -2928,8 +2982,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               <ImagePlus size={20} />
             </button>
             <button
-              title="上传文件 (U)"
-              aria-label="上传文件"
+              title={tr("上传文件 (U)")}
+              aria-label={tr("上传文件")}
               disabled={!ready}
               onPointerDown={(e) => startToolbarDrag(e, "file")}
               onClick={() =>
@@ -2942,16 +2996,16 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               <FileUp size={20} />
             </button>
             <button
-              title="导入目录"
-              aria-label="导入目录"
+              title={tr("导入目录")}
+              aria-label={tr("导入目录")}
               disabled={!ready}
               onClick={() => directoryInput.current?.click()}
             >
               <FolderUp size={20} />
             </button>
             <button
-              title="创建子画布"
-              aria-label="创建子画布"
+              title={tr("创建子画布")}
+              aria-label={tr("创建子画布")}
               disabled={!ready}
               onPointerDown={(e) => startToolbarDrag(e, "canvas")}
               onClick={() => toolbarClick(() => addCanvas())}
@@ -2959,8 +3013,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               <PanelsTopLeft size={20} />
             </button>
             <button
-              title="添加 miniature · 3D 场景"
-              aria-label="添加 miniature"
+              title={tr("添加 miniature · 3D 场景")}
+              aria-label={tr("添加 miniature")}
               disabled={!ready}
               onPointerDown={(e) => startToolbarDrag(e, "miniature")}
               onClick={() => toolbarClick(() => addMiniature())}
@@ -2971,22 +3025,26 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         </div>
         <div className="zoom-controls">
           <button
-            title="缩小 (-)"
-            aria-label="缩小"
+            title={tr("缩小 (-)")}
+            aria-label={tr("缩小")}
             onClick={() => zoom(1 / 1.2)}
           >
             <Minus size={16} />
           </button>
-          <button title="重置缩放 (1)" onClick={() => zoom(1 / view.z)}>
+          <button title={tr("重置缩放 (1)")} onClick={() => zoom(1 / view.z)}>
             {Math.round(view.z * 100)}%
           </button>
-          <button title="放大 (+)" aria-label="放大" onClick={() => zoom(1.2)}>
+          <button
+            title={tr("放大 (+)")}
+            aria-label={tr("放大")}
+            onClick={() => zoom(1.2)}
+          >
             <Plus size={16} />
           </button>
           <i />
           <button
-            title="适应内容 (0)"
-            aria-label="适应所有内容"
+            title={tr("适应内容 (0)")}
+            aria-label={tr("适应所有内容")}
             onClick={() => fit()}
           >
             <Maximize size={16} />
@@ -3046,23 +3104,15 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         <CanvasContextMenu x={menu.x} y={menu.y}>
           {menu.kind === "canvas" ? (
             <>
-              <MenuSection label="新建内容">
-                <ContextSubmenu key={`${menu.x}:${menu.y}`} label="新建">
+              <MenuSection label={tr("新建内容")}>
+                <ContextSubmenu key={`${menu.x}:${menu.y}`} label={tr("新建")}>
                   <button
                     role="menuitem"
                     disabled={!ready}
                     onClick={() => createFromMenu("text")}
                   >
                     <Type size={14} />
-                    文本
-                  </button>
-                  <button
-                    role="menuitem"
-                    disabled={!ready}
-                    onClick={() => createFromMenu("todo")}
-                  >
-                    <ListTodo size={14} />
-                    任务
+                    {tr("文本")}
                   </button>
                   <button
                     role="menuitem"
@@ -3070,7 +3120,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     onClick={() => createFromMenu("image")}
                   >
                     <ImagePlus size={14} />
-                    图片
+                    {tr("图片")}
                   </button>
                   <button
                     role="menuitem"
@@ -3078,7 +3128,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     onClick={() => createFromMenu("file")}
                   >
                     <FileText size={14} />
-                    文件
+                    {tr("文件")}
                   </button>
                   <button
                     role="menuitem"
@@ -3102,12 +3152,39 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     onClick={() => createFromMenu("group")}
                   >
                     <Folder size={14} />
-                    分组
+                    {tr("分组")}
                   </button>
                 </ContextSubmenu>
                 <ContextSubmenu
+                  key={`tools-${menu.x}:${menu.y}`}
+                  label={tr("新建工具")}
+                >
+                  <button
+                    role="menuitem"
+                    disabled={!ready}
+                    onClick={() => createFromMenu("todo")}
+                  >
+                    <ListTodo size={14} />
+                    {tr("任务")}
+                  </button>
+                  {TOOL_KINDS.map((kind) => {
+                    const Icon = TOOL_ICONS[kind];
+                    return (
+                      <button
+                        role="menuitem"
+                        key={kind}
+                        disabled={!ready}
+                        onClick={() => createFromMenu(kind)}
+                      >
+                        <Icon size={14} />
+                        {tr(TOOL_NAMES[kind])}
+                      </button>
+                    );
+                  })}
+                </ContextSubmenu>
+                <ContextSubmenu
                   key={`applications-${menu.x}:${menu.y}`}
-                  label="新建应用关联"
+                  label={tr("新建应用关联")}
                 >
                   <button
                     role="menuitem"
@@ -3127,7 +3204,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   </button>
                 </ContextSubmenu>
               </MenuSection>
-              <MenuSection label="内容操作">
+              <MenuSection label={tr("内容操作")}>
                 {(selection.length > 0 || selectedGroup) && (
                   <button
                     role="menuitem"
@@ -3138,7 +3215,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     }}
                   >
                     <Download size={14} />
-                    下载
+                    {tr("下载")}
                   </button>
                 )}
                 <button
@@ -3152,17 +3229,17 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   }}
                 >
                   <ClipboardPaste size={14} />
-                  粘贴
+                  {tr("粘贴")}
                 </button>
               </MenuSection>
-              <MenuSection label="画布层级">
+              <MenuSection label={tr("画布层级")}>
                 <button
                   role="menuitem"
                   disabled={!path.length}
                   onClick={() => navigateCanvas(path.slice(0, -1))}
                 >
                   <ArrowLeft size={14} />
-                  返回父画布
+                  {tr("返回父画布")}
                 </button>
                 <button
                   role="menuitem"
@@ -3170,7 +3247,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   onClick={createParentCanvas}
                 >
                   <FolderUp size={14} />
-                  创建父画布
+                  {tr("创建父画布")}
                 </button>
                 <button
                   role="menuitem"
@@ -3183,14 +3260,14 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   }}
                 >
                   <PanelsTopLeft size={14} />
-                  创建子画布
+                  {tr("创建子画布")}
                 </button>
               </MenuSection>
             </>
           ) : (
             <>
               {menuCard && (
-                <MenuSection label="内容操作">
+                <MenuSection label={tr("内容操作")}>
                   {(menuCard.kind === "text" ||
                     menuCard.kind === "canvas" ||
                     menuCard.kind === "miniature" ||
@@ -3212,7 +3289,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       }}
                     >
                       <ArrowUpRight size={14} />
-                      {isApplicationKind(menuCard.kind) ? "配置关联" : "打开"}
+                      {isApplicationKind(menuCard.kind)
+                        ? tr("配置关联")
+                        : tr("打开")}
                     </button>
                   )}
                   <button
@@ -3223,7 +3302,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     }}
                   >
                     <Copy size={14} />
-                    复制
+                    {tr("复制")}
                   </button>
                   <button
                     role="menuitem"
@@ -3233,7 +3312,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     }}
                   >
                     <Scissors size={14} />
-                    剪切
+                    {tr("剪切")}
                   </button>
                   <button
                     role="menuitem"
@@ -3259,7 +3338,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     }}
                   >
                     <Pin size={14} />
-                    {menuCard.pin ? "取消 Pin" : "Pin"}
+                    {menuCard.pin ? tr("取消 Pin") : "Pin"}
                   </button>
                   {menuCard.kind === "canvas" && (
                     <button
@@ -3270,7 +3349,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       }}
                     >
                       <Pencil size={14} />
-                      重命名
+                      {tr("重命名")}
                     </button>
                   )}
                   <button
@@ -3283,12 +3362,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     }}
                   >
                     <Download size={14} />
-                    下载
+                    {tr("下载")}
                   </button>
                 </MenuSection>
               )}
               {menuGroup && (
-                <MenuSection label="内容操作">
+                <MenuSection label={tr("内容操作")}>
                   <button
                     role="menuitem"
                     onClick={() => {
@@ -3297,7 +3376,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     }}
                   >
                     <Copy size={14} />
-                    复制
+                    {tr("复制")}
                   </button>
                   <button
                     role="menuitem"
@@ -3308,7 +3387,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     }}
                   >
                     <Download size={14} />
-                    下载
+                    {tr("下载")}
                   </button>
                   <button
                     role="menuitem"
@@ -3321,12 +3400,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     }}
                   >
                     <Scissors size={14} />
-                    剪切
+                    {tr("剪切")}
                   </button>
                 </MenuSection>
               )}
               {menuGroup && (
-                <MenuSection label="定位">
+                <MenuSection label={tr("定位")}>
                   <button
                     role="menuitem"
                     onClick={() => {
@@ -3345,24 +3424,24 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     }}
                   >
                     <Pin size={14} />
-                    {menuGroup.pin ? "取消 Pin" : "Pin"}
+                    {menuGroup.pin ? tr("取消 Pin") : "Pin"}
                   </button>
                 </MenuSection>
               )}
               {menuCard && menuCard.kind !== "canvas" && (
-                <MenuSection label="显示模式">
+                <MenuSection label={tr("显示模式")}>
                   <div className="display-mode-options">
                     {(
                       [
-                        ["small", "小", Square],
-                        ["medium", "中", PanelsTopLeft],
-                        ["large", "大", Maximize],
+                        ["small", tr("小"), Square],
+                        ["medium", tr("中"), PanelsTopLeft],
+                        ["large", tr("大"), Maximize],
                       ] as const
                     ).map(([mode, label, Icon]) => (
                       <button
                         key={mode}
                         role="menuitemradio"
-                        aria-label={`显示模式：${label}`}
+                        aria-label={tr("显示模式：{0}", label)}
                         title={label}
                         aria-checked={
                           (menuCard.displayMode || "medium") === mode
@@ -3390,18 +3469,18 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 </MenuSection>
               )}
               {menuGroup && (
-                <MenuSection label="显示模式">
+                <MenuSection label={tr("显示模式")}>
                   <div className="display-mode-options">
                     {(
                       [
-                        ["flat", "平铺", LayoutGrid],
-                        ["list", "列表", List],
+                        ["flat", tr("平铺"), LayoutGrid],
+                        ["list", tr("列表"), List],
                       ] as const
                     ).map(([mode, label, Icon]) => (
                       <button
                         key={mode}
                         role="menuitemradio"
-                        aria-label={`显示模式：${label}`}
+                        aria-label={tr("显示模式：{0}", label)}
                         title={label}
                         aria-checked={
                           (menuGroup.displayMode || "flat") === mode
@@ -3427,7 +3506,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   </div>
                 </MenuSection>
               )}
-              <MenuSection label="内容显示">
+              <MenuSection label={tr("内容显示")}>
                 <button
                   role="menuitem"
                   onClick={() => {
@@ -3457,7 +3536,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     <EyeOff size={14} />
                   )}
                   <span>
-                    {(menuCard || menuGroup)?.masked ? "取消遮罩" : "遮罩"}
+                    {(menuCard || menuGroup)?.masked
+                      ? tr("取消遮罩")
+                      : tr("遮罩")}
                   </span>
                 </button>
                 <button
@@ -3474,10 +3555,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   }}
                 >
                   <MessageSquare size={14} />
-                  备注
+                  {tr("备注")}
                 </button>
               </MenuSection>
-              <MenuSection label="分组操作">
+              <MenuSection label={tr("分组操作")}>
                 {menu.kind === "card" ? (
                   <>
                     <button
@@ -3488,7 +3569,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       }}
                     >
                       <Folder size={14} />
-                      创建分组
+                      {tr("创建分组")}
                     </button>
                     {board.cards.some(
                       (card) => menuCardIds.includes(card.id) && card.group,
@@ -3507,7 +3588,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                         }}
                       >
                         <Unlink size={14} />
-                        移出分组
+                        {tr("移出分组")}
                       </button>
                     )}
                   </>
@@ -3517,17 +3598,17 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     onClick={() => dissolveGroup(menu.id)}
                   >
                     <Unlink size={14} />
-                    解散分组
+                    {tr("解散分组")}
                   </button>
                 )}
               </MenuSection>
-              <MenuSection label="外观">
+              <MenuSection label={tr("外观")}>
                 <ColorPalette
                   value={menuCard?.color || menuGroup?.color}
                   onChange={changeBackground}
                 />
               </MenuSection>
-              <MenuSection label="删除操作">
+              <MenuSection label={tr("删除操作")}>
                 <button
                   className="danger"
                   role="menuitem"
@@ -3539,7 +3620,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   }
                 >
                   <Trash2 size={14} />
-                  删除
+                  {tr("删除")}
                 </button>
               </MenuSection>
             </>
@@ -3552,7 +3633,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             className="modal compact"
             role="dialog"
             aria-modal="true"
-            aria-label="编辑备注"
+            aria-label={tr("编辑备注")}
             onSubmit={(e) => {
               e.preventDefault();
               const { id, kind, text } = remarkDraft;
@@ -3578,10 +3659,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             }}
           >
             <div className="modal-heading">
-              <span>备注</span>
+              <span>{tr("备注")}</span>
               <button
                 type="button"
-                aria-label="关闭备注"
+                aria-label={tr("关闭备注")}
                 onClick={() => setRemarkDraft(undefined)}
               >
                 <X size={20} />
@@ -3589,7 +3670,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             </div>
             <textarea
               autoFocus
-              aria-label="备注内容"
+              aria-label={tr("备注内容")}
               className="remark-editor"
               maxLength={10000}
               value={remarkDraft.text}
@@ -3608,9 +3689,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 type="button"
                 onClick={() => setRemarkDraft({ ...remarkDraft, text: "" })}
               >
-                清空
+                {tr("清空")}
               </button>
-              <button className="primary">保存备注</button>
+              <button className="primary">{tr("保存备注")}</button>
             </div>
           </form>
         </div>
@@ -3621,7 +3702,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             className="modal compact"
             role="dialog"
             aria-modal="true"
-            aria-label="分组命名"
+            aria-label={tr("分组命名")}
             onSubmit={(e) => {
               e.preventDefault();
               if (!groupDialog.name.trim()) return;
@@ -3659,23 +3740,23 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             <div className="modal-heading">
               <span>
                 <Folder size={18} />
-                {groupDialog.id ? "重命名分组" : "创建分组"}
+                {groupDialog.id ? tr("重命名分组") : tr("创建分组")}
               </span>
               <button
                 type="button"
-                aria-label="关闭"
+                aria-label={tr("关闭")}
                 onClick={() => setGroupDialog(null)}
               >
                 <X size={20} />
               </button>
             </div>
             <label>
-              分组名称
+              {tr("分组名称")}
               <input
                 autoFocus
-                aria-label="分组名称"
+                aria-label={tr("分组名称")}
                 maxLength={200}
-                placeholder="名称"
+                placeholder={tr("名称")}
                 value={groupDialog.name}
                 onChange={(e) =>
                   setGroupDialog({ ...groupDialog, name: e.target.value })
@@ -3701,11 +3782,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     setGroupDialog(null);
                   }}
                 >
-                  解散分组
+                  {tr("解散分组")}
                 </button>
               ) : null}
               <button className="primary" disabled={!groupDialog.name.trim()}>
-                保存分组
+                {tr("保存分组")}
               </button>
             </div>
           </form>
@@ -3718,7 +3799,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             role="dialog"
             aria-modal="true"
             aria-label={
-              current.kind === "mermaid" ? "编辑 Mermaid" : "内容详情"
+              current.kind === "mermaid" ? tr("编辑 Mermaid") : tr("内容详情")
             }
           >
             <div className="modal-heading">
@@ -3726,7 +3807,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 {current.kind === "mermaid" ? "Mermaid" : current.title}
               </span>
               <button
-                aria-label="关闭详情"
+                aria-label={tr("关闭详情")}
                 onClick={() => {
                   if (
                     editSession.current &&
@@ -3751,7 +3832,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       }
                     />
                     <textarea
-                      aria-label="文本内容"
+                      aria-label={tr("文本内容")}
                       value={current.text}
                       style={{
                         ...textCss(current.textStyle),
@@ -3840,13 +3921,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   <Attachment card={current} large />
                 </div>
                 <div className="modal-bottom">
-                  <small>{current.mime || "文件"}</small>
+                  <small>{current.mime || tr("文件")}</small>
                   <button
                     className="primary"
                     onClick={() => download(current.blob!, current.title)}
                   >
                     <Download size={15} />
-                    下载原文件
+                    {tr("下载原文件")}
                   </button>
                 </div>
               </>
@@ -3891,17 +3972,26 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             className="modal compact"
             role="dialog"
             aria-modal="true"
-            aria-label="确认导入"
+            aria-label={tr("确认导入")}
           >
             <div className="modal-heading">
               <span>
-                {confirmImport.workspace ? "还原工作区备份" : "导入画布"}
+                {confirmImport.workspace
+                  ? tr("还原工作区备份")
+                  : tr("导入画布")}
               </span>
             </div>
             <p>
               {confirmImport.workspace
-                ? `将替换整个工作区，包含 ${workspaceCounts(confirmImport.board).canvases} 个画布、${workspaceCounts(confirmImport.board).components} 个组件，并恢复各层视图及所在层级。`
-                : `替换当前画布？（${confirmImport.board.cards.length} 项）`}
+                ? tr(
+                    "将替换整个工作区，包含 {0} 个画布、{1} 个组件，并恢复各层视图及所在层级。",
+                    workspaceCounts(confirmImport.board).canvases,
+                    workspaceCounts(confirmImport.board).components,
+                  )
+                : tr(
+                    "替换当前画布？（{0} 项）",
+                    confirmImport.board.cards.length,
+                  )}
             </p>
             <div className="modal-bottom">
               <button
@@ -3909,7 +3999,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 disabled={importBusy}
                 onClick={() => setConfirmImport(null)}
               >
-                取消
+                {tr("取消")}
               </button>
               <button
                 className="primary"
@@ -3952,7 +4042,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   }
                 }}
               >
-                {importBusy ? "正在还原…" : "确认替换"}
+                {importBusy ? tr("正在还原…") : tr("确认替换")}
               </button>
             </div>
           </div>
@@ -4031,7 +4121,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       {toast && (
         <div className="toast" role="status">
           <Check size={16} />
-          {toast}
+          {tr(toast)}
           {copyFiles.length > 0 && (
             <button
               className="copy-download"
@@ -4043,10 +4133,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 setToast("");
               }}
             >
-              下载原文件
+              {tr("下载原文件")}
             </button>
           )}
-          <button aria-label="关闭提示" onClick={() => setToast("")}>
+          <button aria-label={tr("关闭提示")} onClick={() => setToast("")}>
             <X size={14} />
           </button>
         </div>
@@ -4067,7 +4157,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         />
       ) : (
         <section key="loading3d" className="canvas3d-page" role="status">
-          正在读取工作区…
+          {tr("正在读取工作区…")}
         </section>
       )),
   ];

@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n";
 import { textCss, type TextStyle } from "./presentation";
 import { useLayoutEffect, useRef } from "react";
 
@@ -24,7 +25,7 @@ export function TextEditor({
     <textarea
       ref={input}
       className="text-editor canvas-editor"
-      aria-label="文本内容"
+      aria-label={tr("文本内容")}
       style={textCss(textStyle)}
       spellCheck={false}
       value={text}

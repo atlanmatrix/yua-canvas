@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Layers } from "lucide-react";
@@ -7,7 +8,7 @@ import { projectMinimap, type MinimapProjection } from "./minimapGeometry";
 import { DEFAULT_VIEW } from "./workspace";
 import type { Board, Navigation, Rect, View } from "./storage";
 type Level = { board: Board; path: string[]; name: string; depth: number };
-function levels(board: Board, path: string[] = [], name = "根画布"): Level[] {
+function levels(board: Board, path: string[] = [], name = tr("根画布")): Level[] {
   return [
     { board, path, name, depth: path.length },
     ...board.cards.flatMap((c) =>
@@ -155,8 +156,8 @@ export function CanvasOverview({
       />
       <button
         className="minimap-layer-view"
-        aria-label="分层视图"
-        title="分层视图"
+        aria-label={tr("分层视图")}
+        title={tr("分层视图")}
         onClick={() => {
           setMenu(undefined);
           onPreview3D();
@@ -164,14 +165,14 @@ export function CanvasOverview({
       >
         <Layers size={16} aria-hidden="true" />
       </button>
-      <nav className="canvas-levels" aria-label="画布层级">
+      <nav className="canvas-levels" aria-label={tr("画布层级")}>
         {all.map((level) => {
           const key = JSON.stringify(level.path),
             selected = key === current;
           return (
             <button
               key={key}
-              aria-label={`第 ${level.depth + 1} 层：${level.name}`}
+              aria-label={tr("第 {0} 层：{1}", level.depth + 1, level.name)}
               aria-current={selected ? "page" : undefined}
               title={`${"　".repeat(level.depth)}${level.name}`}
               onPointerEnter={() => setPreview(level)}
@@ -189,13 +190,16 @@ export function CanvasOverview({
       </nav>
       {target && (
         <span className="level-caption">
-          第 {target.depth + 1} 层 · {target.name}
+          {tr("第 ")}
+          {target.depth + 1}
+          {tr(" 层 · ")}
+          {target.name}
         </span>
       )}
       {menu &&
         createPortal(
           <CanvasContextMenu x={menu.x} y={menu.y}>
-            <MenuSection label="视图">
+            <MenuSection label={tr("视图")}>
               <button
                 role="menuitem"
                 autoFocus
@@ -205,7 +209,7 @@ export function CanvasOverview({
                 }}
               >
                 <Layers size={15} />
-                分层视图
+                {tr("分层视图")}
               </button>
             </MenuSection>
           </CanvasContextMenu>,

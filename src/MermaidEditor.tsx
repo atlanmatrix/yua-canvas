@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n";
 import { useEffect, useState } from "react";
 import { Diagram } from "./Markdown";
 
@@ -27,7 +28,7 @@ export function MermaidEditor({
         <textarea
           autoFocus
           spellCheck={false}
-          aria-label="Mermaid 代码"
+          aria-label={tr("Mermaid 代码")}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
@@ -48,10 +49,10 @@ export function MermaidEditor({
       </div>
       <div className="modal-bottom">
         <button className="button" onClick={onClose}>
-          取消
+          {tr("取消")}
         </button>
         <button className="primary" disabled={!value.trim()} onClick={save}>
-          保存图表
+          {tr("保存图表")}
         </button>
       </div>
     </>

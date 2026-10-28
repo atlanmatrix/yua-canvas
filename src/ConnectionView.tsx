@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n";
 import { useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { type Card } from "./storage";
@@ -59,7 +60,10 @@ export function ConnectionView({
       onPointerLeave={() => setHovered(false)}
     >
       <path
-        className={"connection-path " + (selected ? "selected" : hovered ? "hovered" : "")}
+        className={
+          "connection-path " +
+          (selected ? "selected" : hovered ? "hovered" : "")
+        }
         d={d}
         markerEnd={`url(#canvas-connection-arrow${selected || hovered ? "-selected" : ""})`}
       />
@@ -67,7 +71,7 @@ export function ConnectionView({
         className="connection-hit"
         d={d}
         role="button"
-        aria-label="选择连线"
+        aria-label={tr("选择连线")}
         onPointerDown={(e) => e.stopPropagation()}
         onClick={onSelect}
         onDoubleClick={(e) => {
@@ -81,7 +85,7 @@ export function ConnectionView({
           <input
             className="connection-label-editor"
             style={{ left: midpoint.x - 120, top: midpoint.y - 16 }}
-            aria-label="连线文字"
+            aria-label={tr("连线文字")}
             autoFocus
             maxLength={1000}
             value={value}

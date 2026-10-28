@@ -1,3 +1,4 @@
+import { t as tr } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { Box, X } from "lucide-react";
 import type { Card } from "./storage";
@@ -86,9 +87,9 @@ export function Miniature({
         className="miniature-model"
         ref={capture.container}
         role="group"
-        aria-label={`3D 场景 ${card.title || "Miniature"}`}
+        aria-label={tr("3D 场景 {0}", card.title || "Miniature")}
         tabIndex={0}
-        title="双击激活，点击模型区域外结束交互"
+        title={tr("双击激活，点击模型区域外结束交互")}
         onPointerDown={(e) => {
           if (!onSelect) e.stopPropagation();
         }}
@@ -118,13 +119,15 @@ export function Miniature({
             <img
               className="miniature-cover"
               src={cover}
-              alt={card.title || "3D 场景封面"}
+              alt={card.title || tr("3D 场景封面")}
               draggable={false}
             />
           ) : (
             <div className="miniature-placeholder">
               <Box size={38} />
-              <span>{capture.failed ? "暂无静态预览" : "正在生成预览…"}</span>
+              <span>
+                {capture.failed ? tr("暂无静态预览") : tr("正在生成预览…")}
+              </span>
             </div>
           ))}
         {src && frame ? (
@@ -135,7 +138,7 @@ export function Miniature({
               "miniature-frame" +
               (!interactive ? " miniature-capture-frame" : "")
             }
-            title={card.title || "3D 场景"}
+            title={card.title || tr("3D 场景")}
             src={frame.url}
             width="100%"
             height="480"
@@ -149,7 +152,7 @@ export function Miniature({
             onLoad={capture.loaded}
           />
         ) : !src ? (
-          <p role="alert">场景地址无效</p>
+          <p role="alert">{tr("场景地址无效")}</p>
         ) : null}
       </div>
       <div
@@ -161,7 +164,7 @@ export function Miniature({
             <div key={field} className="miniature-label-field">
               <input
                 className="connection-label-editor miniature-label-editor"
-                aria-label={field === "title" ? "场景名称" : "场景链接"}
+                aria-label={field === "title" ? tr("场景名称") : tr("场景链接")}
                 aria-invalid={!!error}
                 value={value}
                 maxLength={field === "title" ? 200 : 20000}
@@ -187,7 +190,7 @@ export function Miniature({
                   }
                 }}
               />
-              {error && <span role="alert">{error}</span>}
+              {error && <span role="alert">{tr(error)}</span>}
             </div>
           ) : (
             <div
@@ -209,7 +212,7 @@ export function Miniature({
                 }
               }}
               tabIndex={onLabelChange ? 0 : undefined}
-              title={card[field] + (onLabelChange ? "（双击修改）" : "")}
+              title={card[field] + (onLabelChange ? tr("（双击修改）") : "")}
             >
               {field === "text" && src ? (
                 <a
@@ -265,7 +268,7 @@ export function MiniatureDialog({
         className="modal miniature-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label={card.id ? "编辑 miniature" : "添加 miniature"}
+        aria-label={card.id ? tr("编辑 miniature") : tr("添加 miniature")}
         onSubmit={(e) => {
           e.preventDefault();
           // Read attributes only; pasted HTML is never inserted into the page.
@@ -292,36 +295,40 @@ export function MiniatureDialog({
         <div className="modal-heading">
           <span>
             <Box size={18} />
-            {card.id ? "编辑 miniature" : "添加 miniature"}
+            {card.id ? tr("编辑 miniature") : tr("添加 miniature")}
           </span>
-          <button type="button" aria-label="关闭 miniature" onClick={onClose}>
+          <button
+            type="button"
+            aria-label={tr("关闭 miniature")}
+            onClick={onClose}
+          >
             <X size={20} />
           </button>
         </div>
         <label>
-          场景名称
+          {tr("场景名称")}
           <input
-            aria-label="场景名称"
+            aria-label={tr("场景名称")}
             value={title}
             maxLength={200}
             onChange={(e) => setTitle(e.target.value)}
           />
         </label>
         <label>
-          场景 URL 或 iframe 代码
+          {tr("场景 URL 或 iframe 代码")}
           <textarea
             autoFocus
-            aria-label="场景 URL 或 iframe 代码"
+            aria-label={tr("场景 URL 或 iframe 代码")}
             value={value}
             rows={5}
-            placeholder="https://… 或 <iframe src=…></iframe>"
+            placeholder={tr("https://… 或 <iframe src=…></iframe>")}
             onChange={(e) => {
               setValue(e.target.value);
               setError("");
             }}
           />
         </label>
-        {error && <p role="alert">{error}</p>}
+        {error && <p role="alert">{tr(error)}</p>}
         <div className="modal-bottom">
           <button
             className="button"
@@ -332,10 +339,10 @@ export function MiniatureDialog({
               setError("");
             }}
           >
-            使用示例场景
+            {tr("使用示例场景")}
           </button>
           <button className="primary" type="submit">
-            保存场景
+            {tr("保存场景")}
           </button>
         </div>
       </form>

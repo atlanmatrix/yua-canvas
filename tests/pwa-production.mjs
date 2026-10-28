@@ -94,6 +94,58 @@ async function app(context) {
   await page.waitForFunction(() => !!navigator.serviceWorker.controller);
   return page;
 }
+test("tool state, English and dark preferences and cold syntax workers work offline at the Pages subpath", async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await app(context);
+    await page
+      .getByRole("combobox", { name: "语言", exact: true })
+      .selectOption("en");
+    await page
+      .getByRole("combobox", { name: "Appearance", exact: true })
+      .selectOption("dark");
+    await page
+      .locator(".canvas")
+      .click({ button: "right", position: { x: 100, y: 100 } });
+    await page.getByRole("menuitem", { name: "New tool", exact: true }).hover();
+    await page
+      .getByRole("menu", { name: "New tool menu", exact: true })
+      .getByRole("menuitem", { name: "Calculator", exact: true })
+      .click();
+    await page.getByRole("textbox", { name: "Expression" }).fill("42");
+    await page.getByRole("textbox", { name: "Expression" }).blur();
+    await expect(
+      page.locator('.save-indicator[data-state="已保存至本地"]'),
+    ).toBeVisible();
+    await context.setOffline(true);
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await expect(page.getByRole("textbox", { name: "Expression" })).toHaveValue(
+      "42",
+    );
+    await page.getByRole("textbox", { name: "Expression" }).fill("3+4");
+    await page.getByRole("textbox", { name: "Expression" }).press("Enter");
+    await expect(page.getByRole("textbox", { name: "Expression" })).toHaveValue(
+      "7",
+    );
+    await page
+      .getByTestId("files")
+      .setInputFiles({
+        name: "offline.rs",
+        mimeType: "text/plain",
+        buffer: Buffer.from('fn main() { println!("offline"); }'),
+      });
+    await expect(
+      page.locator('[data-code-language="rust"][data-code-state="ready"]'),
+    ).toHaveCount(1, { timeout: 20000 });
+    await expect(page.locator(".language-rust .hljs-keyword")).not.toHaveCount(
+      0,
+    );
+  } finally {
+    await context.close();
+  }
+});
 test("title, manifest and installation icons are valid at the Pages subpath", async () => {
   const context = await browser.newContext();
   try {
