@@ -223,10 +223,10 @@ test("pasted files support batches, preserve editable fields and ignore modal pa
     );
   });
   await expect(page.getByTestId("card")).toHaveCount(2);
-  await expect(page.locator(".attachment-title")).toHaveText([
-    "first.txt",
-    "second.md",
-  ]);
+  await expect(page.locator(".attachment-title")).toHaveText(["first.txt"]);
+  await expect(
+    page.locator('.card[aria-label="second.md"] .markdown'),
+  ).toHaveText("second attachment");
   await openTextEditor(page);
   await page.evaluate(() => navigator.clipboard.writeText("正常粘贴文字"));
   await page.getByRole("textbox", { name: "文本内容" }).focus();

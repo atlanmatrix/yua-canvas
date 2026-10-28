@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { rmSync } from "node:fs";
+import { pdfFixture } from "./pdf-fixture.mjs";
 const cli = "node_modules/wrangler/bin/wrangler.js",
   persist = "work/cloud-test-state",
   origin = "http://127.0.0.1:8791";
@@ -325,6 +326,83 @@ test("miniature snapshots sync and share; unsafe scene URLs are rejected", async
     null,
   );
   assert.deepEqual(resolved.data.snapshot.cards, snapshot.cards);
+});
+
+test("Mermaid and document metadata sync and share with lossless PDF attachments", async () => {
+  const bytes = pdfFixture(),
+    id = hash(bytes);
+  assert.equal(
+    (
+      await fetch(origin + "/api/assets/" + id, {
+        method: "PUT",
+        headers: { Origin: origin, Cookie: "yua_session=" + token },
+        body: bytes,
+      })
+    ).status,
+    200,
+  );
+  const snapshot = board("flowchart LR\n  A --> B");
+  snapshot.cards[0].kind = "mermaid";
+  snapshot.cards.push({
+    id: "pdf",
+    kind: "file",
+    title: "pages.pdf",
+    text: "",
+    x: 500,
+    y: 20,
+    mime: "application/pdf",
+    archiveFile: id,
+    pdfPage: 2,
+  });
+  const empty = new TextEncoder().encode("# Created file"),
+    textId = hash(empty);
+  assert.equal(
+    (
+      await fetch(origin + "/api/assets/" + textId, {
+        method: "PUT",
+        headers: { Origin: origin, Cookie: "yua_session=" + token },
+        body: empty,
+      })
+    ).status,
+    200,
+  );
+  snapshot.cards.push({
+    id: "md",
+    kind: "file",
+    title: "created.md",
+    text: "",
+    x: 100,
+    y: 400,
+    mime: "text/markdown",
+    archiveFile: textId,
+    editableFile: true,
+  });
+  const revision = (await request("/canvas")).data.revision;
+  const updated = await request("/canvas", "PUT", {
+    baseRevision: revision,
+    snapshot,
+  });
+  assert.equal(updated.status, 200);
+  assert.deepEqual(
+    (await request("/canvas")).data.snapshot.cards,
+    snapshot.cards,
+  );
+  const share = await request("/shares", "POST", {
+    expiresInDays: null,
+    expectedRevision: updated.data.revision,
+  });
+  assert.equal(share.status, 200);
+  const resolved = await request(
+    "/shares/resolve",
+    "POST",
+    { token: share.data.token },
+    null,
+  );
+  assert.deepEqual(resolved.data.snapshot.cards, snapshot.cards);
+  const asset = await fetch(origin + "/api/assets/" + id, {
+    headers: { "X-Share-Token": share.data.token },
+  });
+  assert.deepEqual(Buffer.from(await asset.arrayBuffer()), bytes);
 });
 
 test("miniature covers remain share-scoped assets and saved views stay on the configured scene", async () => {

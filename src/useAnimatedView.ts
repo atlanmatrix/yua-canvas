@@ -74,7 +74,7 @@ export function useAnimatedView(
           (Math.hypot(viewport.width, viewport.height) / 2),
       );
       const duration = outside ? 1600 : 400 + 600 * distance;
-      const zoomOut = outside ? 0.2 : 0.2 * distance;
+      const zoomOut = outside ? 0.1 : 0.1 * distance;
       const pulledBack = Math.max(
         0.2,
         Math.min(from.z, target.z) * (1 - zoomOut),

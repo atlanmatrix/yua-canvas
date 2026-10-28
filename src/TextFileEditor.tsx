@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Download, Pencil, Eye, Save } from "lucide-react";
 import type { Card } from "./storage";
 import { Markdown } from "./Markdown";
+import { fileMime } from "./files";
 export type TextFormat = {
   encoding: "utf-8" | "utf-16le" | "utf-16be";
   bom: boolean;
@@ -62,10 +63,11 @@ export function TextFileEditor({
 }: {
   card: Card;
   preview: ReactNode;
-  onSave: (blob: Blob) => void;
+  onSave: (blob: Blob, name?: string) => void;
   onDownload: () => void;
 }) {
-  const [editing, setEditing] = useState(false),
+  const [editing, setEditing] = useState(!!card.editableFile),
+    [name, setName] = useState(card.title),
     [text, setText] = useState(""),
     [original, setOriginal] = useState(""),
     [format, setFormat] = useState<TextFormat>(),
@@ -90,19 +92,30 @@ export function TextFileEditor({
     };
   }, [card.blob]);
   const save = () => {
-    if (!format || text === original) return;
+    if (!format || !name.trim() || (text === original && name === card.title))
+      return;
     onSave(
       encodeTextFile(
         text,
         format,
-        card.blob?.type || card.mime || "text/plain",
+        card.editableFile
+          ? fileMime(name.trim())
+          : card.blob?.type || card.mime || "text/plain",
       ),
+      name.trim(),
     );
     setOriginal(text);
   };
   return (
     <>
       <div className="file-edit-controls">
+        {card.editableFile && (
+          <input
+            aria-label="文件名"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        )}
         <button
           className={!editing ? "active" : ""}
           aria-label="预览文件"
@@ -165,7 +178,11 @@ export function TextFileEditor({
           </button>
           <button
             className="primary"
-            disabled={!format || text === original}
+            disabled={
+              !format ||
+              !name.trim() ||
+              (text === original && name === card.title)
+            }
             onClick={save}
           >
             <Save size={15} />

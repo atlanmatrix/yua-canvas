@@ -5,6 +5,11 @@ export function textDownloadName(now = new Date()): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}-${pad(now.getMilliseconds(), 3)}.txt`;
 }
 export function cardDownload(card: Card): { blob: Blob; name: string } {
+  if (card.kind === "mermaid")
+    return {
+      blob: new Blob([card.text], { type: "text/vnd.mermaid" }),
+      name: textDownloadName().replace(/\.txt$/, ".mmd"),
+    };
   if (card.blob && card.kind !== "miniature")
     return { blob: card.blob, name: card.title };
   const text =

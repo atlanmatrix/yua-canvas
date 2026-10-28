@@ -209,7 +209,7 @@ for (const [name, bounds] of [
   ["peer", peer],
   ["far", far],
 ] as const) {
-  test(`pin ${name} eases out about 20% below both endpoint scales before zooming in`, async ({
+  test(`pin ${name} eases out about 10% below both endpoint scales before zooming in`, async ({
     page,
   }) => {
     await setup(page);
@@ -217,7 +217,7 @@ for (const [name, bounds] of [
     await page.clock.runFor(animationDuration + 50);
     const from = await view(page);
     const to = await target(page, bounds);
-    const minimum = Math.min(from.z, to.z) * 0.8;
+    const minimum = Math.min(from.z, to.z) * 0.9;
     await pin(page, name).click();
     await expectView(page, from);
     await page.clock.runFor(200);

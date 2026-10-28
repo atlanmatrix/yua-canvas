@@ -11,7 +11,9 @@ import {
 import { cardRect } from "./geometry";
 import { curve, endpointPoint, curveMidpoint } from "./connections";
 import { ConnectionArrow } from "./ConnectionArrow";
-import { Markdown } from "./Markdown";
+import { Markdown, Diagram } from "./Markdown";
+import { PdfPreview } from "./PdfPreview";
+import { isPdfFile, isMarkdownFile, fileText } from "./clipboard";
 import { Miniature } from "./Miniature";
 function Asset({ card }: { card: Card }) {
   const [url, setUrl] = useState("");
@@ -221,6 +223,10 @@ export function ShareViewer({ token }: { token: string }) {
                     top: r.y,
                     width: r.width,
                     minHeight: r.height,
+                    height:
+                      isPdfFile(c) || c.kind === "mermaid"
+                        ? r.height
+                        : undefined,
                     background:
                       c.kind === "miniature" ? "transparent" : c.color,
                   }}
@@ -233,6 +239,14 @@ export function ShareViewer({ token }: { token: string }) {
                     </button>
                   ) : c.kind === "text" ? (
                     <div style={{ whiteSpace: "pre-wrap" }}>{c.text}</div>
+                  ) : c.kind === "mermaid" ? (
+                    <div className="mermaid-preview">
+                      <Diagram source={c.text} language="mermaid" standalone />
+                    </div>
+                  ) : isPdfFile(c) ? (
+                    <PdfPreview card={c} />
+                  ) : isMarkdownFile(c) ? (
+                    <FilePreview card={c} />
                   ) : c.kind === "todo" ? (
                     <ul>
                       {c.tasks?.map((t) => (
@@ -281,12 +295,11 @@ function FilePreview({ card }: { card: Card }) {
   const [text, setText] = useState("");
   useEffect(() => {
     let active = true;
-    void card.blob
-      ?.slice(0, 1024 * 1024)
-      .text()
+    void (card.blob ? fileText(card.blob) : Promise.resolve(""))
       .then((t) => {
         if (active) setText(t);
-      });
+      })
+      .catch(() => {});
     return () => {
       active = false;
     };

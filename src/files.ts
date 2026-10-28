@@ -45,6 +45,7 @@ export async function cardsFromFiles(
       let size = isTextFile({ title: file.name, mime } as Card)
         ? { width: 320, height: 240 }
         : { width: 240, height: 250 };
+      if (mime === "application/pdf") size = { width: 360, height: 480 };
       if (kind === "image") {
         const url = URL.createObjectURL(file);
         try {

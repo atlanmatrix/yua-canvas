@@ -6,6 +6,7 @@ import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { resolve, extname } from "node:path";
 import { chromium, expect } from "@playwright/test";
+import { pdfFixture } from "./pdf-fixture.mjs";
 const prefix = process.env.PWA_TEST_BASE || "/yua-canvas/";
 let server,
   browser,
@@ -14,6 +15,8 @@ let server,
 const mime = {
   ".html": "text/html",
   ".js": "text/javascript",
+  ".mjs": "text/javascript",
+  ".wasm": "application/wasm",
   ".css": "text/css",
   ".svg": "image/svg+xml",
   ".png": "image/png",
@@ -191,6 +194,9 @@ test("offline reload restores IndexedDB and lazy diagrams while APIs never enter
       ),
       "offline",
     );
+    await expect(
+      page.locator('.card-file [data-diagram-state="ready"] svg'),
+    ).toBeVisible({ timeout: 20000 });
     await page.locator(".card-file").dblclick();
     await expect(page.locator(".detail-content svg")).toBeVisible({
       timeout: 20000,
@@ -389,6 +395,52 @@ test("miniature static covers survive an offline reload without starting a scene
     await context.close();
   }
 });
+test("PDF workers, fonts and Mermaid render offline at the Pages subpath and restore the saved PDF page", async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await app(context);
+    const failures = [];
+    page.on("pageerror", (error) => failures.push(error.message));
+    await page.getByTestId("files").setInputFiles({
+      name: "pages.pdf",
+      mimeType: "application/pdf",
+      buffer: pdfFixture(),
+    });
+    const card = page.locator(".pdf-file-card");
+    await expect(card.locator('[data-pdf-page="1"]')).toHaveCount(1, {
+      timeout: 20000,
+    });
+    await card.hover();
+    await card.getByRole("button", { name: "下一页" }).click();
+    await expect(card.locator('[data-pdf-page="2"]')).toHaveCount(1);
+    await page.evaluate(() => {
+      const data = new DataTransfer();
+      data.setData("text/plain", "flowchart LR\n  A[Offline] --> B[Ready]");
+      window.dispatchEvent(
+        new ClipboardEvent("paste", { clipboardData: data }),
+      );
+    });
+    await expect(
+      page.locator('.card-mermaid [data-diagram-state="ready"] svg'),
+    ).toHaveCount(1);
+    await expect(page.locator(".save-indicator")).toHaveAttribute(
+      "data-state",
+      "已保存至本地",
+    );
+    await context.setOffline(true);
+    await page.reload();
+    await expect(card.locator('[data-pdf-page="2"]')).toHaveCount(1, {
+      timeout: 20000,
+    });
+    await expect(
+      page.locator('.card-mermaid [data-diagram-state="ready"] svg'),
+    ).toHaveCount(1);
+    assert.deepEqual(failures, []);
+  } finally {
+    await context.close();
+  }
+});
+
 test("update saves pending canvas edits and does not reload other open tabs", async () => {
   const context = await browser.newContext();
   try {

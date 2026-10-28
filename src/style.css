@@ -1244,6 +1244,26 @@ main {
   left: -100000px;
   pointer-events: none;
 }
+.mermaid-preview { position: relative; flex: 1; min-width: 0; min-height: 0; width: 100%; height: 100%; padding: 12px; overflow: hidden; }
+.mermaid-preview .markdown-diagram { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; margin: 0; overflow: hidden; }
+.mermaid-preview .markdown-diagram > div { width: 100%; height: 100%; }
+.mermaid-preview .markdown-diagram svg { width: 100%; height: 100%; max-width: none !important; }
+.diagram-error, .pdf-preview-error { color: #b45309; }
+.mermaid-editor-content { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; height: min(55dvh, 500px); min-height: 280px; margin-bottom: 24px; }
+.mermaid-editor-content textarea { min-width: 0; width: 100%; height: 100%; resize: none; padding: 12px; border: 1px solid #d5dae4; border-radius: 8px; font: 13px/1.6 ui-monospace, monospace; }
+.mermaid-editor-content .mermaid-preview { border: 1px solid #e4e4e7; border-radius: 8px; }
+.markdown-file-preview { flex: 1; min-height: 0; width: 100%; height: 100%; overflow: auto; padding: 16px; user-select: text; }
+.markdown-file-preview .markdown { margin: 0; }
+.pdf-preview { position: relative; flex: 1; min-height: 0; width: 100%; height: 100%; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #fff; }
+.pdf-preview > canvas { display: block; max-width: 100%; max-height: 100%; pointer-events: none; }
+.pdf-preview-error { position: absolute; left: calc(50% - 12px); top: calc(50% - 12px); }
+.pdf-page-controls { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; opacity: 0; pointer-events: none; transition: opacity 150ms ease; }
+.card:hover .pdf-page-controls, .card:focus-within .pdf-page-controls, .pdf-page-controls:focus-within { opacity: 1; pointer-events: auto; }
+.pdf-page-controls button { width: 30px; height: 30px; padding: 0; border: 1px solid #d5dae4; border-radius: 7px; background: #fffffff2; box-shadow: 0 1px 4px #0001; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.file-edit-controls input { min-width: 0; margin-right: auto; padding: 6px 8px; border: 1px solid #d5dae4; border-radius: 6px; }
+@media (max-width: 700px) { .mermaid-editor-content { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; height: 60dvh; } }
+@media (hover: none) { .pdf-page-controls { opacity: 1; pointer-events: auto; } }
 .connection-port.target-active {
   opacity: 1;
   background: var(--accent);

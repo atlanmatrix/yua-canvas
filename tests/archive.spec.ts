@@ -228,7 +228,9 @@ test("ordinary ZIP uploads unpack nested files, infer image and Markdown types a
   ).toContainText("TOKEN=local");
   await page.locator('.card[aria-label="说明.md"]').dblclick();
   await expect(
-    page.getByRole("heading", { name: "压缩包内的 Markdown" }),
+    page
+      .getByRole("dialog")
+      .getByRole("heading", { name: "压缩包内的 Markdown" }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
   const board = JSON.parse((await download(page, "导出画布")).bytes.toString());

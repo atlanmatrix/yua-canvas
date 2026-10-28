@@ -18,6 +18,9 @@ test("Markdown renders Mermaid and both flowchart syntaxes, with readable invali
     mimeType: "text/markdown",
     buffer: Buffer.from(markdown),
   });
+  await expect(
+    page.locator('.card-file .markdown-diagram[data-diagram-state="ready"]'),
+  ).toHaveCount(3, { timeout: 20000 });
   await page.getByTestId("card").dblclick();
   const dialog = page.getByRole("dialog");
   await expect(

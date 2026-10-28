@@ -27,6 +27,7 @@ import {
   X,
   Trash2,
   FileText,
+  Network,
   MoreHorizontal,
   Unlink,
 } from "lucide-react";
@@ -56,11 +57,14 @@ import {
   workspaceCounts,
   type CanvasImport,
 } from "./workspaceBackup";
-import { Markdown } from "./Markdown";
+import { Markdown, Diagram } from "./Markdown";
 import { NoteText, linkTarget } from "./NoteText";
 import { TextEditor } from "./TextEditor";
 import { TodoEditor } from "./TodoEditor";
 import { TextFileEditor } from "./TextFileEditor";
+import { MermaidEditor } from "./MermaidEditor";
+import { PdfPreview } from "./PdfPreview";
+import { mermaidSource, DEFAULT_MERMAID } from "./mermaidSource";
 import {
   CanvasContextMenu,
   ContextSubmenu,
@@ -75,6 +79,8 @@ import {
   canvasClipboard,
   FileClipboardUnsupported,
   isTextFile,
+  isMarkdownFile,
+  isPdfFile,
 } from "./clipboard";
 import {
   useCanvasWorkspace,
@@ -122,7 +128,15 @@ import { Miniature, MiniatureDialog } from "./Miniature";
 import { miniatureViewUrl } from "./miniatureScene";
 const uid = () => crypto.randomUUID();
 const colors = ["#ffffff"];
-function Attachment({ card, large = false }: { card: Card; large?: boolean }) {
+function Attachment({
+  card,
+  large = false,
+  onPdfPageChange,
+}: {
+  card: Card;
+  large?: boolean;
+  onPdfPageChange?: (page: number) => void;
+}) {
   const [asset, setAsset] = useState<{
       url: string;
       blob: Blob;
@@ -136,7 +150,11 @@ function Attachment({ card, large = false }: { card: Card; large?: boolean }) {
   useEffect(() => {
     if (!card.blob || !isTextFile(card)) return;
     let active = true;
-    const limit = large ? 1024 * 1024 : 64 * 1024;
+    const limit = isMarkdownFile(card)
+      ? card.blob.size
+      : large
+        ? 1024 * 1024
+        : 64 * 1024;
     card.blob
       .slice(0, limit)
       .arrayBuffer()
@@ -172,6 +190,20 @@ function Attachment({ card, large = false }: { card: Card; large?: boolean }) {
     setAsset({ url: u, blob: card.blob, mime: card.mime });
     return () => URL.revokeObjectURL(u);
   }, [card.blob, card.mime]);
+  if (!large && isPdfFile(card))
+    return <PdfPreview card={card} onPageChange={onPdfPageChange} />;
+  if (!large && isMarkdownFile(card))
+    return (
+      <div
+        className="markdown-file-preview"
+        onWheel={(e) => {
+          if (e.currentTarget.scrollHeight > e.currentTarget.clientHeight)
+            e.stopPropagation();
+        }}
+      >
+        <Markdown>{fileText}</Markdown>
+      </div>
+    );
   if (!large && card.kind === "file" && isTextFile(card))
     return (
       <pre
@@ -387,6 +419,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   const latestBoard = useRef(board);
   latestBoard.current = board;
   const clipboardBusy = useRef(false);
+  const lastPointerMoved = useRef(false);
   const activeCanvasKey = useRef(board.id || "");
   activeCanvasKey.current = board.id || "";
   const { viewport, projection } = useMinimapGeometry(board, view, surface);
@@ -696,6 +729,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     }
     const text = clipboard.getData("text/plain");
     if (!text.trim()) return false;
+    const diagram = mermaidSource(text);
     const id = uid();
     setBoard((b) => ({
       ...b,
@@ -703,14 +737,18 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         ...b.cards,
         {
           id,
-          kind: "text",
+          kind: diagram === undefined ? "text" : "mermaid",
           title: "",
-          text,
+          text: diagram ?? text,
           color: colors[0],
           ...(point || center()),
-          ...textSize(text),
-          textMode: "wrap",
-          textAutoHeight: true,
+          ...(diagram === undefined
+            ? {
+                ...textSize(text),
+                textMode: "wrap" as const,
+                textAutoHeight: true,
+              }
+            : {}),
         },
       ],
     }));
@@ -906,7 +944,36 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setMenu(null);
     if (kind === "text") addText(point);
     else if (kind === "todo") addTodo(point);
-    else if (kind === "canvas") addCanvas(point);
+    else if (kind === "mermaid" || kind === "file") {
+      const id = uid();
+      const card: Card = {
+        id,
+        kind,
+        title: kind === "file" ? "未命名.txt" : "",
+        text: kind === "mermaid" ? DEFAULT_MERMAID : "",
+        color: colors[0],
+        ...point,
+        ...(kind === "file"
+          ? {
+              width: 320,
+              height: 240,
+              mime: "text/plain",
+              blob: new Blob([""], { type: "text/plain" }),
+              editableFile: true,
+            }
+          : {}),
+      };
+      setBoard((b) => ({
+        ...b,
+        cards: [
+          ...b.cards,
+          { ...card, group: containingGroup(card, b.groups) },
+        ],
+      }));
+      setSelection([id]);
+      setSelectedGroup(undefined);
+      if (kind === "mermaid") setDetail(id);
+    } else if (kind === "canvas") addCanvas(point);
     else if (kind === "miniature") addMiniature(point);
     else if (kind === "group") {
       const id = uid();
@@ -1442,6 +1509,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   const pointerUp = (e: React.PointerEvent) => {
     setDragCursor(false);
     const g = gesture.current;
+    lastPointerMoved.current = !!g?.moved;
     gesture.current = null;
     setMarquee(null);
     setCreatePreview(null);
@@ -2014,7 +2082,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     };
   });
   const current = board.cards.find(
-    (c) => c.id === detail && (c.kind === "image" || c.kind === "file"),
+    (c) =>
+      c.id === detail &&
+      (c.kind === "image" || c.kind === "file" || c.kind === "mermaid"),
   );
   const updatePinProperties = (
     pin: PinnedItem,
@@ -2502,13 +2572,19 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   (c.kind === "file" && isTextFile(c)
                     ? " text-file-card"
                     : "") +
+                  (isPdfFile(c) ? " pdf-file-card" : "") +
+                  (isMarkdownFile(c) ? " markdown-file-card" : "") +
                   " " +
                   (selection.includes(c.id) ? "selected" : "") +
                   (editingCard === c.id ? " canvas-editing" : "")
                 }
                 tabIndex={-1}
                 aria-label={
-                  c.kind === "text" ? c.text.slice(0, 80) : c.title || "任务"
+                  c.kind === "text"
+                    ? c.text.slice(0, 80)
+                    : c.kind === "mermaid"
+                      ? "Mermaid 图表"
+                      : c.title || "任务"
                 }
                 data-group-name={
                   board.groups.find((g) => g.id === c.group)?.name || ""
@@ -2522,7 +2598,23 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 }}
                 onPointerDown={(e) => {
                   e.stopPropagation();
+                  if (
+                    (e.target as Element).closest(".markdown-file-preview a") &&
+                    !e.ctrlKey &&
+                    !e.metaKey
+                  )
+                    return;
                   pointerDown(e, c.id);
+                }}
+                onClick={(e) => {
+                  if (
+                    c.editableFile &&
+                    !lastPointerMoved.current &&
+                    !(e.target as Element).closest("button,a,input,textarea") &&
+                    !e.ctrlKey &&
+                    !e.metaKey
+                  )
+                    setDetail(c.id);
                 }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
@@ -2540,6 +2632,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   c.kind !== "image" &&
                   c.kind !== "canvas" &&
                   c.kind !== "miniature" &&
+                  c.kind !== "mermaid" &&
+                  !isPdfFile(c) &&
                   !(c.kind === "file" && isTextFile(c)) && (
                     <div className="card-top">
                       <span>
@@ -2664,6 +2758,33 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       )}
                     </div>
                   </>
+                ) : c.kind === "mermaid" ? (
+                  <div className="mermaid-preview">
+                    <Diagram
+                      source={c.text}
+                      language="mermaid"
+                      standalone
+                      onSize={(width, height) => {
+                        if (c.width || c.height) return;
+                        const scale = Math.min(1, 800 / width, 1200 / height);
+                        setBoard(
+                          (b) => ({
+                            ...b,
+                            cards: b.cards.map((card) =>
+                              card.id === c.id && !card.width && !card.height
+                                ? {
+                                    ...card,
+                                    width: Math.max(180, width * scale + 24),
+                                    height: Math.max(100, height * scale + 24),
+                                  }
+                                : card,
+                            ),
+                          }),
+                          { recordHistory: false },
+                        );
+                      }}
+                    />
+                  </div>
                 ) : c.kind === "text" ? (
                   editingCard === c.id ? (
                     <TextEditor
@@ -2725,6 +2846,21 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   )
                 ) : c.kind === "image" ? (
                   <Attachment card={c} />
+                ) : isPdfFile(c) || isMarkdownFile(c) ? (
+                  <Attachment
+                    card={c}
+                    onPdfPageChange={(pdfPage) => {
+                      setBoard(
+                        (b) => ({
+                          ...b,
+                          cards: b.cards.map((card) =>
+                            card.id === c.id ? { ...card, pdfPage } : card,
+                          ),
+                        }),
+                        { recordHistory: false },
+                      );
+                    }}
+                  />
                 ) : (
                   <>
                     <Attachment card={c} />
@@ -2734,7 +2870,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     </div>
                   </>
                 )}
-                {c.kind === "file" && !isTextFile(c) && (
+                {c.kind === "file" && !isTextFile(c) && !isPdfFile(c) && (
                   <footer>
                     <span>
                       {c.group
@@ -2845,7 +2981,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 )}
                 <button
                   className="card-download"
-                  aria-label={`下载 ${c.title || (c.kind === "todo" ? "任务" : "文本")}`}
+                  aria-label={`下载 ${c.title || (c.kind === "todo" ? "任务" : c.kind === "mermaid" ? "Mermaid" : "文本")}`}
                   title="下载"
                   onPointerDown={(e) => {
                     e.stopPropagation();
@@ -3087,16 +3223,16 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     disabled={!ready}
                     onClick={() => createFromMenu("file")}
                   >
-                    <FileUp size={14} />
+                    <FileText size={14} />
                     文件
                   </button>
                   <button
                     role="menuitem"
                     disabled={!ready}
-                    onClick={() => createFromMenu("canvas")}
+                    onClick={() => createFromMenu("mermaid")}
                   >
-                    <PanelsTopLeft size={14} />
-                    子画布
+                    <Network size={14} />
+                    Mermaid
                   </button>
                   <button
                     role="menuitem"
@@ -3182,7 +3318,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 <MenuSection label="内容操作">
                   {(menuCard.kind === "text" ||
                     menuCard.kind === "canvas" ||
-                    menuCard.kind === "miniature") && (
+                    menuCard.kind === "miniature" ||
+                    menuCard.kind === "mermaid" ||
+                    menuCard.kind === "file" ||
+                    menuCard.editableFile) && (
                     <button
                       role="menuitem"
                       onClick={() => {
@@ -3505,10 +3644,14 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             className="modal detail-modal"
             role="dialog"
             aria-modal="true"
-            aria-label="内容详情"
+            aria-label={
+              current.kind === "mermaid" ? "编辑 Mermaid" : "内容详情"
+            }
           >
             <div className="modal-heading">
-              <span>{current.title}</span>
+              <span>
+                {current.kind === "mermaid" ? "Mermaid" : current.title}
+              </span>
               <button
                 aria-label="关闭详情"
                 onClick={() => setDetail(undefined)}
@@ -3516,17 +3659,37 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 <X size={20} />
               </button>
             </div>
-            {current.kind === "file" && isTextFile(current) ? (
+            {current.kind === "mermaid" ? (
+              <MermaidEditor
+                key={current.id}
+                source={current.text}
+                onClose={() => setDetail(undefined)}
+                onSave={(text) =>
+                  updateCards((cards) =>
+                    cards.map((card) =>
+                      card.id === current.id
+                        ? { ...card, text, width: undefined, height: undefined }
+                        : card,
+                    ),
+                  )
+                }
+              />
+            ) : current.kind === "file" && isTextFile(current) ? (
               <TextFileEditor
                 key={current.id}
                 card={current}
                 preview={<Attachment card={current} large />}
                 onDownload={() => download(current.blob!, current.title)}
-                onSave={(blob) =>
+                onSave={(blob, name) =>
                   updateCards((cards) =>
                     cards.map((card) =>
                       card.id === current.id
-                        ? { ...card, blob, mime: blob.type }
+                        ? {
+                            ...card,
+                            blob,
+                            mime: blob.type,
+                            title: name || card.title,
+                          }
                         : card,
                     ),
                   )

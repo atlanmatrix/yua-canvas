@@ -101,9 +101,15 @@ function validateSnapshot(data: any): string[] {
     for (const c of b.cards) {
       if (
         !c ||
-        !["text", "image", "file", "todo", "canvas", "miniature"].includes(
-          c.kind,
-        ) ||
+        ![
+          "text",
+          "image",
+          "file",
+          "todo",
+          "canvas",
+          "miniature",
+          "mermaid",
+        ].includes(c.kind) ||
         typeof c.id !== "string" ||
         typeof c.title !== "string" ||
         typeof c.text !== "string" ||
@@ -114,6 +120,16 @@ function validateSnapshot(data: any): string[] {
         fail(400, "卡片格式无效");
       if (c.kind === "miniature" && !miniatureUrl(c.text))
         fail(400, "3D 场景地址无效");
+      if (
+        c.pdfPage !== undefined &&
+        (c.kind !== "file" || !Number.isSafeInteger(c.pdfPage) || c.pdfPage < 1)
+      )
+        fail(400, "PDF 页码无效");
+      if (
+        c.editableFile !== undefined &&
+        (c.kind !== "file" || typeof c.editableFile !== "boolean")
+      )
+        fail(400, "文件编辑设置无效");
       if (
         c.miniatureView !== undefined &&
         (c.kind !== "miniature" || !miniatureViewUrl(c.text, c.miniatureView))

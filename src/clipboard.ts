@@ -6,11 +6,18 @@ export class FileClipboardUnsupported extends Error {
   }
 }
 export const isTextFile = (card: Card) =>
+  card.editableFile ||
   card.mime?.startsWith("text/") ||
   /(?:^|\.)env(?:\.[^/]+)*$/i.test(card.title) ||
   /\.(txt|md|markdown|mdown|csv|json|xml|yaml|yml|log|js|ts|tsx|jsx|css|html|svg)$/i.test(
     card.title,
   );
+export const isMarkdownFile = (card: Card) =>
+  card.kind === "file" &&
+  (card.mime === "text/markdown" || /\.(md|markdown|mdown)$/i.test(card.title));
+export const isPdfFile = (card: Card) =>
+  card.kind === "file" &&
+  (card.mime === "application/pdf" || /\.pdf$/i.test(card.title));
 export async function fileText(blob: Blob): Promise<string> {
   const bytes = new Uint8Array(await blob.arrayBuffer());
   if (bytes[0] === 0xff && bytes[1] === 0xfe)

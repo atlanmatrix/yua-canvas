@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import { execFileSync } from "node:child_process";
 import react from "@vitejs/plugin-react";
 import { canvasPwa } from "./scripts/pwa";
+import { pdfAssets } from "./scripts/pdfAssets";
 const dateParts = new Intl.DateTimeFormat("en", {
   timeZone: "Asia/Shanghai",
   year: "2-digit",
@@ -19,6 +20,6 @@ const commit = (
   }).trim()
 ).slice(0, 7);
 export default defineConfig({
-  plugins: [react(), canvasPwa()],
+  plugins: [react(), pdfAssets(), canvasPwa()],
   define: { __BUILD_VERSION__: JSON.stringify(`${buildDate}.${commit}`) },
 });

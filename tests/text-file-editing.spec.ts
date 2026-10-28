@@ -94,18 +94,24 @@ test("Markdown keeps rendered preview, previews unsaved edits, cancels without s
     buffer: original,
   });
   await page.getByTestId("card").dblclick();
-  await expect(page.getByRole("heading", { name: "原始标题" })).toBeVisible();
+  await expect(
+    page.getByRole("dialog").getByRole("heading", { name: "原始标题" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "编辑文件", exact: true }).click();
   await page
     .getByRole("textbox", { name: "文件内容" })
     .fill("# 修改标题\n\n**加粗正文**\n");
   await page.getByRole("button", { name: "预览文件", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "修改标题" })).toBeVisible();
+  await expect(
+    page.getByRole("dialog").getByRole("heading", { name: "修改标题" }),
+  ).toBeVisible();
   await expect(page.locator(".markdown strong")).toHaveText("加粗正文");
   expect((await download(page)).bytes).toEqual(original);
   await page.keyboard.press("Escape");
   await page.getByTestId("card").dblclick();
-  await expect(page.getByRole("heading", { name: "原始标题" })).toBeVisible();
+  await expect(
+    page.getByRole("dialog").getByRole("heading", { name: "原始标题" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "编辑文件", exact: true }).click();
   await page.getByRole("textbox", { name: "文件内容" }).fill("");
   await page.keyboard.press("ControlOrMeta+Enter");

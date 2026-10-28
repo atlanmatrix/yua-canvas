@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   FileText,
+  Network,
   Image as ImageIcon,
   ListTodo,
   PanelsTopLeft,
@@ -13,6 +14,7 @@ import { cardRect } from "./geometry";
 import { curve, curveMidpoint, endpointPoint } from "./connections";
 import { ConnectionArrow } from "./ConnectionArrow";
 import { isTextFile, fileText } from "./clipboard";
+import { Diagram } from "./Markdown";
 import { canvas3DLayers, type Canvas3DLayer } from "./canvas3dGeometry";
 import "./canvas3d.css";
 
@@ -25,6 +27,7 @@ const icons = {
   todo: ListTodo,
   canvas: PanelsTopLeft,
   miniature: Box,
+  mermaid: Network,
 };
 
 function ComponentPreview({ card }: { card: Card }) {
@@ -51,6 +54,12 @@ function ComponentPreview({ card }: { card: Card }) {
   if ((card.kind === "image" || card.kind === "miniature") && image)
     return <img src={image} alt={card.title} draggable={false} />;
   if (card.kind === "text") return <pre>{card.text.slice(0, 3000)}</pre>;
+  if (card.kind === "mermaid")
+    return (
+      <div className="mermaid-preview">
+        <Diagram source={card.text} language="mermaid" standalone />
+      </div>
+    );
   if (card.kind === "todo")
     return (
       <ul>

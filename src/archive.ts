@@ -122,6 +122,8 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
           file: path,
           coverFile,
           miniatureView: card.miniatureView,
+          pdfPage: card.pdfPage,
+          editableFile: card.editableFile,
           name: card.title,
           x: card.x,
           y: card.y,
@@ -238,7 +240,11 @@ export async function readArchive(
         }
         let text = "",
           tasks;
-        if (meta.kind === "text" || meta.kind === "miniature")
+        if (
+          meta.kind === "text" ||
+          meta.kind === "miniature" ||
+          meta.kind === "mermaid"
+        )
           text = strFromU8(content);
         if (meta.kind === "todo") {
           let todo;

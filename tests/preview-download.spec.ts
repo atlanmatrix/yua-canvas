@@ -11,7 +11,7 @@ async function download(page: Page, card: Locator, buttonName: string) {
   for await (const c of s!) chunks.push(c);
   return { name: d.suggestedFilename(), bytes: Buffer.concat(chunks) };
 }
-test("file thumbnails show raw content and icon/name; hovered downloads preserve originals", async ({
+test("Markdown renders on the canvas; hovered downloads preserve originals", async ({
   page,
   context,
 }) => {
@@ -30,9 +30,15 @@ test("file thumbnails show raw content and icon/name; hovered downloads preserve
     buffer: file,
   });
   const card = page.locator('.card[aria-label="03-run.md"]');
-  await expect(card.locator(".file-content-thumbnail")).toHaveText(text);
-  await expect(card.locator(".attachment-title svg")).toHaveCount(1);
-  await expect(card.locator(".attachment-title")).toHaveText("03-run.md");
+  await expect(
+    card.getByRole("heading", { name: "新的迭代工作台：RUN 模块建立交付说明" }),
+  ).toBeVisible();
+  await expect(
+    card.locator('.markdown-diagram[data-diagram-state="ready"] svg'),
+  ).toHaveCount(1);
+  await expect(
+    card.locator(".file-content-thumbnail,.attachment-title"),
+  ).toHaveCount(0);
   await expect(card.locator(".card-top,footer")).toHaveCount(0);
   await page.locator(".canvas").click({ position: { x: 20, y: 150 } });
   await page.mouse.move(100, 100);

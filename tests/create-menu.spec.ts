@@ -50,7 +50,7 @@ test("hover and click open all component types; text is created at zoomed right-
     "任务",
     "图片",
     "文件",
-    "子画布",
+    "Mermaid",
     "Miniature",
     "分组",
   ]);
@@ -63,12 +63,12 @@ test("hover and click open all component types; text is created at zoomed right-
   await page.keyboard.press("ControlOrMeta+z");
   await expect(page.getByTestId("card")).toHaveCount(0);
 });
-test("task, child canvas and group creation share the original anchor", async ({
+test("task, Mermaid and group creation share the original anchor", async ({
   page,
 }) => {
   for (const [label, kind] of [
     ["任务", "todo"],
-    ["子画布", "canvas"],
+    ["Mermaid", "mermaid"],
     ["分组", "group"],
   ]) {
     const point = await position(page);
@@ -81,6 +81,8 @@ test("task, child canvas and group creation share the original anchor", async ({
       await page.getByRole("textbox", { name: "任务内容 1" }).fill("任务");
       await page.keyboard.press("ControlOrMeta+Enter");
     }
+    if (kind === "mermaid")
+      await page.getByRole("button", { name: "保存图表" }).click();
     if (kind === "group") {
       await page.getByRole("textbox", { name: "分组名称" }).fill("新分组");
       await page.getByRole("textbox", { name: "分组名称" }).press("Enter");
@@ -97,7 +99,7 @@ test("task, child canvas and group creation share the original anchor", async ({
     await page.keyboard.press("Delete");
   }
 });
-test("image and file picker preserve clicked position and original content", async ({
+test("image picker preserves clicked position and original content", async ({
   page,
 }) => {
   const image =
@@ -110,15 +112,6 @@ test("image and file picker preserve clicked position and original content", asy
         name: "pixel.png",
         mimeType: "image/png",
         buffer: Buffer.from(image, "base64"),
-      },
-    ],
-    [
-      "文件",
-      "file",
-      {
-        name: "original.bin",
-        mimeType: "application/octet-stream",
-        buffer: Buffer.from([0, 1, 2, 255]),
       },
     ],
   ] as const) {

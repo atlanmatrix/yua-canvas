@@ -6,7 +6,7 @@ export type Card = {
   id: string;
   pin?: string;
   pinColor?: PinColor;
-  kind: "text" | "image" | "file" | "todo" | "canvas" | "miniature";
+  kind: "text" | "image" | "file" | "todo" | "canvas" | "miniature" | "mermaid";
   title: string;
   text: string;
   x: number;
@@ -22,6 +22,8 @@ export type Card = {
   tasks?: Task[];
   canvas?: Board;
   miniatureView?: string;
+  pdfPage?: number;
+  editableFile?: boolean;
 };
 export type Task = { id: string; text: string; done: boolean };
 export type Rect = { x: number; y: number; width: number; height: number };
@@ -334,9 +336,15 @@ export async function importBoard(
       if (
         typeof c.id !== "string" ||
         ids.has(c.id) ||
-        !["text", "image", "file", "todo", "canvas", "miniature"].includes(
-          c.kind as string,
-        ) ||
+        ![
+          "text",
+          "image",
+          "file",
+          "todo",
+          "canvas",
+          "miniature",
+          "mermaid",
+        ].includes(c.kind as string) ||
         typeof c.title !== "string" ||
         typeof c.text !== "string" ||
         !Number.isFinite(c.x) ||
@@ -346,6 +354,18 @@ export async function importBoard(
       )
         throw new Error("卡片数据无效");
       ids.add(c.id);
+      if (
+        c.pdfPage !== undefined &&
+        (c.kind !== "file" ||
+          !Number.isSafeInteger(c.pdfPage) ||
+          (c.pdfPage as number) < 1)
+      )
+        throw Error("PDF 页码无效");
+      if (
+        c.editableFile !== undefined &&
+        (c.kind !== "file" || typeof c.editableFile !== "boolean")
+      )
+        throw Error("文件编辑设置无效");
       if (c.mime !== undefined && typeof c.mime !== "string")
         throw Error("附件 MIME 类型无效");
       if (c.blobType !== undefined && typeof c.blobType !== "string")
@@ -458,6 +478,8 @@ export async function importBoard(
         pinColor: validPinColor(c.pinColor),
         kind: c.kind as Card["kind"],
         miniatureView: c.miniatureView as string | undefined,
+        pdfPage: c.pdfPage as number | undefined,
+        editableFile: c.editableFile as boolean | undefined,
         title: c.title,
         text: c.text,
         x: c.x as number,
