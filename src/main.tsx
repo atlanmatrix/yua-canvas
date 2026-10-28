@@ -2070,6 +2070,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         y: r.height / 2 - (bounds.y + bounds.height / 2) * z,
       },
       r,
+      bounds,
     );
     if (pin.kind === "card") setSelection([pin.id]);
     else setSelectedGroup(pin.id);
