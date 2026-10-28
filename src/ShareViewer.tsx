@@ -1,3 +1,4 @@
+import { Attachment } from "./Attachment";
 import {
   PreviewFrame,
   TypeIcon,
@@ -24,9 +25,9 @@ import {
 import { cardRect } from "./geometry";
 import { curve, endpointPoint, curveMidpoint } from "./connections";
 import { ConnectionArrow } from "./ConnectionArrow";
-import { Markdown, Diagram } from "./Markdown";
+import { Diagram } from "./Markdown";
 import { PdfPreview } from "./PdfPreview";
-import { isPdfFile, isMarkdownFile, fileText } from "./clipboard";
+import { isPdfFile, isMarkdownFile } from "./clipboard";
 import { Miniature } from "./Miniature";
 import { ApplicationCard } from "./ApplicationCard";
 import { isApplicationKind } from "./appAssociations";
@@ -349,17 +350,5 @@ export function ShareViewer({ token }: { token: string }) {
   );
 }
 function FilePreview({ card }: { card: Card }) {
-  const [text, setText] = useState("");
-  useEffect(() => {
-    let active = true;
-    void (card.blob ? fileText(card.blob) : Promise.resolve(""))
-      .then((t) => {
-        if (active) setText(t);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [card.blob]);
-  return <Markdown>{text}</Markdown>;
+  return <Attachment card={card} />;
 }

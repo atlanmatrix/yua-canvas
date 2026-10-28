@@ -1,6 +1,6 @@
 import { groupFrame } from "./CardPresentation";
 import { strokeBounds, remarkBounds } from "./presentation";
-import { useLayoutEffect, useState, type RefObject } from "react";
+import { useLayoutEffect, useMemo, useState, type RefObject } from "react";
 import type { Board, Rect, View } from "./storage";
 import { cardRect } from "./geometry";
 
@@ -36,7 +36,20 @@ export function useMinimapGeometry(
     width: size.width / view.z,
     height: size.height / view.z,
   };
-  return { viewport, projection: projectMinimap(board, viewport) };
+  const empty =
+    !board.cards.length && !board.groups.length && !board.strokes?.length;
+  const projection = useMemo(
+    () => projectMinimap(board, viewport),
+    [
+      board,
+      size.width,
+      size.height,
+      empty ? view.x : 0,
+      empty ? view.y : 0,
+      empty ? view.z : 0,
+    ],
+  );
+  return { viewport, projection };
 }
 
 export function projectMinimap(

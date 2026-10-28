@@ -1,3 +1,4 @@
+import { markPreviewMoving } from "./PreviewBoundary";
 import {
   useCallback,
   useLayoutEffect,
@@ -30,6 +31,7 @@ export function useAnimatedView(
   const setView = useCallback<Dispatch<SetStateAction<View>>>(
     (next) => {
       cancelViewAnimation();
+      markPreviewMoving();
       applyView(next);
     },
     [applyView, cancelViewAnimation],
@@ -46,6 +48,7 @@ export function useAnimatedView(
         window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
         (from.x === target.x && from.y === target.y && from.z === target.z)
       ) {
+        markPreviewMoving();
         applyView(target);
         return;
       }
@@ -81,6 +84,7 @@ export function useAnimatedView(
       );
       const started = performance.now();
       const step = (now: number) => {
+        markPreviewMoving();
         const t = Math.min(1, Math.max(0, (now - started) / duration));
         const eased = easeInOut(t);
         // Ease out to a wider view, then ease back in with no velocity jump.

@@ -1,4 +1,13 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { CanvasCard } from "./CanvasCard";
+import { GroupNameEditor } from "./GroupNameEditor";
+import { useLatestActions } from "./useLatestActions";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useMemo,
+} from "react";
 import { createRoot } from "react-dom/client";
 import {
   ListTodo,
@@ -17,8 +26,6 @@ import {
   Maximize,
   Folder,
   FolderUp,
-  WrapText,
-  ArrowLeftRight,
   Check,
   Copy,
   Scissors,
@@ -30,7 +37,6 @@ import {
   Network,
   Terminal,
   Code2,
-  MoreHorizontal,
   Unlink,
   EyeOff,
   Eye,
@@ -66,9 +72,7 @@ import {
   workspaceCounts,
   type CanvasImport,
 } from "./workspaceBackup";
-import { Markdown, Diagram } from "./Markdown";
-import { NoteText, linkTarget } from "./NoteText";
-import { TextEditor } from "./TextEditor";
+import { linkTarget } from "./NoteText";
 import { TodoEditor } from "./TodoEditor";
 import { TextFileEditor } from "./TextFileEditor";
 import { MermaidEditor } from "./MermaidEditor";
@@ -78,8 +82,6 @@ import { PaintControls } from "./PaintControls";
 import { usePaintActions } from "./usePaintActions";
 import { todoFocusAt } from "./todoCaret";
 import {
-  PreviewFrame,
-  TypeIcon,
   Mask,
   Remark,
   GroupList,
@@ -96,7 +98,6 @@ import {
   type TextStyle,
 } from "./presentation";
 import { mermaidSource, DEFAULT_MERMAID } from "./mermaidSource";
-import { ApplicationCard } from "./ApplicationCard";
 import { ApplicationDialog, type ApplicationDraft } from "./ApplicationDialog";
 import { LocalLauncherDialog } from "./LocalLauncherDialog";
 import { isApplicationKind, localPathName, vscodeUrl } from "./appAssociations";
@@ -164,53 +165,10 @@ import { registerPwa } from "./pwa";
 void registerPwa();
 import { CloudPanel } from "./CloudPanel";
 import { ShareViewer } from "./ShareViewer";
-import { Miniature, MiniatureDialog } from "./Miniature";
+import { MiniatureDialog } from "./Miniature";
 import { miniatureViewUrl } from "./miniatureScene";
 const uid = () => crypto.randomUUID();
 const colors = ["#ffffff"];
-function GroupNameEditor({
-  name,
-  onSave,
-  onCancel,
-  label = "分组名称",
-}: {
-  name: string;
-  label?: string;
-  onSave: (name: string) => void;
-  onCancel: () => void;
-}) {
-  const [value, setValue] = useState(name),
-    finished = useRef(false);
-  const save = () => {
-    if (finished.current) return;
-    finished.current = true;
-    if (value.trim()) onSave(value.trim());
-    else onCancel();
-  };
-  return (
-    <input
-      className="group-name-editor"
-      aria-label={label}
-      autoFocus
-      maxLength={200}
-      value={value}
-      onFocus={(e) => e.target.select()}
-      onChange={(e) => setValue(e.target.value)}
-      onPointerDown={(e) => e.stopPropagation()}
-      onBlur={save}
-      onKeyDown={(e) => {
-        e.stopPropagation();
-        if (e.key === "Enter") {
-          e.preventDefault();
-          save();
-        } else if (e.key === "Escape") {
-          finished.current = true;
-          onCancel();
-        }
-      }}
-    />
-  );
-}
 function App({ preview3D = false }: { preview3D?: boolean }) {
   const workspace = useCanvasWorkspace();
   const {
@@ -1431,10 +1389,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       });
     return nearest;
   };
-  const activePort = (card: string, side: Side, task?: string) =>
-    linkDraft?.to?.card === card &&
-    linkDraft.to.side === side &&
-    linkDraft.to.task === task;
   const startConnection = (e: React.PointerEvent, from: Endpoint) => {
     if (e.button !== 0) return;
     e.stopPropagation();
@@ -1991,7 +1945,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       notify(e instanceof Error ? e.message : "导入失败");
     }
   };
-  useEffect(() => {
+  // Keyboard commands must see the ready canvas before the saved state paints.
+  useLayoutEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (preview3D || importBusy) return;
       setLinkModifier(e.metaKey || e.ctrlKey);
@@ -2326,6 +2281,38 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       ? selection
       : [menuCard.id]
     : [];
+  const cardPath = useMemo(() => path, [JSON.stringify(path)]);
+  const cardConnectionTarget = useMemo(
+    () => linkDraft?.to,
+    [linkDraft?.to?.card, linkDraft?.to?.side, linkDraft?.to?.task],
+  );
+  const cardActions = useLatestActions(
+    {
+      setBoard,
+      updateRoot: workspace.updateRoot,
+      setMenu,
+      setSelectedGroup,
+      setSelectedConnection,
+      setSelection,
+      setDetail,
+      setActiveMiniature,
+      setRenamingCanvas,
+      pointerDown,
+      resizeCard,
+      startConnection,
+      runApplication,
+      copyCommands,
+      openCard,
+      updateCards,
+      navigateCanvas,
+      changeText,
+      changeTodo,
+      finishEditing,
+      changeTextFormat,
+      downloadCard,
+    },
+    (board.id || "") + JSON.stringify(path),
+  );
   return [
     <div
       key="canvas"
@@ -2801,577 +2788,27 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 );
               })}
             {visible.map((c) => (
-              <article
+              <CanvasCard
                 key={c.id}
-                data-testid="card"
-                data-card-id={c.id}
-                onContextMenu={(e) => {
-                  if ((e.target as HTMLElement).closest(".canvas-editor"))
-                    return;
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setSelectedGroup(undefined);
-                  setSelectedConnection(undefined);
-                  if (!selection.includes(c.id)) setSelection([c.id]);
-                  setMenu({
-                    x: e.clientX,
-                    y: e.clientY,
-                    id: c.id,
-                    kind: "card",
-                  });
-                }}
-                className={
-                  (c.masked ? "is-masked " : "") +
-                  (c.displayMode === "small" ? "is-small " : "") +
-                  "card card-" +
-                  c.kind +
-                  (c.kind === "file" && isTextFile(c)
-                    ? " text-file-card"
-                    : "") +
-                  (isPdfFile(c) ? " pdf-file-card" : "") +
-                  (isMarkdownFile(c) ? " markdown-file-card" : "") +
-                  " " +
-                  (selection.includes(c.id) ? "selected" : "") +
-                  (editingCard === c.id ? " canvas-editing" : "")
+                card={c}
+                selected={selection.includes(c.id)}
+                editing={editingCard === c.id}
+                editingTask={editingCard === c.id ? editingTask : undefined}
+                editingTaskOffset={
+                  editingCard === c.id ? editingTaskOffset : undefined
                 }
-                tabIndex={-1}
-                aria-label={
-                  c.masked
-                    ? "已遮罩组件"
-                    : c.displayMode === "small"
-                      ? `${c.kind} 组件`
-                      : c.kind === "text"
-                        ? c.text.slice(0, 80)
-                        : c.kind === "mermaid"
-                          ? "Mermaid 图表"
-                          : c.title || "任务"
-                }
-                data-group-name={
+                renaming={renamingCanvas === c.id}
+                miniatureActive={activeMiniature === c.id}
+                preview3D={preview3D}
+                groupName={
                   board.groups.find((g) => g.id === c.group)?.name || ""
                 }
-                style={{
-                  left: c.x,
-                  top: c.y,
-                  width: cardRect(c).width,
-                  height: cardRect(c).height,
-                  background: c.kind === "miniature" ? "transparent" : c.color,
-                }}
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  if (
-                    (e.target as Element).closest(".markdown-file-preview a") &&
-                    !e.ctrlKey &&
-                    !e.metaKey
-                  )
-                    return;
-                  pointerDown(e, c.id);
-                }}
-                onClick={(e) => {
-                  if (
-                    !c.masked &&
-                    c.displayMode !== "small" &&
-                    c.kind === "vscode" &&
-                    !lastPointerMoved.current &&
-                    !e.ctrlKey &&
-                    !e.metaKey &&
-                    !e.shiftKey &&
-                    e.detail < 2 &&
-                    !(e.target as Element).closest(
-                      ".connection-port,.resize-handle",
-                    )
-                  )
-                    runApplication(c);
-                  if (
-                    !c.masked &&
-                    c.displayMode !== "small" &&
-                    c.editableFile &&
-                    !lastPointerMoved.current &&
-                    !(e.target as Element).closest("button,a,input,textarea") &&
-                    !e.ctrlKey &&
-                    !e.metaKey
-                  )
-                    setDetail(c.id);
-                }}
-                onDoubleClick={(e) => {
-                  e.stopPropagation();
-                  if (c.masked) return;
-                  if (c.displayMode === "small") {
-                    setBoard(
-                      (b) => ({
-                        ...b,
-                        cards: b.cards.map((card) =>
-                          card.id === c.id
-                            ? { ...card, displayMode: "medium" }
-                            : card,
-                        ),
-                      }),
-                      { preserveLayout: true },
-                    );
-                    return;
-                  }
-                  if (c.kind === "vscode") return;
-                  if (c.kind === "todo" && !e.ctrlKey && !e.metaKey) {
-                    const focus = todoFocusAt(e, e.target as Element);
-                    openCard(c, focus.task, focus.offset, !focus.task);
-                    return;
-                  }
-                  if (!e.ctrlKey && !e.metaKey)
-                    openCard(
-                      c,
-                      document
-                        .elementFromPoint(e.clientX, e.clientY)
-                        ?.closest<HTMLElement>("[data-task-id]")?.dataset
-                        .taskId,
-                    );
-                }}
-              >
-                {c.masked ? (
-                  <Mask />
-                ) : c.displayMode === "small" && editingCard !== c.id ? (
-                  <TypeIcon card={c} />
-                ) : (
-                  <PreviewFrame card={c} editing={editingCard === c.id}>
-                    {c.kind !== "text" &&
-                      c.kind !== "image" &&
-                      c.kind !== "canvas" &&
-                      c.kind !== "miniature" &&
-                      c.kind !== "mermaid" &&
-                      !isApplicationKind(c.kind) &&
-                      !isPdfFile(c) &&
-                      !(c.kind === "file" && isTextFile(c)) && (
-                        <div className="card-top">
-                          <span>
-                            {c.kind === "todo" ? (
-                              <ListTodo size={13} />
-                            ) : (
-                              <FileText size={13} />
-                            )}{" "}
-                            {c.kind === "todo" ? "TODO" : "FILE"}
-                          </span>
-                        </div>
-                      )}
-                    {isApplicationKind(c.kind) ? (
-                      <ApplicationCard
-                        card={c}
-                        onOpen={(fromKeyboard) => {
-                          if (
-                            c.kind !== "vscode" ||
-                            fromKeyboard ||
-                            !lastPointerMoved.current
-                          )
-                            runApplication(c);
-                        }}
-                        onCopy={() => void copyCommands(c.text)}
-                      />
-                    ) : c.kind === "miniature" ? (
-                      preview3D ? null : (
-                        <Miniature
-                          card={c}
-                          active={activeMiniature === c.id}
-                          onActiveChange={(active) =>
-                            setActiveMiniature(active ? c.id : undefined)
-                          }
-                          onSelect={() => {
-                            setSelection([c.id]);
-                            setSelectedGroup(undefined);
-                            setSelectedConnection(undefined);
-                          }}
-                          onLabelChange={(field, value) => {
-                            updateCards((cards) =>
-                              cards.map((card) =>
-                                card.id === c.id
-                                  ? {
-                                      ...card,
-                                      [field]: value,
-                                      ...(field === "text" &&
-                                      card.text !== value
-                                        ? {
-                                            blob: undefined,
-                                            mime: undefined,
-                                            miniatureView: undefined,
-                                          }
-                                        : {}),
-                                    }
-                                  : card,
-                              ),
-                            );
-                          }}
-                          onSnapshot={({ view, cover }) => {
-                            if (!miniatureViewUrl(c.text, view)) return;
-                            workspace.updateRoot(
-                              (root) =>
-                                replaceBoard(root, path, (board) => {
-                                  const target = board.cards.find(
-                                    (card) =>
-                                      card.id === c.id &&
-                                      card.kind === "miniature" &&
-                                      card.text === c.text,
-                                  );
-                                  if (
-                                    !target ||
-                                    (target.miniatureView === view &&
-                                      target.blob === cover)
-                                  )
-                                    return board;
-                                  return {
-                                    ...board,
-                                    cards: board.cards.map((card) =>
-                                      card === target
-                                        ? {
-                                            ...card,
-                                            miniatureView: view,
-                                            blob: cover,
-                                            mime: cover?.type,
-                                          }
-                                        : card,
-                                    ),
-                                  };
-                                }),
-                              { preserveLayout: true, recordHistory: false },
-                            );
-                          }}
-                        />
-                      )
-                    ) : c.kind === "canvas" ? (
-                      <>
-                        <svg
-                          className="canvas-card-inner-border"
-                          aria-hidden="true"
-                          focusable="false"
-                        >
-                          <rect x="0.5" y="0.5" rx="10" />
-                        </svg>
-                        <div className="canvas-card-preview">
-                          <button
-                            aria-label={`进入子画布 ${c.title}`}
-                            title="进入子画布"
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onDoubleClick={(e) => e.stopPropagation()}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigateCanvas([...path, c.id]);
-                            }}
-                          >
-                            <PanelsTopLeft size={36} />
-                          </button>
-                        </div>
-                        <div className="attachment-title">
-                          <PanelsTopLeft size={16} />
-                          {renamingCanvas === c.id ? (
-                            <GroupNameEditor
-                              name={c.title}
-                              label="画布名称"
-                              onCancel={() => setRenamingCanvas(undefined)}
-                              onSave={(title) => {
-                                updateCards((cards) =>
-                                  cards.map((card) =>
-                                    card.id === c.id
-                                      ? { ...card, title }
-                                      : card,
-                                  ),
-                                );
-                                setRenamingCanvas(undefined);
-                              }}
-                            />
-                          ) : (
-                            <span>{c.title || "子画布"}</span>
-                          )}
-                        </div>
-                      </>
-                    ) : c.kind === "mermaid" ? (
-                      <div className="mermaid-preview">
-                        <Diagram
-                          source={c.text}
-                          language="mermaid"
-                          standalone
-                          onSize={(width, height) => {
-                            if (c.width || c.height) return;
-                            const scale = Math.min(
-                              1,
-                              800 / width,
-                              1200 / height,
-                            );
-                            setBoard(
-                              (b) => ({
-                                ...b,
-                                cards: b.cards.map((card) =>
-                                  card.id === c.id &&
-                                  !card.width &&
-                                  !card.height
-                                    ? {
-                                        ...card,
-                                        width: Math.max(
-                                          180,
-                                          width * scale + 24,
-                                        ),
-                                        height: Math.max(
-                                          100,
-                                          height * scale + 24,
-                                        ),
-                                      }
-                                    : card,
-                                ),
-                              }),
-                              { recordHistory: false },
-                            );
-                          }}
-                        />
-                      </div>
-                    ) : c.kind === "text" ? (
-                      editingCard === c.id ? (
-                        <TextEditor
-                          text={c.text}
-                          mode={c.textMode}
-                          textStyle={c.textStyle}
-                          onChange={(text) => changeText(c.id, text)}
-                          onFinish={(cancelled) =>
-                            finishEditing(c.id, cancelled)
-                          }
-                        />
-                      ) : (
-                        <NoteText
-                          text={c.text}
-                          mode={c.textMode}
-                          textStyle={c.textStyle}
-                        />
-                      )
-                    ) : c.kind === "todo" ? (
-                      editingCard === c.id ? (
-                        <TodoEditor
-                          tasks={c.tasks || []}
-                          initialTask={editingTask}
-                          initialOffset={editingTaskOffset}
-                          onChange={(tasks) => changeTodo(c.id, tasks)}
-                          onFinish={(cancelled) =>
-                            finishEditing(c.id, cancelled)
-                          }
-                        />
-                      ) : (
-                        <div
-                          className="todo-list"
-                          onDoubleClick={(e) => {
-                            if ((e.target as HTMLElement).closest("input"))
-                              e.stopPropagation();
-                          }}
-                        >
-                          {(c.tasks || []).map((task) => (
-                            <div
-                              key={task.id}
-                              data-task-id={task.id}
-                              className={`todo-row ${task.done ? "completed" : ""}`}
-                            >
-                              <input
-                                type="checkbox"
-                                aria-label={task.text}
-                                checked={task.done}
-                                onChange={() =>
-                                  updateCards((cards) =>
-                                    cards.map((card) =>
-                                      card.id === c.id
-                                        ? {
-                                            ...card,
-                                            tasks: card.tasks?.map((t) =>
-                                              t.id === task.id
-                                                ? { ...t, done: !t.done }
-                                                : t,
-                                            ),
-                                          }
-                                        : card,
-                                    ),
-                                  )
-                                }
-                              />
-                              <span data-task-text>{task.text}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )
-                    ) : c.kind === "image" ? (
-                      <Attachment card={c} />
-                    ) : isPdfFile(c) || isMarkdownFile(c) ? (
-                      <Attachment
-                        card={c}
-                        onPdfPageChange={(pdfPage) => {
-                          setBoard(
-                            (b) => ({
-                              ...b,
-                              cards: b.cards.map((card) =>
-                                card.id === c.id ? { ...card, pdfPage } : card,
-                              ),
-                            }),
-                            { recordHistory: false },
-                          );
-                        }}
-                      />
-                    ) : (
-                      <>
-                        <Attachment card={c} />
-                        <div className="attachment-title">
-                          <FileText size={16} />
-                          <span>{c.title}</span>
-                        </div>
-                      </>
-                    )}
-                    {c.kind === "file" && !isTextFile(c) && !isPdfFile(c) && (
-                      <footer>
-                        <span>
-                          {c.group
-                            ? board.groups.find((g) => g.id === c.group)?.name
-                            : ""}
-                        </span>
-                        <span>
-                          {selection.includes(c.id) ? (
-                            <Check size={13} />
-                          ) : (
-                            <MoreHorizontal size={16} />
-                          )}
-                        </span>
-                      </footer>
-                    )}
-                  </PreviewFrame>
-                )}
-                {!c.masked && <Remark text={c.remark} />}
-                {!c.masked && c.kind === "text" && editingCard === c.id && (
-                  <TextFormatToolbar
-                    style={c.textStyle}
-                    background={c.color}
-                    onChange={(style, color) =>
-                      changeTextFormat(c.id, style, color)
-                    }
-                  />
-                )}
-                {(c.kind === "todo" ? ["n", "s"] : ["n", "e", "s", "w"]).map(
-                  (value) => {
-                    const side = value as Side;
-                    return (
-                      <button
-                        key={side}
-                        className={`connection-port port-${side} ${activePort(c.id, side) ? "target-active" : ""}`}
-                        aria-label={`连接 ${c.masked || c.displayMode === "small" ? "组件" : c.title || c.text.slice(0, 20) || "任务"} ${side}`}
-                        data-port-card={c.id}
-                        data-port-side={side}
-                        onPointerDown={(e) =>
-                          startConnection(e, { card: c.id, side })
-                        }
-                        onDoubleClick={(e) => e.stopPropagation()}
-                      >
-                        <Plus size={12} />
-                      </button>
-                    );
-                  },
-                )}
-                {!c.masked &&
-                  c.displayMode !== "small" &&
-                  c.kind === "todo" &&
-                  (c.tasks || []).flatMap((task, index) =>
-                    ["w", "e"].map((value) => {
-                      const side = value as Side,
-                        offset = taskOffsets[`${c.id}:${task.id}`];
-                      return (
-                        <button
-                          key={`${task.id}:${side}`}
-                          className={`connection-port task-port port-${side} ${activePort(c.id, side, task.id) ? "target-active" : ""}`}
-                          style={{
-                            top: (offset?.y ?? 54 + index * 32) - 1,
-                            visibility:
-                              offset && !offset.visible ? "hidden" : undefined,
-                          }}
-                          aria-label={`连接任务 ${task.text} ${side}`}
-                          data-port-card={c.id}
-                          data-port-side={side}
-                          data-port-task={task.id}
-                          onPointerDown={(e) =>
-                            startConnection(e, {
-                              card: c.id,
-                              task: task.id,
-                              side,
-                            })
-                          }
-                          onDoubleClick={(e) => e.stopPropagation()}
-                        >
-                          <Plus size={12} />
-                        </button>
-                      );
-                    }),
-                  )}
-                {!c.masked &&
-                  c.displayMode !== "small" &&
-                  c.kind === "text" && (
-                    <button
-                      className="text-display-toggle"
-                      aria-label={
-                        c.textMode === "scroll"
-                          ? "切换为换行模式"
-                          : "切换为滚动模式"
-                      }
-                      title={c.textMode === "scroll" ? "换行" : "滚动"}
-                      aria-pressed={c.textMode === "scroll"}
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onDoubleClick={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const textMode =
-                          c.textMode === "scroll" ? "wrap" : "scroll";
-                        updateCards((cards) =>
-                          cards.map((card) =>
-                            card.id === c.id
-                              ? {
-                                  ...card,
-                                  textMode,
-                                  textAutoHeight: true,
-                                  ...textSize(
-                                    card.text,
-                                    textMode,
-                                    card.width || TEXT_MAX_WIDTH,
-                                    card.textStyle,
-                                  ),
-                                }
-                              : card,
-                          ),
-                        );
-                      }}
-                    >
-                      {c.textMode === "scroll" ? (
-                        <WrapText size={17} />
-                      ) : (
-                        <ArrowLeftRight size={17} />
-                      )}
-                    </button>
-                  )}
-                {!c.masked &&
-                  c.displayMode !== "small" &&
-                  !isApplicationKind(c.kind) && (
-                    <button
-                      className="card-download"
-                      aria-label={`下载 ${c.title || (c.kind === "todo" ? "任务" : c.kind === "mermaid" ? "Mermaid" : "文本")}`}
-                      title="下载"
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                      }}
-                      onDoubleClick={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        downloadCard(c);
-                      }}
-                    >
-                      <Download size={17} />
-                    </button>
-                  )}
-                {c.displayMode !== "small" &&
-                  selection.includes(c.id) &&
-                  ((c.kind === "text" && c.textAutoHeight) ||
-                  c.kind === "vscode"
-                    ? ["e", "w"]
-                    : ["n", "s", "e", "w", "ne", "nw", "se", "sw"]
-                  ).map((edge) => (
-                    <div
-                      key={edge}
-                      className={`card-resize resize-handle resize-${edge}`}
-                      data-testid={`card-resize-${edge}`}
-                      onPointerDown={(e) => resizeCard(e, c, edge)}
-                    />
-                  ))}
-              </article>
+                path={cardPath}
+                connectionTarget={cardConnectionTarget}
+                taskOffsets={c.kind === "todo" ? taskOffsets : undefined}
+                lastPointerMoved={lastPointerMoved}
+                actions={cardActions}
+              />
             ))}
             <div className="connection-edit-layer" ref={connectionEditors} />
             {marquee && (

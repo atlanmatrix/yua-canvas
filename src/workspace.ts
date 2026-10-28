@@ -92,7 +92,10 @@ export function useCanvasWorkspace() {
   const [path, setPath] = useState<string[]>([]),
     [views, setViews] = useState<Record<string, View>>({}),
     [view, setView] = useState<View>(DEFAULT_VIEW);
-  const active = locateBoard(history.board, path),
+  const active = useMemo(
+      () => locateBoard(history.board, path),
+      [history.board, path],
+    ),
     key = active.board.id || "",
     previous = useRef(key);
   const pathKey = JSON.stringify(active.path);

@@ -1,6 +1,6 @@
 import { presentationHidden, groupFrame } from "./CardPresentation";
 import { StrokeView } from "./PaintLayer";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { type Board, type Card, type Rect, groupDepth } from "./storage";
 import { cardRect } from "./geometry";
 import { ConnectionArrow } from "./ConnectionArrow";
@@ -12,7 +12,13 @@ import {
   type MinimapProjection,
 } from "./minimapGeometry";
 
-function MiniCard({ card, selected }: { card: Card; selected: boolean }) {
+const MiniCard = memo(function MiniCard({
+  card,
+  selected,
+}: {
+  card: Card;
+  selected: boolean;
+}) {
   const [image, setImage] = useState("");
   useEffect(() => {
     if (
@@ -68,7 +74,7 @@ function MiniCard({ card, selected }: { card: Card; selected: boolean }) {
       )}
     </g>
   );
-}
+});
 
 export function Minimap({
   board,
