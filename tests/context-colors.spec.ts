@@ -179,7 +179,9 @@ test("seven horizontal pastel choices color every card type and groups, preserve
   await setup(page);
   const ids = ["普通文本", "配置.env", "图片.png", "任务", "链接", "附件.bin"];
   await menu(page, card(page, ids[0]));
-  const swatches = page.getByRole("menuitemradio");
+  const swatches = page
+    .getByRole("group", { name: "背景颜色", exact: true })
+    .getByRole("menuitemradio");
   await expect(swatches).toHaveCount(7);
   const swatchStyle = await swatches.first().evaluate((el) => {
     const css = getComputedStyle(el);
@@ -344,6 +346,10 @@ test("palette keyboard navigation does not move elements and expanded menus stay
   expect(box.y).toBeGreaterThanOrEqual(8);
   expect(box.x + box.width).toBeLessThanOrEqual(382);
   expect(box.y + box.height).toBeLessThanOrEqual(836);
-  await expect(page.getByRole("menuitemradio")).toHaveCount(7);
+  await expect(
+    page
+      .getByRole("group", { name: "背景颜色", exact: true })
+      .getByRole("menuitemradio"),
+  ).toHaveCount(7);
   await page.screenshot({ path: "/tmp/yua-context-menu-mobile.png" });
 });

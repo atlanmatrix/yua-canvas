@@ -1,3 +1,5 @@
+import { strokeBounds } from "./presentation";
+import { presentationHidden, groupFrame } from "./CardPresentation";
 import type { Board, Card, Rect } from "./storage";
 import { cardRect } from "./geometry";
 
@@ -28,7 +30,8 @@ export function canvas3DLayers(root: Board): Canvas3DLayer[] {
   ) => {
     const rects = [
       ...board.cards.map(cardRect),
-      ...board.groups.flatMap((g) => (g.bounds ? [g.bounds] : [])),
+      ...board.groups.flatMap((g) => (g.bounds ? [groupFrame(g)] : [])),
+      ...strokeBounds(board.strokes),
     ];
     const x = rects.length ? Math.min(...rects.map((r) => r.x)) - 36 : 0;
     const y = rects.length ? Math.min(...rects.map((r) => r.y)) - 36 : 0;
@@ -63,7 +66,12 @@ export function canvas3DLayers(root: Board): Canvas3DLayer[] {
       y: (-height * scale) / 2,
     });
     for (const card of board.cards)
-      if (card.kind === "canvas" && card.canvas)
+      if (
+        card.kind === "canvas" &&
+        card.canvas &&
+        !card.masked &&
+        !presentationHidden(board, card.group)
+      )
         visit(
           card.canvas,
           [...path, card.id],

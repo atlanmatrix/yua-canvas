@@ -54,6 +54,8 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
               prefix + safeName(card.title || "子画布") + ` (${index++})`;
           used.add(directory.toLowerCase());
           return {
+            masked: card.masked,
+            remark: card.remark,
             id: card.id,
             kind: card.kind,
             name: card.title,
@@ -121,6 +123,12 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
           kind: card.kind,
           file: path,
           coverFile,
+          displayMode: card.displayMode,
+          previewWidth: card.previewWidth,
+          previewHeight: card.previewHeight,
+          masked: card.masked,
+          remark: card.remark,
+          textStyle: card.textStyle,
           miniatureView: card.miniatureView,
           pdfPage: card.pdfPage,
           editableFile: card.editableFile,
@@ -146,6 +154,7 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
     );
     return {
       cards,
+      strokes: "strokes" in source ? source.strokes : undefined,
       groups: source.groups,
       connections: source.connections || [],
     };
@@ -291,6 +300,7 @@ export async function readArchive(
         version: 1,
         cards,
         groups: data.groups,
+        strokes: data.strokes,
         connections: data.connections,
       }),
       (path, mime) => {
@@ -318,7 +328,12 @@ export async function readArchive(
         }
       : point,
   );
-  if (!board.cards.length && !board.groups.length && !extra.length)
+  if (
+    !board.cards.length &&
+    !board.groups.length &&
+    !board.strokes?.length &&
+    !extra.length
+  )
     throw Error("ZIP 中没有可导入的元素");
   return {
     ...board,

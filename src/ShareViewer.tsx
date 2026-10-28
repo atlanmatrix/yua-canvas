@@ -1,3 +1,16 @@
+import {
+  PreviewFrame,
+  TypeIcon,
+  Mask,
+  Remark,
+  GroupList,
+  presentationHidden,
+  groupFrame,
+  groupCards,
+} from "./CardPresentation";
+import { StrokeView } from "./PaintLayer";
+import { NoteText } from "./NoteText";
+import { strokeBounds } from "./presentation";
 import { useEffect, useRef, useState } from "react";
 import { api, unpackCloud } from "./cloud";
 import {
@@ -58,7 +71,10 @@ export function ShareViewer({ token }: { token: string }) {
   }, [token]);
   useEffect(() => {
     if (!board) return;
-    const rects = board.cards.map(cardRect);
+    const rects = [
+      ...board.cards.map(cardRect),
+      ...strokeBounds(board.strokes),
+    ];
     if (!rects.length) return;
     const x = Math.min(...rects.map((r) => r.x)),
       y = Math.min(...rects.map((r) => r.y)),
@@ -165,113 +181,148 @@ export function ShareViewer({ token }: { token: string }) {
               transform: `translate(${view.x}px,${view.y}px) scale(${view.z})`,
             }}
           >
-            {board.groups.map(
-              (g) =>
-                g.bounds && (
-                  <div
-                    key={g.id}
-                    className="share-group"
-                    style={{
-                      left: g.bounds.x,
-                      top: g.bounds.y,
-                      width: g.bounds.width,
-                      height: g.bounds.height,
-                      background: g.color,
-                    }}
-                  >
-                    <span>{g.name}</span>
-                  </div>
-                ),
-            )}
+            {board.groups
+              .filter((g) => !presentationHidden(board, g.parent))
+              .map(
+                (g) =>
+                  g.bounds && (
+                    <div
+                      key={g.id}
+                      className="share-group"
+                      style={{
+                        left: groupFrame(g).x,
+                        top: groupFrame(g).y,
+                        width: groupFrame(g).width,
+                        height: groupFrame(g).height,
+                        background: g.color,
+                      }}
+                    >
+                      <span>{g.masked ? "已遮罩" : g.name}</span>
+                      {g.masked ? (
+                        <Mask />
+                      ) : g.displayMode === "list" ? (
+                        <GroupList group={g} cards={groupCards(board, g.id)} />
+                      ) : null}
+                      {!g.masked && <Remark text={g.remark} />}
+                    </div>
+                  ),
+              )}
             <svg className="share-connections">
               <ConnectionArrow
                 id="canvas-connection-arrow"
                 size={8}
                 color="#d1d5db"
               />
-              {board.connections?.map((c) => {
-                const from = endpointPoint(c.from, board.cards, {}),
-                  to = endpointPoint(c.to, board.cards, {}),
-                  mid = curveMidpoint(from, to, c.from.side, c.to.side);
+              {board.connections
+                ?.filter((c) =>
+                  [c.from.card, c.to.card].every((id) => {
+                    const card = board.cards.find((c) => c.id === id);
+                    return card && !presentationHidden(board, card.group);
+                  }),
+                )
+                .map((c) => {
+                  const from = endpointPoint(c.from, board.cards, {}),
+                    to = endpointPoint(c.to, board.cards, {}),
+                    mid = curveMidpoint(from, to, c.from.side, c.to.side);
+                  return (
+                    <g key={c.id}>
+                      <path
+                        d={curve(from, to, c.from.side, c.to.side)}
+                        stroke="#d1d5db"
+                        strokeWidth="2"
+                        fill="none"
+                        markerEnd="url(#canvas-connection-arrow)"
+                      />
+                      {c.label && (
+                        <text x={mid.x} y={mid.y} textAnchor="middle">
+                          {c.label}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+            </svg>
+            {board.cards
+              .filter((c) => !presentationHidden(board, c.group))
+              .map((c) => {
+                const r = cardRect(c);
                 return (
-                  <g key={c.id}>
-                    <path
-                      d={curve(from, to, c.from.side, c.to.side)}
-                      stroke="#d1d5db"
-                      strokeWidth="2"
-                      fill="none"
-                      markerEnd="url(#canvas-connection-arrow)"
-                    />
-                    {c.label && (
-                      <text x={mid.x} y={mid.y} textAnchor="middle">
-                        {c.label}
-                      </text>
+                  <article
+                    className={
+                      "share-card" +
+                      (c.kind === "miniature" ? " share-miniature" : "")
+                    }
+                    key={c.id}
+                    style={{
+                      left: r.x,
+                      top: r.y,
+                      width: r.width,
+                      minHeight: r.height,
+                      height: r.height,
+                      background:
+                        c.kind === "miniature" ? "transparent" : c.color,
+                    }}
+                  >
+                    {c.masked ? (
+                      <Mask />
+                    ) : c.displayMode === "small" ? (
+                      <TypeIcon card={c} />
+                    ) : (
+                      <PreviewFrame card={c}>
+                        {isApplicationKind(c.kind) ? (
+                          <ApplicationCard card={c} readonly />
+                        ) : c.kind === "miniature" ? (
+                          <Miniature card={c} />
+                        ) : c.kind === "canvas" ? (
+                          <button
+                            onClick={() => setStack((s) => [...s, c.canvas!])}
+                          >
+                            进入 {c.title}
+                          </button>
+                        ) : c.kind === "text" ? (
+                          <NoteText
+                            text={c.text}
+                            mode={c.textMode}
+                            textStyle={c.textStyle}
+                          />
+                        ) : c.kind === "mermaid" ? (
+                          <div className="mermaid-preview">
+                            <Diagram
+                              source={c.text}
+                              language="mermaid"
+                              standalone
+                            />
+                          </div>
+                        ) : isPdfFile(c) ? (
+                          <PdfPreview card={c} />
+                        ) : isMarkdownFile(c) ? (
+                          <FilePreview card={c} />
+                        ) : c.kind === "todo" ? (
+                          <ul>
+                            {c.tasks?.map((t) => (
+                              <li key={t.id}>
+                                {t.done ? "☑" : "☐"} {t.text}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <>
+                            <Asset card={c} />
+                            {c.kind === "file" &&
+                              /markdown/.test(c.mime || "") && (
+                                <FilePreview card={c} />
+                              )}
+                          </>
+                        )}
+                      </PreviewFrame>
                     )}
-                  </g>
+                    {!c.masked && <Remark text={c.remark} />}
+                  </article>
                 );
               })}
+            <svg className="share-paint">
+              <StrokeView strokes={board.strokes} />
             </svg>
-            {board.cards.map((c) => {
-              const r = cardRect(c);
-              return (
-                <article
-                  className={
-                    "share-card" +
-                    (c.kind === "miniature" ? " share-miniature" : "")
-                  }
-                  key={c.id}
-                  style={{
-                    left: r.x,
-                    top: r.y,
-                    width: r.width,
-                    minHeight: r.height,
-                    height:
-                      isPdfFile(c) ||
-                      c.kind === "mermaid" ||
-                      isApplicationKind(c.kind)
-                        ? r.height
-                        : undefined,
-                    background:
-                      c.kind === "miniature" ? "transparent" : c.color,
-                  }}
-                >
-                  {isApplicationKind(c.kind) ? (
-                    <ApplicationCard card={c} readonly />
-                  ) : c.kind === "miniature" ? (
-                    <Miniature card={c} />
-                  ) : c.kind === "canvas" ? (
-                    <button onClick={() => setStack((s) => [...s, c.canvas!])}>
-                      进入 {c.title}
-                    </button>
-                  ) : c.kind === "text" ? (
-                    <div style={{ whiteSpace: "pre-wrap" }}>{c.text}</div>
-                  ) : c.kind === "mermaid" ? (
-                    <div className="mermaid-preview">
-                      <Diagram source={c.text} language="mermaid" standalone />
-                    </div>
-                  ) : isPdfFile(c) ? (
-                    <PdfPreview card={c} />
-                  ) : isMarkdownFile(c) ? (
-                    <FilePreview card={c} />
-                  ) : c.kind === "todo" ? (
-                    <ul>
-                      {c.tasks?.map((t) => (
-                        <li key={t.id}>
-                          {t.done ? "☑" : "☐"} {t.text}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <>
-                      <Asset card={c} />
-                      {c.kind === "file" && /markdown/.test(c.mime || "") && (
-                        <FilePreview card={c} />
-                      )}
-                    </>
-                  )}
-                </article>
-              );
-            })}
           </div>
           <div className="share-zoom">
             <button

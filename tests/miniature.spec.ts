@@ -93,8 +93,11 @@ test("double-click activates a full-size model, outside clicks deactivate and pe
     kind: "miniature",
     title,
     text: src,
-    width: 685,
-    height: 540,
+    width: 640,
+    height: 520,
+    displayMode: "medium",
+    previewWidth: 365,
+    previewHeight: 260,
   });
   expect(
     new URL(exported.cards[0].miniatureView).searchParams.get("view"),
@@ -416,6 +419,16 @@ test("an unsupported capture protocol times out without leaving a background ifr
   await page.clock.install();
   await create(page);
   await expect(page.locator(".miniature-capture-frame")).toHaveCount(1);
+  // Start the timeout check after iframe load, which schedules the capture request.
+  await expect
+    .poll(() =>
+      page
+        .frameLocator(".miniature-capture-frame")
+        .locator("body")
+        .evaluate(() => document.readyState),
+    )
+    .toBe("complete");
+  await page.clock.runFor(1);
   await page.clock.fastForward(13000);
   await expect(page.locator("iframe")).toHaveCount(0);
   await expect(page.locator(".miniature-placeholder")).toHaveText(

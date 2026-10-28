@@ -1,3 +1,4 @@
+import { textCss, type TextStyle } from "./presentation";
 export function linkTarget(text: string): string | undefined {
   const value = text.trim();
   if (!value || /[\s<>]/u.test(value)) return;
@@ -13,9 +14,11 @@ export function linkTarget(text: string): string | undefined {
 export function NoteText({
   text,
   mode = "wrap",
+  textStyle,
 }: {
   text: string;
   mode?: "wrap" | "scroll";
+  textStyle?: TextStyle;
 }) {
   const href = linkTarget(text);
   return (
@@ -42,7 +45,7 @@ export function NoteText({
           e.stopPropagation();
       }}
     >
-      <p>
+      <p style={textCss(textStyle)}>
         {href ? (
           <a
             className="note-link"

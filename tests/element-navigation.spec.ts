@@ -107,7 +107,7 @@ test("text editing, menus, shift nudging and parent-child shortcuts retain their
     button: "right",
     position: { x: 30, y: 30 },
   });
-  await page.getByRole("menuitemradio").first().focus();
+  await page.getByRole("menuitemradio", { name: "背景色：白色" }).focus();
   await page.keyboard.press("ArrowRight");
   await expect(
     page.getByRole("menuitemradio", { name: "背景色：浅粉" }),

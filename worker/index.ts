@@ -1,3 +1,4 @@
+import { validPresentation, validStrokes } from "../src/presentation";
 import { miniatureUrl, miniatureViewUrl } from "../src/miniatureScene";
 import {
   isApplicationKind,
@@ -100,6 +101,11 @@ function validateSnapshot(data: any): string[] {
       depth > 32
     )
       fail(400, "画布格式无效");
+    if (
+      !validStrokes(b.strokes) ||
+      b.groups.some((g: any) => !validPresentation(g, true))
+    )
+      fail(400, "显示或画笔数据无效");
     count += b.cards.length + b.groups.length + (b.connections?.length || 0);
     if (count > 10000) fail(400, "画布元素过多");
     for (const c of b.cards) {
@@ -124,6 +130,7 @@ function validateSnapshot(data: any): string[] {
         c.blob !== undefined
       )
         fail(400, "卡片格式无效");
+      if (!validPresentation(c)) fail(400, "组件显示设置无效");
       if (isApplicationKind(c.kind) && !validApplicationText(c.kind, c.text))
         fail(400, "应用关联配置无效");
       if (c.kind === "miniature" && !miniatureUrl(c.text))

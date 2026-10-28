@@ -18,6 +18,15 @@ async function paste(page: Page, text: string) {
   await expect(
     page.getByTestId("card").last().locator(".note-body"),
   ).toHaveText(text);
+  // These checks exercise the unscaled text layout; default medium previews
+  // and their natural-size preservation are covered in presentation.spec.ts.
+  await page
+    .getByTestId("card")
+    .last()
+    .dispatchEvent("contextmenu", { clientX: 400, clientY: 180 });
+  await page
+    .getByRole("menuitemradio", { name: "显示模式：大", exact: true })
+    .click();
 }
 async function ready(page: Page) {
   await page.goto("/");
@@ -237,13 +246,14 @@ test("toolbar keeps creation tools without a search interface", async ({
 }) => {
   await ready(page);
   const tools = page.locator(".toolbar > button");
-  await expect(tools).toHaveCount(6);
+  await expect(tools).toHaveCount(7);
   expect(
     await tools.evaluateAll((els) =>
       els.map((el) => el.getAttribute("aria-label")),
     ),
   ).toEqual([
     "添加任务",
+    "画笔",
     "上传图片",
     "上传文件",
     "导入目录",

@@ -1,13 +1,16 @@
+import { textCss, type TextStyle } from "./presentation";
 import { useLayoutEffect, useRef } from "react";
 
 export function TextEditor({
   text,
   mode,
+  textStyle,
   onChange,
   onFinish,
 }: {
   text: string;
   mode?: "wrap" | "scroll";
+  textStyle?: TextStyle;
   onChange: (text: string) => void;
   onFinish: (cancelled?: boolean) => void;
 }) {
@@ -22,11 +25,17 @@ export function TextEditor({
       ref={input}
       className="text-editor canvas-editor"
       aria-label="文本内容"
+      style={textCss(textStyle)}
       spellCheck={false}
       value={text}
       wrap={mode === "scroll" ? "off" : "soft"}
       onChange={(e) => onChange(e.target.value)}
-      onBlur={() => onFinish()}
+      onBlur={(e) => {
+        if (
+          !(e.relatedTarget as Element | null)?.closest(".text-format-toolbar")
+        )
+          onFinish();
+      }}
       onPointerDown={(e) => e.stopPropagation()}
       onPointerUp={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}

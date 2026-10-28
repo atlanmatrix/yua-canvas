@@ -148,7 +148,7 @@ test("selection has no toolbar; context menus group capabilities and retain mult
     await card(page, id).click({ position: { x: 50, y: 50 } });
     await expect(card(page, id)).toHaveClass(/selected/);
     await expect(page.locator(".selection-bar")).toHaveCount(0);
-    await expect(page.locator(".toolbar > button")).toHaveCount(6);
+    await expect(page.locator(".toolbar > button")).toHaveCount(7);
   }
   await card(page, "a").click({ position: { x: 50, y: 50 } });
   await card(page, "d").click({
@@ -169,7 +169,11 @@ test("selection has no toolbar; context menus group capabilities and retain mult
   await expect(
     popup.getByRole("group", { name: "分组操作" }).getByRole("menuitem"),
   ).toHaveText(["创建分组", "移出分组"]);
-  await expect(popup.getByRole("menuitemradio")).toHaveCount(7);
+  await expect(
+    popup
+      .getByRole("group", { name: "背景颜色", exact: true })
+      .getByRole("menuitemradio"),
+  ).toHaveCount(7);
   await expect(
     popup.getByRole("group", { name: "删除操作" }).getByRole("menuitem"),
   ).toHaveText("删除");

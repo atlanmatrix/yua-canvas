@@ -1,3 +1,4 @@
+import type { Stroke } from "./presentation";
 import type { Connection } from "./connections";
 import {
   type Board,
@@ -10,6 +11,7 @@ import {
 export type Fragment = {
   cards: Card[];
   groups: Group[];
+  strokes?: Stroke[];
   connections?: Connection[];
 };
 export function selectedFragment(
@@ -40,17 +42,18 @@ export function duplicateFragment(
 ) {
   const delta = typeof offset === "number" ? { x: offset, y: offset } : offset;
   const ids = new Map(fragment.groups.map((g) => [g.id, crypto.randomUUID()]));
+  const cardIds = new Map(
+    fragment.cards.map((c) => [c.id, crypto.randomUUID()]),
+  );
   const groups = fragment.groups.map((g) => ({
     ...g,
     id: ids.get(g.id)!,
+    activeCard: g.activeCard ? cardIds.get(g.activeCard) : undefined,
     parent: g.parent ? ids.get(g.parent) : undefined,
     bounds: g.bounds
       ? { ...g.bounds, x: g.bounds.x + delta.x, y: g.bounds.y + delta.y }
       : undefined,
   }));
-  const cardIds = new Map(
-    fragment.cards.map((c) => [c.id, crypto.randomUUID()]),
-  );
   const taskIds = new Map(
     fragment.cards.flatMap((c) =>
       (c.tasks || []).map((t) => [`${c.id}:${t.id}`, crypto.randomUUID()]),
@@ -83,6 +86,21 @@ export function duplicateFragment(
     board: {
       ...board,
       cards: [...board.cards, ...cards],
+      ...(board.strokes || fragment.strokes
+        ? {
+            strokes: [
+              ...(board.strokes || []),
+              ...(fragment.strokes || []).map((s) => ({
+                ...s,
+                id: crypto.randomUUID(),
+                points: s.points.map((p) => ({
+                  x: p.x + delta.x,
+                  y: p.y + delta.y,
+                })),
+              })),
+            ],
+          }
+        : {}),
       groups: attachParents([...board.groups, ...groups]),
       connections: [
         ...(board.connections || []),

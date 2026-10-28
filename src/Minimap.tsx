@@ -1,3 +1,5 @@
+import { presentationHidden, groupFrame } from "./CardPresentation";
+import { StrokeView } from "./PaintLayer";
 import { useEffect, useRef, useState } from "react";
 import { type Board, type Card, type Rect, groupDepth } from "./storage";
 import { cardRect } from "./geometry";
@@ -13,22 +15,32 @@ import {
 function MiniCard({ card, selected }: { card: Card; selected: boolean }) {
   const [image, setImage] = useState("");
   useEffect(() => {
-    if (!["image", "miniature"].includes(card.kind) || !card.blob) {
+    if (
+      card.masked ||
+      card.displayMode === "small" ||
+      !["image", "miniature"].includes(card.kind) ||
+      !card.blob
+    ) {
       setImage("");
       return;
     }
     const url = URL.createObjectURL(card.blob);
     setImage(url);
     return () => URL.revokeObjectURL(url);
-  }, [card.kind, card.blob]);
+  }, [card.kind, card.blob, card.masked, card.displayMode]);
   const b = cardRect(card);
   const lines =
-    card.kind === "todo"
-      ? Math.min(5, card.tasks?.length || 0)
-      : Math.min(
-          5,
-          Math.max(1, Math.ceil((card.text.length || card.title.length) / 30)),
-        );
+    card.masked || card.displayMode === "small"
+      ? 0
+      : card.kind === "todo"
+        ? Math.min(5, card.tasks?.length || 0)
+        : Math.min(
+            5,
+            Math.max(
+              1,
+              Math.ceil((card.text.length || card.title.length) / 30),
+            ),
+          );
   return (
     <g
       data-minimap-card={card.id}
@@ -174,6 +186,7 @@ export function Minimap({
           transform={`translate(${x} ${y}) scale(${scale})`}
         >
           {[...board.groups]
+            .filter((g) => !presentationHidden(board, g.parent))
             .sort(
               (a, b) =>
                 groupDepth(board.groups, a.id) - groupDepth(board.groups, b.id),
@@ -185,30 +198,44 @@ export function Minimap({
                     key={g.id}
                     data-minimap-group={g.id}
                     className="minimap-group"
-                    {...g.bounds}
+                    {...groupFrame(g)}
                     style={{ fill: g.color }}
                     vectorEffect="non-scaling-stroke"
                   />
                 ),
             )}
-          {board.connections?.map((c) => (
-            <path
-              key={c.id}
-              data-minimap-connection={c.id}
-              className="minimap-connection"
-              markerEnd="url(#minimap-connection-arrow)"
-              d={curve(
-                endpointPoint(c.from, board.cards, offsets),
-                endpointPoint(c.to, board.cards, offsets),
-                c.from.side,
-                c.to.side,
-              )}
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
-          {board.cards.map((c) => (
-            <MiniCard key={c.id} card={c} selected={selection.includes(c.id)} />
-          ))}
+          {board.connections
+            ?.filter((c) =>
+              [c.from.card, c.to.card].every((id) => {
+                const card = board.cards.find((c) => c.id === id);
+                return card && !presentationHidden(board, card.group);
+              }),
+            )
+            .map((c) => (
+              <path
+                key={c.id}
+                data-minimap-connection={c.id}
+                className="minimap-connection"
+                markerEnd="url(#minimap-connection-arrow)"
+                d={curve(
+                  endpointPoint(c.from, board.cards, offsets),
+                  endpointPoint(c.to, board.cards, offsets),
+                  c.from.side,
+                  c.to.side,
+                )}
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
+          {board.cards
+            .filter((c) => !presentationHidden(board, c.group))
+            .map((c) => (
+              <MiniCard
+                key={c.id}
+                card={c}
+                selected={selection.includes(c.id)}
+              />
+            ))}
+          <StrokeView strokes={board.strokes} />
           <rect
             className="minimap-viewport"
             data-testid="minimap-viewport"

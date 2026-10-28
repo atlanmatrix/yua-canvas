@@ -1,3 +1,4 @@
+import { textCss, type TextStyle } from "./presentation";
 import { type Board, type Card, type Rect, attachParents } from "./storage";
 const textContext = document.createElement("canvas").getContext("2d")!;
 textContext.font = "13px monospace";
@@ -16,8 +17,24 @@ function scrollbarSize() {
   return scrollbar;
 }
 export const cardRect = (
-  c: Pick<Card, "x" | "y" | "width" | "height">,
-): Rect => ({ x: c.x, y: c.y, width: c.width || 240, height: c.height || 250 });
+  c: Pick<Card, "x" | "y" | "width" | "height"> &
+    Partial<
+      Pick<Card, "kind" | "displayMode" | "previewWidth" | "previewHeight">
+    >,
+): Rect => {
+  const width = c.width || 240,
+    height = c.height || 250;
+  if (c.kind !== "canvas" && c.displayMode === "small")
+    return { x: c.x, y: c.y, width: 56, height: 56 };
+  if (c.kind !== "canvas" && c.displayMode === "medium")
+    return {
+      x: c.x,
+      y: c.y,
+      width: c.previewWidth || Math.min(width, 320),
+      height: c.previewHeight || Math.min(height, 240),
+    };
+  return { x: c.x, y: c.y, width, height };
+};
 
 export type ArrowDirection =
   "arrowup" | "arrowdown" | "arrowleft" | "arrowright";
@@ -71,7 +88,10 @@ export function textSize(
   text: string,
   mode: "wrap" | "scroll" = "wrap",
   requestedWidth = TEXT_MAX_WIDTH,
+  style?: TextStyle,
 ) {
+  const css = textCss(style);
+  textContext.font = `${css.fontStyle} ${css.fontWeight} ${css.fontSize}px ${css.fontFamily}`;
   const ctx = textContext,
     inset = 26;
   const width = Math.max(64, Math.min(TEXT_MAX_WIDTH, requestedWidth));
@@ -107,7 +127,8 @@ export function textSize(
   return {
     width,
     height:
-      Math.min(TEXT_MAX_LINES, rows) * 24 +
+      Math.min(TEXT_MAX_LINES, rows) *
+        Math.max(24, (style?.fontSize || 13) * 1.5) +
       inset +
       (horizontal ? scrollbarSize() : 0),
   };

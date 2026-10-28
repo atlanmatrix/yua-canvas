@@ -1,3 +1,14 @@
+import { StrokeView } from "./PaintLayer";
+import {
+  Mask,
+  TypeIcon,
+  presentationHidden,
+  GroupList,
+  Remark,
+  groupFrame,
+  groupCards,
+} from "./CardPresentation";
+import { textCss } from "./presentation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
@@ -40,7 +51,7 @@ function ComponentPreview({ card }: { card: Card }) {
   const [image, setImage] = useState("");
   const [text, setText] = useState("");
   useEffect(() => {
-    if (!card.blob) return;
+    if (card.masked || card.displayMode === "small" || !card.blob) return;
     if (card.kind === "image" || card.kind === "miniature") {
       const url = URL.createObjectURL(card.blob);
       setImage(url);
@@ -56,10 +67,22 @@ function ComponentPreview({ card }: { card: Card }) {
     return () => {
       active = false;
     };
-  }, [card.kind, card.blob, card.title, card.mime]);
+  }, [
+    card.kind,
+    card.blob,
+    card.title,
+    card.mime,
+    card.masked,
+    card.displayMode,
+  ]);
+  if (card.masked) return <Mask />;
+  if (card.displayMode === "small") return <TypeIcon card={card} />;
   if ((card.kind === "image" || card.kind === "miniature") && image)
     return <img src={image} alt={card.title} draggable={false} />;
-  if (card.kind === "text") return <pre>{card.text.slice(0, 3000)}</pre>;
+  if (card.kind === "text")
+    return (
+      <pre style={textCss(card.textStyle)}>{card.text.slice(0, 3000)}</pre>
+    );
   if (isApplicationKind(card.kind))
     return <ApplicationCard card={card} readonly />;
   if (card.kind === "mermaid")
@@ -244,24 +267,35 @@ export function Canvas3D({
                 transform: `scale(${layer.scale}) translate(${-layer.bounds.x}px,${-layer.bounds.y}px)`,
               }}
             >
-              {layer.board.groups.map(
-                (g) =>
-                  g.bounds && (
-                    <div
-                      key={g.id}
-                      className="canvas3d-group"
-                      style={{
-                        left: g.bounds.x,
-                        top: g.bounds.y,
-                        width: g.bounds.width,
-                        height: g.bounds.height,
-                        borderColor: g.color,
-                      }}
-                    >
-                      <span>{g.name}</span>
-                    </div>
-                  ),
-              )}
+              {layer.board.groups
+                .filter((g) => !presentationHidden(layer.board, g.parent))
+                .map(
+                  (g) =>
+                    g.bounds && (
+                      <div
+                        key={g.id}
+                        className="canvas3d-group"
+                        style={{
+                          left: groupFrame(g).x,
+                          top: groupFrame(g).y,
+                          width: groupFrame(g).width,
+                          height: groupFrame(g).height,
+                          borderColor: g.color,
+                        }}
+                      >
+                        <span>{g.masked ? "已遮罩" : g.name}</span>
+                        {g.masked ? (
+                          <Mask />
+                        ) : g.displayMode === "list" ? (
+                          <GroupList
+                            group={g}
+                            cards={groupCards(layer.board, g.id)}
+                          />
+                        ) : null}
+                        {!g.masked && <Remark text={g.remark} />}
+                      </div>
+                    ),
+                )}
               <svg
                 className="canvas3d-connections"
                 aria-hidden="true"
@@ -280,78 +314,102 @@ export function Canvas3D({
                     color="#94a3b8"
                   />
                 </defs>
-                {layer.board.connections?.map((c) => {
-                  const from = endpointPoint(c.from, layer.board.cards),
-                    to = endpointPoint(c.to, layer.board.cards);
-                  const middle = curveMidpoint(
-                    from,
-                    to,
-                    c.from.side,
-                    c.to.side,
-                  );
+                {layer.board.connections
+                  ?.filter((c) =>
+                    [c.from.card, c.to.card].every((id) => {
+                      const card = layer.board.cards.find((c) => c.id === id);
+                      return (
+                        card && !presentationHidden(layer.board, card.group)
+                      );
+                    }),
+                  )
+                  .map((c) => {
+                    const from = endpointPoint(c.from, layer.board.cards),
+                      to = endpointPoint(c.to, layer.board.cards);
+                    const middle = curveMidpoint(
+                      from,
+                      to,
+                      c.from.side,
+                      c.to.side,
+                    );
+                    return (
+                      <g key={c.id}>
+                        <path
+                          d={curve(from, to, c.from.side, c.to.side)}
+                          markerEnd={`url(#preview-arrow-${layerIndex})`}
+                        />
+                        {c.label && (
+                          <text
+                            x={middle.x}
+                            y={middle.y - 8}
+                            textAnchor="middle"
+                          >
+                            {c.label}
+                          </text>
+                        )}
+                      </g>
+                    );
+                  })}
+              </svg>
+              {layer.board.cards
+                .filter((card) => !presentationHidden(layer.board, card.group))
+                .map((card) => {
+                  const r = cardRect(card),
+                    Icon = icons[card.kind];
+                  const name = card.masked
+                    ? "已遮罩"
+                    : card.displayMode === "small"
+                      ? `${card.kind} 组件`
+                      : card.title ||
+                        (card.kind === "text"
+                          ? card.text.slice(0, 60)
+                          : card.kind === "todo"
+                            ? "任务"
+                            : "组件");
                   return (
-                    <g key={c.id}>
-                      <path
-                        d={curve(from, to, c.from.side, c.to.side)}
-                        markerEnd={`url(#preview-arrow-${layerIndex})`}
-                      />
-                      {c.label && (
-                        <text x={middle.x} y={middle.y - 8} textAnchor="middle">
-                          {c.label}
-                        </text>
+                    <div
+                      key={card.id}
+                      className="canvas3d-component"
+                      data-3d-card={card.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${layer.trail}：${name}`}
+                      title="双击进入画布并打开组件"
+                      style={{
+                        left: r.x,
+                        top: r.y,
+                        width: r.width,
+                        height: r.height,
+                        background: card.color,
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        activate(layer, card.id);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onOpen(layer.path, card.id);
+                        }
+                      }}
+                    >
+                      {card.displayMode !== "small" && !card.masked && (
+                        <div className="canvas3d-component-title">
+                          <Icon size={15} />
+                          <span>{name}</span>
+                        </div>
                       )}
-                    </g>
+                      <div className="canvas3d-component-body">
+                        <ComponentPreview card={card} />
+                        {!card.masked && <Remark text={card.remark} />}
+                      </div>
+                    </div>
                   );
                 })}
+              <svg className="share-paint">
+                <StrokeView strokes={layer.board.strokes} />
               </svg>
-              {layer.board.cards.map((card) => {
-                const r = cardRect(card),
-                  Icon = icons[card.kind];
-                const name =
-                  card.title ||
-                  (card.kind === "text"
-                    ? card.text.slice(0, 60)
-                    : card.kind === "todo"
-                      ? "任务"
-                      : "组件");
-                return (
-                  <div
-                    key={card.id}
-                    className="canvas3d-component"
-                    data-3d-card={card.id}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`${layer.trail}：${name}`}
-                    title="双击进入画布并打开组件"
-                    style={{
-                      left: r.x,
-                      top: r.y,
-                      width: r.width,
-                      height: r.height,
-                      background: card.color,
-                    }}
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      activate(layer, card.id);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onOpen(layer.path, card.id);
-                      }
-                    }}
-                  >
-                    <div className="canvas3d-component-title">
-                      <Icon size={15} />
-                      <span>{name}</span>
-                    </div>
-                    <div className="canvas3d-component-body">
-                      <ComponentPreview card={card} />
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           </div>
         ))}

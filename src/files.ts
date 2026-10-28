@@ -70,6 +70,7 @@ export async function cardsFromFiles(
       return {
         id: crypto.randomUUID(),
         kind,
+        displayMode: "medium" as const,
         title: file.name,
         text: "",
         x: point.x + (index % 4) * 270,

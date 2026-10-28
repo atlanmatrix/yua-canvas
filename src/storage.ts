@@ -1,3 +1,10 @@
+import {
+  validPresentation,
+  validStrokes,
+  type DisplayMode,
+  type TextStyle,
+  type Stroke,
+} from "./presentation";
 import { validEndpoint, type Connection } from "./connections";
 import { cardRect } from "./geometry";
 import { miniatureUrl, miniatureViewUrl } from "./miniatureScene";
@@ -24,6 +31,12 @@ export type Card = {
   color: string;
   width?: number;
   height?: number;
+  displayMode?: DisplayMode;
+  previewWidth?: number;
+  previewHeight?: number;
+  masked?: boolean;
+  remark?: string;
+  textStyle?: TextStyle;
   textMode?: "wrap" | "scroll";
   textAutoHeight?: boolean;
   blob?: Blob;
@@ -45,6 +58,10 @@ export type Group = {
   color?: string;
   bounds?: Rect;
   parent?: string;
+  displayMode?: "flat" | "list";
+  activeCard?: string;
+  masked?: boolean;
+  remark?: string;
 };
 export function groupBounds(cards: Card[], frames: Rect[] = []): Rect {
   const rects = [...cards.map(cardRect), ...frames];
@@ -113,7 +130,10 @@ export function groupDepth(groups: Group[], id: string): number {
 }
 // A card belongs to the smallest frame that fully contains its bounds.
 export function containingGroup(
-  card: Pick<Card, "x" | "y" | "width" | "height">,
+  card: Pick<Card, "x" | "y" | "width" | "height"> &
+    Partial<
+      Pick<Card, "kind" | "displayMode" | "previewWidth" | "previewHeight">
+    >,
   groups: Group[],
 ): string | undefined {
   return groups
@@ -158,6 +178,7 @@ export type Board = {
   id?: string;
   cards: Card[];
   groups: Group[];
+  strokes?: Stroke[];
   connections?: Connection[];
 };
 export const emptyBoard: Board = { version: 1, cards: [], groups: [] };
@@ -305,6 +326,7 @@ export async function importBoard(
   if (boardId) boardIds.add(boardId);
   const ids = new Set<string>();
   const groups: Group[] = data.groups.map((g: Group) => {
+    if (!validPresentation(g, true)) throw Error("分组显示设置无效");
     if (typeof g.id !== "string" || typeof g.name !== "string" || ids.has(g.id))
       throw new Error("分组数据无效");
     ids.add(g.id);
@@ -327,6 +349,10 @@ export async function importBoard(
       id: g.id,
       ...(validPin(g.pin) !== undefined ? { pin: validPin(g.pin) } : {}),
       pinColor: validPinColor(g.pinColor),
+      displayMode: g.displayMode,
+      activeCard: g.activeCard,
+      masked: g.masked,
+      remark: g.remark,
       name: g.name,
       color: g.color,
       parent: typeof g.parent === "string" ? g.parent : undefined,
@@ -365,6 +391,7 @@ export async function importBoard(
         Math.abs(c.y as number) > 1e7
       )
         throw new Error("卡片数据无效");
+      if (!validPresentation(c)) throw Error("组件显示设置无效");
       ids.add(c.id);
       if (
         isApplicationKind(c.kind as string) &&
@@ -484,6 +511,12 @@ export async function importBoard(
             )
           : undefined;
       return {
+        displayMode: c.displayMode as Card["displayMode"],
+        previewWidth: c.previewWidth as number | undefined,
+        previewHeight: c.previewHeight as number | undefined,
+        masked: c.masked as boolean | undefined,
+        remark: c.remark as string | undefined,
+        textStyle: c.textStyle as Card["textStyle"],
         canvas,
         tasks,
         textMode: c.textMode as Card["textMode"],
@@ -544,7 +577,9 @@ export async function importBoard(
       };
     },
   );
+  if (!validStrokes(data.strokes)) throw Error("画笔数据无效");
   return initializeGroups({
+    ...(data.strokes !== undefined ? { strokes: data.strokes } : {}),
     version: 1,
     id: boardId,
     ...(data.parentCreated !== undefined

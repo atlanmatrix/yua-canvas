@@ -1,3 +1,5 @@
+import { groupFrame } from "./CardPresentation";
+import { strokeBounds, remarkBounds } from "./presentation";
 import { useLayoutEffect, useState, type RefObject } from "react";
 import type { Board, Rect, View } from "./storage";
 import { cardRect } from "./geometry";
@@ -43,7 +45,16 @@ export function projectMinimap(
 ): MinimapProjection {
   const rects = [
     ...board.cards.map(cardRect),
-    ...board.groups.flatMap((group) => (group.bounds ? [group.bounds] : [])),
+    ...strokeBounds(board.strokes),
+    ...board.cards.flatMap((c) =>
+      !c.masked ? remarkBounds(cardRect(c), c.remark) : [],
+    ),
+    ...board.groups.flatMap((g) =>
+      !g.masked ? remarkBounds(groupFrame(g), g.remark) : [],
+    ),
+    ...board.groups.flatMap((group) =>
+      group.bounds ? [groupFrame(group)] : [],
+    ),
   ];
   if (!rects.length) rects.push(viewport);
   // Include outward curve handles as well as the overview's padding and aspect
