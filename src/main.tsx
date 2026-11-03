@@ -1,3 +1,4 @@
+import { defaultAgent } from "./agent";
 import { CanvasCard } from "./CanvasCard";
 import { TOOL_KINDS, TOOL_NAMES, isToolKind } from "./tools";
 import { TOOL_ICONS } from "./ToolCard";
@@ -16,6 +17,7 @@ import React, {
 import { createRoot } from "react-dom/client";
 import {
   ListTodo,
+  Bot,
   Box,
   PanelsTopLeft,
   ArrowLeft,
@@ -922,21 +924,23 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setMenu(null);
     if (kind === "text") addText(point);
     else if (kind === "todo") addTodo(point);
-    else if (isToolKind(kind)) {
+    else if (kind === "agent" || isToolKind(kind)) {
       const card: Card = {
         id: uid(),
         kind,
-        title: tr(TOOL_NAMES[kind]),
-        text: "{}",
+        title: kind === "agent" ? "Agent" : tr(TOOL_NAMES[kind]),
+        text: kind === "agent" ? JSON.stringify(defaultAgent) : "{}",
         color: colors[0],
-        displayMode: "medium",
-        width: 360,
+        displayMode: kind === "agent" ? "large" : "medium",
+        width: kind === "agent" ? 400 : 360,
         height:
-          kind === "calculator"
-            ? 440
-            : kind === "calendar" || kind === "weather"
-              ? 370
-              : 290,
+          kind === "agent"
+            ? 560
+            : kind === "calculator"
+              ? 440
+              : kind === "calendar" || kind === "weather"
+                ? 370
+                : 290,
         ...point,
       };
       setBoard((b) => ({
@@ -1050,7 +1054,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         }),
         { preserveLayout: true },
       );
-    if (isToolKind(card.kind)) return;
+    if (card.kind === "agent" || isToolKind(card.kind)) return;
     if (isApplicationKind(card.kind))
       setApplicationDraft({
         kind: card.kind,
@@ -3160,6 +3164,14 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   >
                     <Network size={14} />
                     Mermaid
+                  </button>
+                  <button
+                    role="menuitem"
+                    disabled={!ready}
+                    onClick={() => createFromMenu("agent")}
+                  >
+                    <Bot size={14} />
+                    Agent
                   </button>
                   <button
                     role="menuitem"

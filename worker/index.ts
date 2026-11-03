@@ -1,3 +1,4 @@
+import { validAgentText } from "../src/agent";
 import { validPresentation, validStrokes } from "../src/presentation";
 import { TOOL_KINDS, isToolKind, validToolText } from "../src/tools";
 import { miniatureUrl, miniatureViewUrl } from "../src/miniatureScene";
@@ -123,6 +124,7 @@ function validateSnapshot(data: any): string[] {
           "mermaid",
           "vscode",
           "iterm2",
+          "agent",
           ...TOOL_KINDS,
         ].includes(c.kind) ||
         typeof c.id !== "string" ||
@@ -133,6 +135,7 @@ function validateSnapshot(data: any): string[] {
         c.blob !== undefined
       )
         fail(400, "卡片格式无效");
+      if (c.kind === "agent" && !validAgentText(c.text)) fail(400, "Agent 配置无效");
       if (!validPresentation(c)) fail(400, "组件显示设置无效");
       if (isToolKind(c.kind) && !validToolText(c.kind, c.text)) fail(400, "工具配置无效");
       if (isApplicationKind(c.kind) && !validApplicationText(c.kind, c.text))

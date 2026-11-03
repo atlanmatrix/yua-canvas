@@ -1,3 +1,4 @@
+import { AgentCard } from "./AgentCard";
 import { Attachment } from "./Attachment";
 import { ToolCard } from "./ToolCard";
 import { isToolKind } from "./tools";
@@ -281,7 +282,9 @@ export function ShareViewer({ token }: { token: string }) {
                       <TypeIcon card={c} />
                     ) : (
                       <PreviewFrame card={c}>
-                        {isToolKind(c.kind) ? (
+                        {c.kind === "agent" ? (
+                          <AgentCard card={c} />
+                        ) : isToolKind(c.kind) ? (
                           <ToolCard card={c} />
                         ) : isApplicationKind(c.kind) ? (
                           <ApplicationCard card={c} readonly />

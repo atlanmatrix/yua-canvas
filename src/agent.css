@@ -1,0 +1,200 @@
+.agent-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  color: var(--ink);
+  background: var(--surface);
+  border-radius: inherit;
+  overflow: hidden;
+  font-size: 13px;
+}
+.agent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  height: 48px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+}
+.agent-header > span,
+.agent-header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.agent-header small {
+  max-width: 145px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 11px;
+}
+.agent-card button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.agent-card button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.agent-card button:hover:not(:disabled) {
+  background: var(--surface-muted);
+}
+.agent-card button.agent-primary {
+  background: var(--accent);
+  color: var(--surface);
+  border-color: var(--accent);
+}
+.agent-messages {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  overscroll-behavior: contain;
+  user-select: text;
+  cursor: auto;
+}
+.agent-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 100%;
+  min-height: 140px;
+  color: var(--muted);
+  text-align: center;
+}
+.agent-empty > svg {
+  color: var(--accent);
+}
+.agent-empty strong {
+  color: var(--ink);
+  font-size: 15px;
+}
+.agent-empty p {
+  margin: 0;
+  font-size: 12px;
+}
+.agent-message {
+  width: fit-content;
+  max-width: 95%;
+  margin-bottom: 16px;
+}
+.agent-message > small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin: 0 0 5px 2px;
+}
+.agent-message > div {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.agent-message.user {
+  margin-left: auto;
+}
+.agent-message.user > small {
+  text-align: right;
+}
+.agent-message.user > div {
+  background: var(--accent-soft, #eff6ff);
+}
+.agent-composer {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  align-items: flex-end;
+}
+.agent-card textarea,
+.agent-card input,
+.agent-card select {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 8px 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+.agent-composer textarea {
+  flex: 1;
+  height: 64px;
+  min-height: 44px;
+  max-height: 140px;
+  resize: vertical;
+}
+.agent-composer .agent-retry {
+  margin-right: 80%;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.agent-settings {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  cursor: auto;
+}
+.agent-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.agent-settings footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: auto;
+}
+.agent-hint {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.agent-error {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 8px 12px;
+  color: #b45309;
+  background: var(--surface-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.agent-readonly {
+  color: var(--muted);
+  text-align: center;
+  font-size: 11px;
+  margin: 8px;
+}
+/* Leave room for the canvas card's download control. */
+.card-agent .agent-header {
+  padding-right: 48px;
+}

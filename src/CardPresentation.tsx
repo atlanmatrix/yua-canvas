@@ -1,7 +1,9 @@
+import { AgentCard } from "./AgentCard";
 import { t as tr } from "./i18n";
 import { useState, useRef, useLayoutEffect, type ReactNode } from "react";
 import {
   Type,
+  Bot,
   Image,
   FileText,
   ListTodo,
@@ -33,6 +35,7 @@ export function TypeIcon({ card }: { card: Card }) {
     mermaid: Network,
     vscode: Code2,
     iterm2: Terminal,
+    agent: Bot,
     ...TOOL_ICONS,
   }[card.kind];
   return (
@@ -155,6 +158,13 @@ export function StaticContent({
   activeMiniature?: boolean;
   onActiveMiniatureChange?: (active: boolean) => void;
 }) {
+  if (card.kind === "agent")
+    return (
+      <AgentCard
+        card={card}
+        onChange={onToolChange ? (text) => onToolChange(card, text) : undefined}
+      />
+    );
   if (isToolKind(card.kind))
     return (
       <ToolCard

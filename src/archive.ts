@@ -258,6 +258,7 @@ export async function readArchive(
           meta.kind === "mermaid" ||
           meta.kind === "vscode" ||
           meta.kind === "iterm2" ||
+          meta.kind === "agent" ||
           isToolKind(meta.kind)
         )
           text = strFromU8(content);

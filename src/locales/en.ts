@@ -1,4 +1,57 @@
 export const english: Record<string, string> = {
+  "Agent 对话": "Agent chat",
+  新建对话: "New conversation",
+  "Agent 设置": "Agent settings",
+  接口地址: "Base URL",
+  接口协议: "API protocol",
+  兼容接口: "compatible API",
+  模型: "Model",
+  "填写 API Key": "Enter API key",
+  "Key 仅保存在当前浏览器，不随画布导出或分享。清空后保存可移除。":
+    "The key stays in this browser and is excluded from exports and shares. Clear it and save to remove it.",
+  系统提示词: "System instructions",
+  "设置 Agent 的角色和回答方式": "Describe how the Agent should respond",
+  保存配置: "Save settings",
+  对话记录: "Conversation history",
+  "和 Agent 聊聊": "Chat with Agent",
+  "配置 API Key 后，在这里开始对话":
+    "Configure your API key to start a conversation here",
+  暂无对话记录: "No messages yet",
+  "配置 Agent": "Configure Agent",
+  你: "You",
+  "正在思考…": "Thinking\u2026",
+  "发送给 Agent": "Message Agent",
+  "输入消息，Enter 发送": "Message, Enter to send",
+  停止生成: "Stop generating",
+  发送消息: "Send message",
+  只读对话: "Read-only conversation",
+  重新生成: "Retry response",
+  "请先填写 API Key": "Please enter an API key first",
+  "对话过长，请新建对话后继续":
+    "This conversation is too long. Start a new one to continue.",
+  "回复超时，请重试": "The response timed out. Please retry.",
+  "无法保存配置，请检查接口地址、模型及浏览器存储权限":
+    "Unable to save. Check the base URL, model and browser storage permissions.",
+  "无法连接接口，请检查网络、地址及跨域设置":
+    "Unable to connect. Check your network, base URL and CORS settings.",
+  "API Key 无效或已过期，请检查设置":
+    "The API key is invalid or expired. Check settings.",
+  "当前 Key 无权使用此模型或接口": "This key cannot access this model or API.",
+  "模型或接口不存在，请检查设置": "Model or API not found. Check settings.",
+  "请求受限或额度不足，请稍后重试":
+    "Rate limit or quota exceeded. Try again later.",
+  "服务未能完成回复，请重试":
+    "The service could not complete the response. Please retry.",
+  "回复过长，请缩短问题后重试":
+    "Response too long. Shorten your message and retry.",
+  接口未返回可读取的回复: "The API did not return a readable response.",
+  "回复未完成，请重试或缩短问题":
+    "Response incomplete. Retry or shorten your message.",
+  接口回复格式异常: "Unexpected response format.",
+  "连接中断，请重试": "Connection interrupted. Please retry.",
+  "接口未返回文字回复，请检查模型和接口协议":
+    "No text returned. Check the model and API protocol.",
+
   新建: "New",
   新建内容: "Create content",
   新建工具: "New tool",

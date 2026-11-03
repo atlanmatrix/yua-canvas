@@ -592,3 +592,23 @@ test("all six tool states sync and share while malformed settings are rejected a
   );
   assert.deepEqual(resolved.data.snapshot.cards, snapshot.cards);
 });
+
+test("Agent conversations sync and share without accepting embedded credentials", async () => {
+  const revision = (await request("/canvas")).data.revision;
+  const state = {
+    baseUrl: "https://api.openai.com/v1", model: "gpt-5-mini", protocol: "responses", instructions: "Answer briefly",
+    messages: [{ role: "user", content: "Hello" }, { role: "assistant", content: "Hi" }],
+  };
+  const snapshot = board(JSON.stringify(state));
+  snapshot.cards[0].kind = "agent";
+  for (const extra of [{ apiKey: "fake-key" }, { baseUrl: "javascript:alert(1)" }, { messages: [{ role: "system", content: "Invalid role" }] }]) {
+    const invalid = structuredClone(snapshot);
+    invalid.cards[0].text = JSON.stringify({ ...state, ...extra });
+    assert.equal((await request("/canvas", "PUT", { baseRevision: revision, snapshot: invalid })).status, 400);
+  }
+  assert.equal((await request("/canvas", "PUT", { baseRevision: revision, snapshot })).status, 200);
+  const shared = await request("/shares", "POST", { expiresInDays: 7, expectedRevision: revision + 1 });
+  assert.equal(shared.status, 200);
+  const resolved = await request("/shares/resolve", "POST", { token: shared.data.token }, null);
+  assert.deepEqual(JSON.parse(resolved.data.snapshot.cards[0].text), state);
+});

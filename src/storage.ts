@@ -1,3 +1,4 @@
+import { validAgentText } from "./agent";
 import {
   validPresentation,
   validStrokes,
@@ -25,6 +26,7 @@ export type Card = {
     | "mermaid"
     | "vscode"
     | "iterm2"
+    | "agent"
     | ToolKind;
   title: string;
   text: string;
@@ -385,6 +387,7 @@ export async function importBoard(
           "mermaid",
           "vscode",
           "iterm2",
+          "agent",
           ...TOOL_KINDS,
         ].includes(c.kind as string) ||
         typeof c.title !== "string" ||
@@ -397,6 +400,7 @@ export async function importBoard(
         throw new Error("卡片数据无效");
       if (!validPresentation(c)) throw Error("组件显示设置无效");
       if (isToolKind(c.kind as string) && !validToolText(c.kind as ToolKind, c.text)) throw Error("工具配置无效");
+      if (c.kind === "agent" && !validAgentText(c.text)) throw Error("Agent 配置无效");
       ids.add(c.id);
       if (
         isApplicationKind(c.kind as string) &&

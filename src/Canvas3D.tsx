@@ -1,3 +1,4 @@
+import { AgentCard } from "./AgentCard";
 import { t as tr } from "./i18n";
 import { StrokeView } from "./PaintLayer";
 import {
@@ -13,6 +14,7 @@ import { textCss } from "./presentation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
+  Bot,
   FileText,
   Network,
   Code2,
@@ -52,6 +54,7 @@ const icons = {
   mermaid: Network,
   vscode: Code2,
   iterm2: Terminal,
+  agent: Bot,
   ...TOOL_ICONS,
 };
 
@@ -85,6 +88,7 @@ function ComponentPreview({ card }: { card: Card }) {
   ]);
   if (card.masked) return <Mask />;
   if (card.displayMode === "small") return <TypeIcon card={card} />;
+  if (card.kind === "agent") return <AgentCard card={card} />;
   if (isToolKind(card.kind)) return <ToolCard card={card} />;
   if ((card.kind === "image" || card.kind === "miniature") && image)
     return <img src={image} alt={card.title} draggable={false} />;

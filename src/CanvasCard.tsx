@@ -1,3 +1,4 @@
+import { AgentCard } from "./AgentCard";
 import React, { memo } from "react";
 import {
   ListTodo,
@@ -268,6 +269,7 @@ export const CanvasCard = memo(function CanvasCard({
             c.kind !== "canvas" &&
             c.kind !== "miniature" &&
             c.kind !== "mermaid" &&
+            c.kind !== "agent" &&
             !isToolKind(c.kind) &&
             !isApplicationKind(c.kind) &&
             !isPdfFile(c) &&
@@ -283,7 +285,18 @@ export const CanvasCard = memo(function CanvasCard({
                 </span>
               </div>
             )}
-          {isToolKind(c.kind) ? (
+          {c.kind === "agent" ? (
+            <AgentCard
+              card={c}
+              onChange={(text) =>
+                updateCards((cards) =>
+                  cards.map((card) =>
+                    card.id === c.id ? { ...card, text } : card,
+                  ),
+                )
+              }
+            />
+          ) : isToolKind(c.kind) ? (
             <ToolCard
               card={c}
               onChange={(text) =>
