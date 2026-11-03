@@ -221,7 +221,14 @@ export function ContextSubmenu({
             innerWidth - bounds.width - 8,
           ),
         ),
-        y: Math.max(8, Math.min(anchor.top, innerHeight - bounds.height - 8)),
+        y: Math.max(
+          8,
+          Math.min(
+            anchor.top -
+              parseFloat(getComputedStyle(submenu.current!).paddingTop),
+            innerHeight - bounds.height - 8,
+          ),
+        ),
       });
       if (focusFirst.current) {
         submenu.current

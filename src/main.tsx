@@ -176,6 +176,7 @@ import { useMinimapGeometry } from "./minimapGeometry";
 import "./style.css";
 import "./tools.css";
 import "./theme.css";
+import "./controls.css";
 import { PwaControls } from "./PwaControls";
 import { registerPwa } from "./pwa";
 void registerPwa();

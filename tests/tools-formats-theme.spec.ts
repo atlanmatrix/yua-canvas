@@ -401,16 +401,14 @@ test("English and dark/system preferences update live, preserve user content and
   await paste(page, "使用说明");
   const card = await tool(page, "日历");
   await expect(card).toContainText("日历");
-  await page
-    .getByRole("combobox", { name: "语言", exact: true })
-    .selectOption("en");
+  await page.getByRole("slider", { name: "语言", exact: true }).press("End");
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.locator(".card-text")).toHaveText("使用说明");
   await expect(card).toContainText("Calendar");
   await expect(card).not.toContainText("日历");
   await page
-    .getByRole("combobox", { name: "Appearance", exact: true })
-    .selectOption("dark");
+    .getByRole("slider", { name: "Appearance", exact: true })
+    .press("ArrowLeft");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.locator(".canvas")).toHaveCSS(
     "background-color",
@@ -446,13 +444,11 @@ test("English and dark/system preferences update live, preserve user content and
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.emulateMedia({ colorScheme: "light" });
-  await page
-    .getByRole("combobox", { name: "Appearance" })
-    .selectOption("system");
+  await page.getByRole("slider", { name: "Appearance" }).press("End");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await page.getByRole("combobox", { name: "Language" }).selectOption("zh");
+  await page.getByRole("slider", { name: "Language" }).press("Home");
   await expect(
     page.getByRole("button", { name: "使用说明", exact: true }),
   ).toBeVisible();

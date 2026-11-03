@@ -98,12 +98,10 @@ test("tool state, English and dark preferences and cold syntax workers work offl
   const context = await browser.newContext();
   try {
     const page = await app(context);
+    await page.getByRole("slider", { name: "语言", exact: true }).press("End");
     await page
-      .getByRole("combobox", { name: "语言", exact: true })
-      .selectOption("en");
-    await page
-      .getByRole("combobox", { name: "Appearance", exact: true })
-      .selectOption("dark");
+      .getByRole("slider", { name: "Appearance", exact: true })
+      .press("ArrowLeft");
     await page
       .locator(".canvas")
       .click({ button: "right", position: { x: 100, y: 100 } });
@@ -129,13 +127,11 @@ test("tool state, English and dark preferences and cold syntax workers work offl
     await expect(page.getByRole("textbox", { name: "Expression" })).toHaveValue(
       "7",
     );
-    await page
-      .getByTestId("files")
-      .setInputFiles({
-        name: "offline.rs",
-        mimeType: "text/plain",
-        buffer: Buffer.from('fn main() { println!("offline"); }'),
-      });
+    await page.getByTestId("files").setInputFiles({
+      name: "offline.rs",
+      mimeType: "text/plain",
+      buffer: Buffer.from('fn main() { println!("offline"); }'),
+    });
     await expect(
       page.locator('[data-code-language="rust"][data-code-state="ready"]'),
     ).toHaveCount(1, { timeout: 20000 });
