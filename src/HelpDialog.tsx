@@ -2,6 +2,9 @@ import { t as tr } from "./i18n";
 import { useEffect, useState } from "react";
 import { CircleHelp, X } from "lucide-react";
 const shortcuts = [
+  ["单指 / 双指拖动", "平移画布；拖动节点移动"],
+  ["双指捏合", "以双指中心缩放画布"],
+  ["长按 / 双击", "打开菜单 / 编辑组件"],
   ["N / T", "新建文本 / 任务"],
   ["I / U", "上传图片 / 文件"],
   ["V / H", "选择 / 平移工具"],

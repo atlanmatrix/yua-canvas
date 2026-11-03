@@ -1,4 +1,10 @@
 export const english: Record<string, string> = {
+  "单指 / 双指拖动": "One / two finger drag",
+  "平移画布；拖动节点移动": "Pan canvas; drag a node to move it",
+  双指捏合: "Pinch with two fingers",
+  以双指中心缩放画布: "Zoom around the midpoint of two fingers",
+  "长按 / 双击": "Long press / double tap",
+  "打开菜单 / 编辑组件": "Open menu / edit component",
   "Agent 对话": "Agent chat",
   新建对话: "New conversation",
   "Agent 设置": "Agent settings",

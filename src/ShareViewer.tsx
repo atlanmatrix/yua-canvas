@@ -1,3 +1,4 @@
+import { useCanvasTouch } from "./useCanvasTouch";
 import { AgentCard } from "./AgentCard";
 import { Attachment } from "./Attachment";
 import { ToolCard } from "./ToolCard";
@@ -62,6 +63,7 @@ export function ShareViewer({ token }: { token: string }) {
     [stack, setStack] = useState<Board[]>([]),
     [error, setError] = useState(""),
     [view, setView] = useState({ x: 60, y: 90, z: 1 });
+  const surface = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number } | undefined>(undefined);
   const board = stack.at(-1) || root;
   useEffect(() => {
@@ -96,6 +98,19 @@ export function ShareViewer({ token }: { token: string }) {
     );
     setView({ x: 60 - x * z, y: 100 - y * z, z: Math.max(0.05, z) });
   }, [board]);
+  const touch = useCanvasTouch({
+    scope: "share:" + (board?.id || stack.length),
+    surface,
+    view,
+    tapsEnabled: false,
+    minZoom: 0.05,
+    onViewChange: setView,
+    onCancel: () => {
+      drag.current = undefined;
+    },
+    onActivity: () => {},
+    onMenu: () => {},
+  });
   return (
     <main className="share-viewer">
       <header>
@@ -154,6 +169,13 @@ export function ShareViewer({ token }: { token: string }) {
       ) : (
         <div
           className="share-surface"
+          ref={surface}
+          onPointerDownCapture={touch.down}
+          onPointerMoveCapture={touch.move}
+          onPointerUpCapture={touch.up}
+          onPointerCancelCapture={touch.up}
+          onLostPointerCapture={touch.lostCapture}
+          onClickCapture={touch.click}
           onPointerDown={(e) => {
             if ((e.target as HTMLElement).closest("button,a")) return;
             drag.current = { x: e.clientX, y: e.clientY };

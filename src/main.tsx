@@ -1,3 +1,4 @@
+import { useCanvasTouch } from "./useCanvasTouch";
 import { defaultAgent } from "./agent";
 import { CanvasCard } from "./CanvasCard";
 import { TOOL_KINDS, TOOL_NAMES, isToolKind } from "./tools";
@@ -1288,7 +1289,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     if (e.button === 1 || modifierPan) e.preventDefault();
     const r = surface.current!.getBoundingClientRect();
     const pan =
-      tool === "hand" || space.current || e.button === 1 || modifierPan;
+      tool === "hand" ||
+      space.current ||
+      e.button === 1 ||
+      modifierPan ||
+      (e.pointerType === "touch" && !id && !groupId);
     let ids = selection;
     const family = groupId ? groupTreeIds(board.groups, groupId) : undefined;
     if (!pan) setSelectedConnection(undefined);
@@ -1516,6 +1521,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     if (!g) return;
     const dx = e.clientX - g.x,
       dy = e.clientY - g.y;
+    if (
+      e.pointerType === "touch" &&
+      !g.moved &&
+      (g.kind === "move" || g.kind === "pan") &&
+      Math.hypot(dx, dy) <= 8
+    )
+      return;
     if (Math.abs(dx) + Math.abs(dy) > 4) g.moved = true;
     if (g.kind === "link" && g.from) {
       const r = surface.current!.getBoundingClientRect();
@@ -2391,6 +2403,31 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     },
     (board.id || "") + JSON.stringify(path),
   );
+  const touch = useCanvasTouch({
+    scope: (board.id || "") + JSON.stringify(path),
+    surface,
+    view,
+    tapsEnabled: tool !== "draw",
+    onViewChange: setView,
+    onCancel: cancelGesture,
+    onActivity: (moved) => {
+      lastPointerMoved.current = moved;
+    },
+    onMenu: (context) => {
+      setSelectedConnection(undefined);
+      if (context.kind === "card") {
+        setSelectedGroup(undefined);
+        if (!selection.includes(context.id)) setSelection([context.id]);
+      } else if (context.kind === "group") {
+        setSelectedGroup(context.id);
+        setSelection([]);
+      } else {
+        setSelectedGroup(undefined);
+        setSelection([]);
+      }
+      setMenu(context);
+    },
+  });
   return [
     <div
       key="canvas"
@@ -2503,7 +2540,14 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             backgroundPosition: `${view.x}px ${view.y}px`,
             backgroundSize: `${24 * view.z}px ${24 * view.z}px`,
           }}
+          onPointerMoveCapture={touch.move}
+          onPointerUpCapture={touch.up}
+          onPointerCancelCapture={touch.up}
+          onLostPointerCapture={touch.lostCapture}
+          onClickCapture={touch.click}
+          onDoubleClickCapture={touch.doubleClick}
           onPointerDownCapture={(e) => {
+            if (touch.down(e)) return;
             if ((e.target as HTMLElement).closest(".canvas-editor")) return;
             if (
               e.button === 2 ||
@@ -2516,6 +2560,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             }
           }}
           onContextMenuCapture={(e) => {
+            if (touch.context(e)) return;
             if (
               e.button === 2 &&
               !(e.target as HTMLElement).closest(".canvas-editor")

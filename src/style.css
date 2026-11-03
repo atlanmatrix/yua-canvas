@@ -2270,3 +2270,25 @@ main {
 @media (prefers-reduced-motion: reduce) {
   .connection-port, .connecting .card, .magnetic-field { transition: none; }
 }
+
+/* Touch sockets stay available without hover; their larger hit area keeps the same anchor. */
+@media (hover: none), (pointer: coarse) {
+  .card .connection-port { opacity: 1; pointer-events: auto; width: 28px; height: 28px; }
+  .agent-card button { min-width: 36px; min-height: 36px; }
+  .card-agent .agent-header { padding-right: 50px; }
+  .agent-header small { max-width: 100px; }
+  .agent-card input, .agent-card textarea, .agent-card select { font-size: 16px; }
+  .canvas { -webkit-touch-callout: none; }
+  .canvas :is(input, textarea, [contenteditable], .agent-messages) { -webkit-touch-callout: default; }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .context-menu button { min-height: 40px; }
+  .resize-handle:is(.resize-n, .resize-s) { height: 18px; }
+  .resize-handle:is(.resize-e, .resize-w) { width: 18px; }
+  .resize-handle:is(.resize-ne, .resize-nw, .resize-se, .resize-sw) { width: 24px; height: 24px; }
+}
+
+/* These scrollers are handled before canvas gestures, including inside scaled cards. */
+.canvas :is(.agent-messages, .agent-settings, .note-body, .todo-list, .file-content-thumbnail, .markdown-file-preview, .app-terminal pre),
+.share-surface :is(.agent-messages, .agent-settings) { touch-action: none; }
