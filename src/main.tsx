@@ -148,9 +148,15 @@ import {
   type ArrowDirection,
 } from "./geometry";
 import { cardDownload } from "./downloads";
-import { type Endpoint, type Side, endpointPoint, curve } from "./connections";
+import {
+  type Endpoint,
+  type MagneticTarget,
+  type Side,
+  endpointPoint,
+} from "./connections";
 import { useAutosave } from "./autosave";
 import { useAnimatedView } from "./useAnimatedView";
+import { MagneticConnectionDraft } from "./MagneticConnectionDraft";
 import { ConnectionArrow } from "./ConnectionArrow";
 import {
   captureTransfer,
@@ -210,7 +216,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   }>();
   const [linkDraft, setLinkDraft] = useState<{
       from: Endpoint;
-      to?: Endpoint;
+      to?: MagneticTarget;
       point: { x: number; y: number };
     } | null>(null),
     [selectedConnection, setSelectedConnection] = useState<string>(),
@@ -1403,9 +1409,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     x: number,
     y: number,
     from: Endpoint,
-  ): Endpoint | undefined => {
-    let nearest: Endpoint | undefined,
-      distance = 24;
+  ): MagneticTarget | undefined => {
+    let nearest: MagneticTarget | undefined,
+      distance = Infinity;
+    const bounds = surface.current!.getBoundingClientRect();
     surface.current
       ?.querySelectorAll<HTMLElement>("[data-port-card]")
       .forEach((port) => {
@@ -1414,22 +1421,40 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           getComputedStyle(port).visibility === "hidden"
         )
           return;
-        const r = port.getBoundingClientRect();
-        const d = Math.hypot(
-          x - (r.left + r.width / 2),
-          y - (r.top + r.height / 2),
-        );
+        const endpoint: Endpoint = {
+          card: port.dataset.portCard!,
+          side: port.dataset.portSide as Side,
+          task: port.dataset.portTask || undefined,
+        };
+        // Measure the fixed anchor, never the magnetically displaced button.
+        const anchor = endpointPoint(endpoint, board.cards, taskOffsets);
+        const px = bounds.left + view.x + anchor.x * view.z;
+        const py = bounds.top + view.y + anchor.y * view.z;
+        const dx = x - px,
+          dy = y - py;
+        const d = Math.hypot(dx, dy);
+        const previous = linkDraft?.to;
+        const retained =
+          previous?.card === endpoint.card &&
+          previous.side === endpoint.side &&
+          previous.task === endpoint.task;
+        const radius = retained ? 72 : 56;
+        const hit = document.elementFromPoint(px, py);
         if (
+          d < radius &&
           d < distance &&
-          document
-            .elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
-            ?.closest("[data-port-card]") === port
+          hit?.closest<HTMLElement>("[data-card-id]")?.dataset.cardId ===
+            endpoint.card
         ) {
           distance = d;
+          const strength = Math.max(0, 1 - d / 72);
+          const pull =
+            (Math.min(12, d * 0.3) * strength) / Math.max(1, d) / view.z;
           nearest = {
-            card: port.dataset.portCard!,
-            side: port.dataset.portSide as Side,
-            task: port.dataset.portTask || undefined,
+            ...endpoint,
+            pullX: dx * pull,
+            pullY: dy * pull,
+            strength,
           };
         }
       });
@@ -1495,7 +1520,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         from: g.from,
         to,
         point: to
-          ? endpointPoint(to, board.cards, taskOffsets)
+          ? (() => {
+              const p = endpointPoint(to, board.cards, taskOffsets);
+              return { x: p.x + to.pullX, y: p.y + to.pullY };
+            })()
           : {
               x: (e.clientX - r.left - view.x) / view.z,
               y: (e.clientY - r.top - view.y) / view.z,
@@ -1688,7 +1716,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         const hit = document.elementFromPoint(e.clientX, e.clientY),
           port = hit?.closest<HTMLElement>("[data-port-card]"),
           cardNode = hit?.closest<HTMLElement>("[data-card-id]");
-        let to = nearbyPort(e.clientX, e.clientY, g.from);
+        let to: Endpoint | undefined = nearbyPort(e.clientX, e.clientY, g.from);
         if (!to && port)
           to = {
             card: port.dataset.portCard!,
@@ -1713,7 +1741,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         }
         if (to && to.card !== g.from.card) {
           const from = g.from,
-            target = to;
+            target = {
+              card: to.card,
+              side: to.side,
+              ...(to.task ? { task: to.task } : {}),
+            };
           setBoard((b) => {
             const existing = (b.connections || []).some(
               (c) =>
@@ -2328,10 +2360,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       : [menuCard.id]
     : [];
   const cardPath = useMemo(() => path, [JSON.stringify(path)]);
-  const cardConnectionTarget = useMemo(
-    () => linkDraft?.to,
-    [linkDraft?.to?.card, linkDraft?.to?.side, linkDraft?.to?.task],
-  );
   const cardActions = useLatestActions(
     {
       setBoard,
@@ -2615,21 +2643,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   );
                 })}
               {linkDraft && (
-                <path
-                  className="connection-path draft"
-                  markerEnd="url(#canvas-connection-arrow)"
-                  d={curve(
-                    endpointPoint(linkDraft.from, board.cards, taskOffsets),
-                    linkDraft.point,
-                    linkDraft.from.side,
-                    linkDraft.from.side === "e"
-                      ? "w"
-                      : linkDraft.from.side === "w"
-                        ? "e"
-                        : linkDraft.from.side === "n"
-                          ? "s"
-                          : "n",
-                  )}
+                <MagneticConnectionDraft
+                  from={endpointPoint(linkDraft.from, board.cards, taskOffsets)}
+                  point={linkDraft.point}
+                  fromSide={linkDraft.from.side}
+                  toSide={linkDraft.to?.side}
+                  zoom={view.z}
+                  strength={linkDraft.to?.strength}
                 />
               )}
             </svg>
@@ -2858,7 +2878,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   board.groups.find((g) => g.id === c.group)?.name || ""
                 }
                 path={cardPath}
-                connectionTarget={cardConnectionTarget}
+                connectionTarget={
+                  linkDraft?.to?.card === c.id ? linkDraft.to : undefined
+                }
+                connectionSource={linkDraft?.from.card === c.id}
                 taskOffsets={c.kind === "todo" ? taskOffsets : undefined}
                 lastPointerMoved={lastPointerMoved}
                 actions={cardActions}

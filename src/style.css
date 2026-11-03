@@ -2245,3 +2245,28 @@ main {
   justify-content: center;
   color: #a1a8b5;
 }
+
+/* Magnetic ports keep their fixed anchor while the visible socket leans toward the cable. */
+.connection-port {
+  transform: translate(calc(-50% + var(--magnet-x, 0px)), calc(-50% + var(--magnet-y, 0px)));
+  transition: transform 160ms cubic-bezier(.22, 1.4, .36, 1), box-shadow 160ms ease, background-color 120ms ease;
+}
+.connecting .card {
+  opacity: .48;
+  transition: opacity 160ms ease;
+}
+.connecting .card[data-connection-source],
+.connecting .card:has(.target-active) { opacity: 1; }
+.connection-path.draft { stroke-dasharray: none; }
+.magnetic-field {
+  fill: #2563eb0d;
+  stroke: #2563eb55;
+  stroke-width: 1;
+  opacity: .35;
+  transition: r 160ms ease, opacity 160ms ease;
+}
+.is-captured .magnetic-field { opacity: 1; fill: #2563eb18; }
+.magnetic-core { fill: var(--accent); }
+@media (prefers-reduced-motion: reduce) {
+  .connection-port, .connecting .card, .magnetic-field { transition: none; }
+}

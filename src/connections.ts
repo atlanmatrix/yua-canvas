@@ -2,6 +2,11 @@ import type { Board, Card } from "./storage";
 import { cardRect } from "./geometry";
 export type Side = "n" | "e" | "s" | "w";
 export type Endpoint = { card: string; side: Side; task?: string };
+export type MagneticTarget = Endpoint & {
+  pullX: number;
+  pullY: number;
+  strength: number;
+};
 export type Connection = {
   id: string;
   from: Endpoint;

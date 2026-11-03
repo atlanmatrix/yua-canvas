@@ -470,3 +470,58 @@ test("connection editors stay above overlapping cards and group headers while zo
   await page.keyboard.press("ControlOrMeta+Shift+z");
   await expect(page.locator(".connection-label")).toHaveText("连线层级修复");
 });
+
+test("magnetic capture pulls the socket, retains it near the edge, and releases to a fixed saved anchor", async ({
+  page,
+}) => {
+  await setup(page);
+  const source = page.locator('.card[data-card-id="来源"]');
+  const target = page.locator('.card[data-card-id="目标"] .port-w');
+  const other = page.locator(".card-todo");
+  await source.hover();
+  const a = await source.locator(".port-e").boundingBox();
+  const b = await target.boundingBox();
+  const x = b!.x + b!.width / 2,
+    y = b!.y + b!.height / 2;
+  await page.mouse.move(a!.x + a!.width / 2, a!.y + a!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(x - 45, y + 8, { steps: 8 });
+  await expect(target).toHaveClass(/target-active/);
+  await expect(page.locator(".magnetic-draft")).toHaveClass(/is-captured/);
+  await expect(other).toHaveCSS("opacity", "0.48");
+  await expect
+    .poll(async () => {
+      const box = await target.boundingBox();
+      return box!.x + box!.width / 2;
+    })
+    .toBeLessThan(x - 1);
+  await page.screenshot({ path: "/tmp/yua-magnetic-connection.png" });
+  // The larger release radius prevents flicker at the capture boundary.
+  await page.mouse.move(x - 64, y);
+  await expect(target).toHaveClass(/target-active/);
+  await page.mouse.move(x - 85, y);
+  await expect(target).not.toHaveClass(/target-active/);
+  await page.mouse.move(x - 64, y);
+  await expect(target).not.toHaveClass(/target-active/);
+  await page.mouse.move(x - 45, y);
+  await expect(target).toHaveClass(/target-active/);
+  await page.mouse.up();
+  await expect(page.locator(".magnetic-draft")).toHaveCount(0);
+  await expect(other).toHaveCSS("opacity", "1");
+  const saved = JSON.parse((await backup(page)).toString());
+  expect(saved.connections[0].to).toEqual({ card: "目标", side: "w" });
+  await expect
+    .poll(async () => {
+      const box = await target.boundingBox();
+      return Math.abs(box!.x + box!.width / 2 - x);
+    })
+    .toBeLessThan(1);
+  const end = await page
+    .locator(".connection-path:not(.draft)")
+    .evaluate((el) => {
+      const path = el as SVGPathElement;
+      const end = path.getPointAtLength(path.getTotalLength());
+      return { x: end.x, y: end.y };
+    });
+  expect(end).toEqual({ x: 600, y: 140 });
+});

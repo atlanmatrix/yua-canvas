@@ -83,6 +83,7 @@ export const CanvasCard = memo(function CanvasCard({
   groupName,
   path,
   connectionTarget,
+  connectionSource,
   taskOffsets = emptyOffsets,
   lastPointerMoved,
   actions,
@@ -97,7 +98,8 @@ export const CanvasCard = memo(function CanvasCard({
   preview3D: boolean;
   groupName: string;
   path: string[];
-  connectionTarget?: Endpoint;
+  connectionTarget?: Endpoint & { pullX: number; pullY: number };
+  connectionSource?: boolean;
   taskOffsets?: Record<string, { y: number; visible: boolean }>;
   lastPointerMoved: React.RefObject<boolean>;
   actions: CanvasCardActions;
@@ -132,11 +134,17 @@ export const CanvasCard = memo(function CanvasCard({
     connectionTarget?.card === id &&
     connectionTarget.side === side &&
     connectionTarget.task === task;
+  const magneticStyle = (side: Side, task?: string): React.CSSProperties =>
+    ({
+      "--magnet-x": `${activePort(c.id, side, task) ? connectionTarget!.pullX : 0}px`,
+      "--magnet-y": `${activePort(c.id, side, task) ? connectionTarget!.pullY : 0}px`,
+    }) as React.CSSProperties;
   return (
     <article
       key={c.id}
       data-testid="card"
       data-card-id={c.id}
+      data-connection-source={connectionSource || undefined}
       data-custom-color={customColor(c.color)}
       onContextMenu={(e) => {
         if ((e.target as HTMLElement).closest(".canvas-editor")) return;
@@ -552,6 +560,7 @@ export const CanvasCard = memo(function CanvasCard({
         return (
           <button
             key={side}
+            style={magneticStyle(side)}
             className={`connection-port port-${side} ${activePort(c.id, side) ? "target-active" : ""}`}
             aria-label={tr(
               "连接 {0} {1}",
@@ -581,6 +590,7 @@ export const CanvasCard = memo(function CanvasCard({
                 key={`${task.id}:${side}`}
                 className={`connection-port task-port port-${side} ${activePort(c.id, side, task.id) ? "target-active" : ""}`}
                 style={{
+                  ...magneticStyle(side, task.id),
                   top: (offset?.y ?? 54 + index * 32) - 1,
                   visibility: offset && !offset.visible ? "hidden" : undefined,
                 }}
