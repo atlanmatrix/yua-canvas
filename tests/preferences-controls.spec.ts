@@ -68,7 +68,7 @@ test.describe("touch capsules", () => {
   });
 });
 
-test("capsule submenus align the first choice with the trigger and remain inside the viewport", async ({
+test("rounded submenus align the first choice with the trigger and remain inside the viewport", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });

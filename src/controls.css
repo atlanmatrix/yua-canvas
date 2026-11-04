@@ -88,12 +88,12 @@ body :is(.zoom-controls i, .paint-controls-divider) {
 }
 body .context-menu {
   border: 0;
-  border-radius: 999px;
+  border-radius: 12px;
   box-shadow: var(--panel-shadow);
-  padding: 38px 10px;
+  padding: 8px;
 }
 body .context-menu button:not(.color-swatch) {
-  border-radius: 999px;
+  border-radius: 8px !important;
   box-shadow: 0 2px 8px #25344d08;
 }
 body .context-menu .color-swatch[aria-checked="true"]::after {
@@ -317,9 +317,10 @@ body :is(.toast, .share-viewer > header) {
   border-radius: 999px;
   box-shadow: var(--panel-shadow);
 }
-/* Keep the entire rectangular projection inside the minimap's capsule caps. */
+/* The overview keeps its full rectangular projection and hit area. */
 body .minimap {
-  padding: 16px 26px;
+  border-radius: 12px !important;
+  padding: 0;
 }
 /* Floating groups only intercept input on their actual controls, never in gaps. */
 body .floating-top > .floating-actions {
@@ -327,4 +328,34 @@ body .floating-top > .floating-actions {
 }
 body .floating-actions > * {
   pointer-events: auto;
+}
+
+/* Toolbar shadows belong to their outer surfaces, not individual tools. */
+body :is(.toolbar, .paint-controls) button {
+  box-shadow: none;
+  background: transparent;
+  filter: none;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+body :is(.toolbar, .paint-controls) button:is(:enabled:hover, :focus-visible) {
+  box-shadow: none;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+body .paint-controls :is(input, output, .brush-controls),
+body .paint-controls input[type="range"] {
+  box-shadow: none;
+}
+body .paint-controls input[type="range"]::-webkit-slider-thumb {
+  box-shadow: none;
+}
+body .paint-controls input[type="range"]::-moz-range-thumb {
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  body :is(.toolbar, .paint-controls) button {
+    transition: none;
+  }
 }
