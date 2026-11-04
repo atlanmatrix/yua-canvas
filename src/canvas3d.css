@@ -106,7 +106,7 @@
   flex-direction: column;
   border: 1px solid #b8c5d6;
   border-radius: 10px;
-  box-shadow: 0 5px 12px #33415516;
+  box-shadow: none;
   overflow: hidden;
   pointer-events: auto;
   transform: translateZ(2px);

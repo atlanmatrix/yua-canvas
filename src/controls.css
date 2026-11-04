@@ -7,7 +7,7 @@
   --control-shadow: 0 2px 8px #0003, 0 5px 18px #0002;
   --panel-shadow: 0 10px 32px #0005, 0 24px 64px #0003;
 }
-/* Shared control chrome, including controls inside tools, dialogs and previews. */
+/* Controls are flat by default; only standalone surfaces opt into elevation. */
 body
   :is(
     button,
@@ -20,16 +20,16 @@ body
   ) {
   border: 0 !important;
   border-radius: 999px !important;
-  box-shadow: var(--control-shadow);
+  box-shadow: none;
 }
 body :is(button, a, input, textarea, select):focus-visible {
   outline: none;
-  box-shadow: var(--control-shadow), var(--focus-shadow);
+  box-shadow: var(--focus-shadow);
 }
 body textarea:not(.canvas-editor) {
   border: 0 !important;
   border-radius: 28px;
-  box-shadow: var(--control-shadow);
+  box-shadow: none;
   padding-inline: 16px;
 }
 body
@@ -48,6 +48,20 @@ body .canvas-editor {
 }
 body .canvas-editor:focus-visible {
   box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+:root
+  body
+  :where(
+    .floating-button,
+    .paint-tool-toggle,
+    .pin-bar > button,
+    .pin-bar > input,
+    .minimap,
+    .canvas-levels button,
+    .canvas3d-actions > button,
+    .group-name-editor
+  ) {
+  box-shadow: var(--control-shadow);
 }
 body
   :is(
@@ -94,7 +108,7 @@ body .context-menu {
 }
 body .context-menu button:not(.color-swatch) {
   border-radius: 8px !important;
-  box-shadow: 0 2px 8px #25344d08;
+  box-shadow: none;
 }
 body .context-menu .color-swatch[aria-checked="true"]::after {
   border: 0;
@@ -135,7 +149,7 @@ body .context-menu :is(button:focus-visible, .color-swatch:focus-visible) {
   width: var(--segment);
   border-radius: 999px;
   background: var(--surface);
-  box-shadow: 0 2px 7px #25344d1c;
+  box-shadow: none;
   transform: translateX(calc(var(--position) * 100%));
   transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
   pointer-events: none;
@@ -231,7 +245,7 @@ body .context-menu :is(button:focus-visible, .color-swatch:focus-visible) {
 }
 
 body textarea:not(.canvas-editor):focus-visible {
-  box-shadow: var(--control-shadow), var(--focus-shadow);
+  box-shadow: var(--focus-shadow);
 }
 body input:is([type="checkbox"], [type="radio"]) {
   appearance: none;
@@ -244,7 +258,7 @@ body input:is([type="checkbox"], [type="radio"]) {
   border: 0;
   border-radius: 999px;
   background: var(--surface-muted);
-  box-shadow: var(--control-shadow);
+  box-shadow: none;
   cursor: pointer;
 }
 body input:is([type="checkbox"], [type="radio"]):checked {
@@ -282,7 +296,7 @@ body input[type="range"]:not(.preference-range) {
   border: 0;
   border-radius: 999px;
   background: var(--surface-muted);
-  box-shadow: inset 0 1px 4px #25344d15;
+  box-shadow: none;
 }
 body input[type="range"]:not(.preference-range)::-webkit-slider-thumb {
   appearance: none;
@@ -291,7 +305,7 @@ body input[type="range"]:not(.preference-range)::-webkit-slider-thumb {
   border: 0;
   border-radius: 999px;
   background: var(--accent);
-  box-shadow: var(--control-shadow);
+  box-shadow: none;
 }
 body input[type="range"]:not(.preference-range)::-moz-range-thumb {
   width: 15px;
@@ -299,7 +313,7 @@ body input[type="range"]:not(.preference-range)::-moz-range-thumb {
   border: 0;
   border-radius: 999px;
   background: var(--accent);
-  box-shadow: var(--control-shadow);
+  box-shadow: none;
 }
 body .display-mode-options > button {
   min-width: 0;
@@ -310,7 +324,7 @@ body .display-mode-options > button {
 body :is(.cloud-login, .share-viewer > header a) {
   border: 0 !important;
   border-radius: 999px;
-  box-shadow: var(--control-shadow);
+  box-shadow: none;
 }
 body :is(.toast, .share-viewer > header) {
   border: 0;
@@ -328,6 +342,49 @@ body .floating-top > .floating-actions {
 }
 body .floating-actions > * {
   pointer-events: auto;
+}
+
+/* A panel owns its shadow. Nested controls retain color and focus feedback. */
+body
+  :where(
+    .card,
+    .share-card,
+    .group-list,
+    .context-menu,
+    .modal,
+    .cloud-panel,
+    .pwa-error,
+    .toolbar,
+    .paint-controls,
+    .zoom-controls,
+    .text-format-toolbar,
+    .canvas-navigation,
+    .share-zoom,
+    .share-viewer > header,
+    .canvas3d-component
+  )
+  :is(button, input, select, textarea, .preference-slider) {
+  box-shadow: none;
+}
+body
+  :where(.share-viewer > header)
+  .preference-slider:has(input:focus-visible) {
+  box-shadow: var(--focus-shadow);
+}
+/* Filled fields remain distinct without inset or drop shadows in either theme. */
+:root
+  body
+  :where(.modal, .agent-card, .tool-component, .text-format-toolbar)
+  :is(
+    input:where(
+        :not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+            [type="color"]
+          ):not([type="file"])
+      ):not(.canvas-editor),
+    select,
+    textarea:not(.canvas-editor)
+  ) {
+  background-color: var(--surface-muted);
 }
 
 /* Toolbar shadows belong to their outer surfaces, not individual tools. */
@@ -353,6 +410,9 @@ body .paint-controls input[type="range"]::-webkit-slider-thumb {
 }
 body .paint-controls input[type="range"]::-moz-range-thumb {
   box-shadow: none;
+}
+body input:is([type="range"], [type="checkbox"], [type="radio"]):focus-visible {
+  box-shadow: var(--focus-shadow);
 }
 @media (prefers-reduced-motion: reduce) {
   body :is(.toolbar, .paint-controls) button {
