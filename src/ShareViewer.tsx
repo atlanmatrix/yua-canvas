@@ -1,4 +1,5 @@
 import { useCanvasTouch } from "./useCanvasTouch";
+import { useCanvasWheelGuard } from "./useCanvasWheelGuard";
 import { AgentCard } from "./AgentCard";
 import { Attachment } from "./Attachment";
 import { ToolCard } from "./ToolCard";
@@ -66,6 +67,7 @@ export function ShareViewer({ token }: { token: string }) {
   const surface = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number } | undefined>(undefined);
   const board = stack.at(-1) || root;
+  useCanvasWheelGuard(surface, { enabled: !!board });
   useEffect(() => {
     let active = true;
     api("/shares/resolve", { method: "POST", body: JSON.stringify({ token }) })

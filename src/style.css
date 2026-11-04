@@ -24,6 +24,10 @@
 body {
   margin: 0;
 }
+/* Block macOS history swipes, pull-to-refresh and viewport rubber-banding. */
+html, body, .canvas, .share-surface, .canvas3d-stage {
+  overscroll-behavior: none;
+}
 button,
 input,
 textarea {

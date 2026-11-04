@@ -1,4 +1,5 @@
 import { useCanvasTouch } from "./useCanvasTouch";
+import { useCanvasWheelGuard } from "./useCanvasWheelGuard";
 import { defaultAgent } from "./agent";
 import { CanvasCard } from "./CanvasCard";
 import { TOOL_KINDS, TOOL_NAMES, isToolKind } from "./tools";
@@ -422,20 +423,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       });
   }, []);
   useAutosave(root, view, ready && !importBusy, setSaveStatus, navigation);
-  useEffect(() => {
-    const el = surface.current;
-    if (!el) return;
-    const wheel = (e: WheelEvent) => {
-      if (
-        e.ctrlKey ||
-        e.metaKey ||
-        (gesture.current?.kind === "pan" && gesture.current.button === 2)
-      )
-        e.preventDefault();
-    };
-    el.addEventListener("wheel", wheel, { passive: false });
-    return () => el.removeEventListener("wheel", wheel);
-  }, []);
+  useCanvasWheelGuard(surface, {
+    forceCanvas: () =>
+      gesture.current?.kind === "pan" && gesture.current.button === 2,
+  });
   useEffect(() => {
     const inputs = [fileInput.current, imageInput.current];
     const cancel = () => {
