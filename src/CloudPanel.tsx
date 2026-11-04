@@ -1,7 +1,7 @@
 import { t as tr } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Cloud, X } from "lucide-react";
+import { Cloud, X } from "./icons";
 import { api, CloudError, packCloud, unpackCloud, uploadCloud } from "./cloud";
 import {
   type Board,

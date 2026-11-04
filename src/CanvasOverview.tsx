@@ -1,7 +1,7 @@
 import { t as tr } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Layers } from "lucide-react";
+import { Layers } from "./icons";
 import { CanvasContextMenu, MenuSection } from "./CanvasContextMenu";
 import { Minimap } from "./Minimap";
 import { projectMinimap, type MinimapProjection } from "./minimapGeometry";

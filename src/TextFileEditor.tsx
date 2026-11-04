@@ -1,6 +1,6 @@
 import { t as tr } from "./i18n";
 import { useEffect, useState, type ReactNode } from "react";
-import { Download, Pencil, Eye, Save } from "lucide-react";
+import { Download, Pencil, Eye, Save } from "./icons";
 import type { Card } from "./storage";
 import { Markdown } from "./Markdown";
 import { fileMime } from "./files";

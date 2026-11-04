@@ -1,4 +1,4 @@
-import { Sun, Moon, Monitor } from "lucide-react";
+import { Sun, Moon, Monitor } from "./icons";
 import type { CSSProperties, ReactNode } from "react";
 import { setPreferences, usePreferences, t as tr } from "./i18n";
 function PreferenceSlider<T extends string>({
@@ -82,12 +82,20 @@ export function PreferencesControls({
           value={theme}
           onChange={(theme) => setPreferences({ theme })}
           options={[
-            { value: "light", label: tr("浅色"), content: <Sun size={16} /> },
-            { value: "dark", label: tr("深色"), content: <Moon size={16} /> },
+            {
+              value: "light",
+              label: tr("浅色"),
+              content: <Sun size={16} motionState={theme === "light"} />,
+            },
+            {
+              value: "dark",
+              label: tr("深色"),
+              content: <Moon size={16} motionState={theme === "dark"} />,
+            },
             {
               value: "system",
               label: tr("跟随系统"),
-              content: <Monitor size={16} />,
+              content: <Monitor size={16} motionState={theme === "system"} />,
             },
           ]}
         />

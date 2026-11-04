@@ -8,11 +8,13 @@ const Content = memo(function CodeContent({
   language = "plaintext",
   className = "file-text",
   label,
+  loading = false,
 }: {
   source: string;
   language?: string;
   className?: string;
   label?: string;
+  loading?: boolean;
 }) {
   usePreferences();
   const [result, setResult] = useState<{
@@ -41,6 +43,7 @@ const Content = memo(function CodeContent({
         aria-label={label}
         data-code-language={normalizeLanguage(language)}
         data-code-state={html !== undefined ? "ready" : "plain"}
+        data-file-preview-state={loading ? "loading" : "ready"}
       >
         <code
           className={`hljs language-${language}`}
@@ -66,6 +69,7 @@ export function CodePreview({
   className?: string;
   label?: string;
   lazy?: boolean;
+  loading?: boolean;
 }) {
   return lazy ? (
     <PreviewBoundary allowTiny>

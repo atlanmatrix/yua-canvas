@@ -1,5 +1,5 @@
 import { t as tr } from "./i18n";
-import { Paintbrush, Undo2, Trash2, Eye, EyeOff, LogOut } from "lucide-react";
+import { Paintbrush, Undo2, Trash2, Eye, EyeOff, LogOut } from "./icons";
 export function PaintControls({
   color,
   width,

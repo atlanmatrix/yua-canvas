@@ -1,6 +1,6 @@
 import { t as tr } from "./i18n";
 import { useEffect, useState } from "react";
-import { CircleHelp, X } from "lucide-react";
+import { CircleHelp, X } from "./icons";
 const shortcuts = [
   ["单指 / 双指拖动", "平移画布；拖动节点移动"],
   ["双指捏合", "以双指中心缩放画布"],

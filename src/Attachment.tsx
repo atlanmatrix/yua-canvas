@@ -6,7 +6,7 @@ import { Diagram } from "./Markdown";
 import { languageForFile } from "./textFormats";
 import { readPreviewText } from "./previewCache";
 import { memo, useEffect, useRef, useState } from "react";
-import { FileText } from "lucide-react";
+import { FileText } from "./icons";
 import type { Card } from "./storage";
 import { Markdown } from "./Markdown";
 import { PdfPreview } from "./PdfPreview";
@@ -89,6 +89,9 @@ const AttachmentContent = memo(function AttachmentContent({
     return (
       <div
         className="markdown-file-preview"
+        data-file-preview-state={
+          decoded?.source === card.blob ? "ready" : "loading"
+        }
         onWheel={(e) => {
           if (e.currentTarget.scrollHeight > e.currentTarget.clientHeight)
             e.stopPropagation();
@@ -99,7 +102,12 @@ const AttachmentContent = memo(function AttachmentContent({
     );
   if (!large && card.kind === "file" && isTextFile(card))
     return languageForFile(card.title) === "mermaid" ? (
-      <div className="mermaid-preview">
+      <div
+        className="mermaid-preview"
+        data-file-preview-state={
+          decoded?.source === card.blob ? "ready" : "loading"
+        }
+      >
         <Diagram source={fileText} language="mermaid" standalone />
       </div>
     ) : (
@@ -108,6 +116,7 @@ const AttachmentContent = memo(function AttachmentContent({
         language={languageForFile(card.title)}
         className="file-content-thumbnail"
         label={tr("{0} 内容预览", card.title)}
+        loading={decoded?.source !== card.blob}
       />
     );
   if (
@@ -128,6 +137,7 @@ const AttachmentContent = memo(function AttachmentContent({
     return (
       <img
         className={large ? "detail-image" : "thumbnail"}
+        data-file-preview-state={url || !card.blob ? "ready" : "loading"}
         src={url || undefined}
         alt={card.title}
       />

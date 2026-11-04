@@ -1,6 +1,6 @@
 import { t as tr } from "./i18n";
 import { useState } from "react";
-import { Download, X } from "lucide-react";
+import { Download, X } from "./icons";
 import {
   downloadLauncherInstaller,
   markLauncherInstalled,

@@ -2,7 +2,7 @@ import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { type Board, type Card, groupDepth } from "./storage";
 import type { CSSProperties } from "react";
-import { Folder, PanelsTopLeft, ListTodo, FileText } from "lucide-react";
+import { Folder, PanelsTopLeft, ListTodo, FileText } from "./icons";
 import { cardRect } from "./geometry";
 import { strokeBounds, surfaceColor, customColor } from "./presentation";
 import {
@@ -266,7 +266,7 @@ export async function exportPng(board: Board): Promise<Blob> {
     const deadline = performance.now() + 30000;
     while (
       scene.querySelector(
-        '.pdf-preview[aria-busy="true"],[data-diagram-state="loading"]',
+        '.pdf-preview[aria-busy="true"],[data-diagram-state="loading"],[data-file-preview-state="loading"]',
       )
     ) {
       if (performance.now() > deadline)

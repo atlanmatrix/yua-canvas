@@ -1,6 +1,6 @@
 import { t as tr } from "./i18n";
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X } from "./icons";
 import {
   isApplicationKind,
   normalizeLocalPath,

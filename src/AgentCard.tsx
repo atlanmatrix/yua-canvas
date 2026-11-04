@@ -13,7 +13,7 @@ import {
   RotateCcw,
   Plus,
   ArrowLeft,
-} from "lucide-react";
+} from "./icons";
 import type { Card } from "./storage";
 import {
   agentBaseUrl,
@@ -183,7 +183,7 @@ export function AgentCard({
     >
       <header className="agent-header">
         <span>
-          <Bot size={17} />
+          <Bot size={17} motionBusy={busy} />
           <strong>Agent</strong>
           <small title={state.model}>{state.model}</small>
         </span>

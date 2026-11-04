@@ -1,6 +1,6 @@
 import { t as tr } from "./i18n";
 import { useLayoutEffect, useRef } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, X } from "./icons";
 import type { Task } from "./storage";
 
 export function TodoEditor({

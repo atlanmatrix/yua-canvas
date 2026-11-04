@@ -1,7 +1,7 @@
 import { t as tr } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Pin } from "lucide-react";
+import { Pin } from "./icons";
 import { collectPins, type PinnedItem } from "./pins";
 import type { Board, PinColor } from "./storage";
 import {

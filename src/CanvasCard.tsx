@@ -10,7 +10,7 @@ import {
   WrapText,
   ArrowLeftRight,
   Download,
-} from "lucide-react";
+} from "./icons";
 import type { Card, Task } from "./storage";
 import { replaceBoard, type useCanvasWorkspace } from "./workspace";
 import { cardRect, textSize, TEXT_MAX_WIDTH } from "./geometry";

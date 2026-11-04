@@ -15,7 +15,7 @@ import {
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import DOMPurify from "dompurify";
-import { CircleAlert } from "lucide-react";
+import { CircleAlert } from "./icons";
 import { PreviewBoundary } from "./PreviewBoundary";
 import {
   PreviewCache,

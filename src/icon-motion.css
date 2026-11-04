@@ -1,0 +1,15 @@
+/* SVG geometry moves inside a stable control; text, layout and elevation stay put. */
+svg.ui-icon {
+  overflow: visible;
+}
+svg.ui-icon > :is(path, circle, rect, line, polyline, polygon, ellipse) {
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+}
+@media (prefers-reduced-motion: reduce) {
+  svg.ui-icon,
+  svg.ui-icon * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

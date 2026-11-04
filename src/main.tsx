@@ -54,7 +54,7 @@ import {
   List,
   LayoutGrid,
   Paintbrush,
-} from "lucide-react";
+} from "./icons";
 import {
   type Board,
   type Card,
@@ -182,6 +182,8 @@ import "./theme.css";
 import "./controls.css";
 import "./resize.css";
 import "./glass.css";
+import "./icon-motion.css";
+import { installIconMotion } from "./iconMotion";
 import { registerPwa } from "./pwa";
 void registerPwa();
 import { ShareViewer } from "./ShareViewer";
@@ -4274,6 +4276,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   ];
 }
 function Router() {
+  useEffect(installIconMotion, []);
   const [hash, setHash] = useState(location.hash);
   useEffect(() => {
     const update = () => setHash(location.hash);

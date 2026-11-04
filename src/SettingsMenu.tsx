@@ -1,5 +1,5 @@
 import { useId, useRef, useState } from "react";
-import { Settings, Upload, X } from "lucide-react";
+import { Settings, Upload, X } from "./icons";
 import { CloudPanel } from "./CloudPanel";
 import { PreferencesControls } from "./PreferencesControls";
 import { PwaControls } from "./PwaControls";

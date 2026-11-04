@@ -1,6 +1,6 @@
 import { t as tr } from "./i18n";
 import { useEffect, useRef, useState } from "react";
-import { Box, X } from "lucide-react";
+import { Box, X } from "./icons";
 import type { Card } from "./storage";
 import { MINIATURE_EXAMPLE, miniatureUrl } from "./miniatureScene";
 import {

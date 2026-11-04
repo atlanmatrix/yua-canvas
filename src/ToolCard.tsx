@@ -11,7 +11,7 @@ import {
   RotateCw,
   Search,
   Delete,
-} from "lucide-react";
+} from "./icons";
 import type { Card } from "./storage";
 import { PreviewBoundary } from "./PreviewBoundary";
 import {
@@ -322,7 +322,7 @@ function Converter({
             disabled={loading}
             onClick={() => refresh((n) => n + 1)}
           >
-            <RotateCw size={14} />
+            <RotateCw size={14} motionBusy={loading} />
           </button>
           <a
             href="https://frankfurter.dev"
@@ -542,7 +542,7 @@ function WeatherTool({ value, change }: { value: ToolState; change: Change }) {
               disabled={loading}
               onClick={() => refresh((n) => n + 1)}
             >
-              <RotateCw size={14} />
+              <RotateCw size={14} motionBusy={loading} />
             </button>
           </div>
           {data && (

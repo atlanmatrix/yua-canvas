@@ -7,7 +7,7 @@ import {
   Strikethrough,
   Palette,
   Highlighter,
-} from "lucide-react";
+} from "./icons";
 import { FONT_FAMILIES, type TextStyle } from "./presentation";
 export function TextFormatToolbar({
   style = {},

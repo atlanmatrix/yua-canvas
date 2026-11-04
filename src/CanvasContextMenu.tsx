@@ -1,4 +1,5 @@
 import { t as tr } from "./i18n";
+import { ChevronRight } from "./icons";
 import {
   createContext,
   useContext,
@@ -322,9 +323,7 @@ export function ContextSubmenu({
       >
         {icon}
         <span>{label}</span>
-        <span className="submenu-arrow" aria-hidden="true">
-          ›
-        </span>
+        <ChevronRight className="submenu-arrow" size={14} aria-hidden="true" />
       </button>
       {open && (
         <div

@@ -1,6 +1,6 @@
 import { t as tr } from "./i18n";
 import { VSCodeIcon } from "./VSCodeIcon";
-import { Copy, Play, ChevronRight } from "lucide-react";
+import { Copy, Play, ChevronRight } from "./icons";
 import type { Card } from "./storage";
 import { localPathName } from "./appAssociations";
 

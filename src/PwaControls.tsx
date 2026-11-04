@@ -1,6 +1,6 @@
 import { t as tr } from "./i18n";
 import { useEffect, useRef, useState } from "react";
-import { RefreshCw, WifiOff } from "lucide-react";
+import { RefreshCw, WifiOff } from "./icons";
 import { registerPwa } from "./pwa";
 export function PwaControls({
   beforeUpdate,
@@ -97,7 +97,7 @@ export function PwaControls({
               });
           }}
         >
-          <RefreshCw size={18} />
+          <RefreshCw size={18} motionBusy={updating} />
           <span>{tr("更新应用")}</span>
         </button>
       )}

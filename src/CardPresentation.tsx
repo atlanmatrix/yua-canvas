@@ -13,7 +13,7 @@ import {
   Code2,
   Terminal,
   EyeOff,
-} from "lucide-react";
+} from "./icons";
 import { type Card, type Group, type Board, groupTreeIds } from "./storage";
 import { cardRect, contentCardSize, pdfGeometry } from "./geometry";
 import { NoteText } from "./NoteText";

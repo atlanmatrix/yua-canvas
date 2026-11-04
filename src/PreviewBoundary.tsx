@@ -1,4 +1,4 @@
-import { FileText } from "lucide-react";
+import { FileText } from "./icons";
 import {
   memo,
   useContext,
@@ -10,10 +10,12 @@ import {
   type ReactNode,
 } from "react";
 import { ExportPreviewContext } from "./ExportPreviewContext";
+import { pauseIconMotion } from "./iconMotionActivity";
 const listeners = new Set<() => void>();
 let moving = false,
   timer: ReturnType<typeof setTimeout> | undefined;
 export function markPreviewMoving() {
+  pauseIconMotion();
   if (!moving) {
     moving = true;
     listeners.forEach((fn) => fn());

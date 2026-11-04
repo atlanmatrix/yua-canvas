@@ -7,7 +7,7 @@ import {
   ChevronDown,
   FileWarning,
   PanelsLeftBottom,
-} from "lucide-react";
+} from "./icons";
 import type { Card } from "./storage";
 import { pdfResolution, requestPdfPreview } from "./pdfPreviewCache";
 import {

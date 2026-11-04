@@ -24,7 +24,7 @@ import {
   PanelsTopLeft,
   RotateCcw,
   X,
-} from "lucide-react";
+} from "./icons";
 import type { Board, Card } from "./storage";
 import { cardRect } from "./geometry";
 import { curve, curveMidpoint, endpointPoint } from "./connections";

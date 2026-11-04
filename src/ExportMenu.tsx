@@ -1,4 +1,4 @@
-import { Download, PanelsTopLeft, Package, Image } from "lucide-react";
+import { Download, PanelsTopLeft, Package, Image } from "./icons";
 import { ContextSubmenu } from "./CanvasContextMenu";
 import { MenuButton } from "./MenuShortcut";
 import { t as tr } from "./i18n";
