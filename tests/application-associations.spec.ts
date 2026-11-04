@@ -1,3 +1,4 @@
+import { openSettings } from "./settings-helper.mjs";
 import { test, expect, type Page, type Download } from "@playwright/test";
 import { unzipSync, strFromU8 } from "fflate";
 import { execFileSync } from "node:child_process";
@@ -21,6 +22,7 @@ async function downloadBytes(download: Download) {
 }
 async function exportJson(page: Page) {
   const pending = page.waitForEvent("download");
+  await openSettings(page);
   await page.getByRole("button", { name: "导出画布", exact: true }).click();
   return downloadBytes(await pending);
 }

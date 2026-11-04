@@ -1,3 +1,4 @@
+import { openSettings } from "./settings-helper.mjs";
 import { test, expect, type Page } from "@playwright/test";
 // Deliberately fake credentials: every provider request is intercepted.
 const fakeKey = "fake-agent-test-credential";
@@ -18,6 +19,7 @@ async function send(page: Page, text: string) {
 }
 async function download(page: Page) {
   const promise = page.waitForEvent("download");
+  await openSettings(page);
   await page.getByRole("button", { name: "导出画布", exact: true }).click();
   const result = await promise,
     stream = await result.createReadStream();

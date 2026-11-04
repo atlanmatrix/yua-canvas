@@ -1,8 +1,10 @@
+import { openSettings } from "./settings-helper.mjs";
 import { test, expect } from "@playwright/test";
 test("preference sliders support pointer dragging, keyboard navigation, stored choices and system appearance without moving the canvas", async ({
   page,
 }) => {
   await page.goto("/");
+  await openSettings(page);
   const camera = () => page.locator(".world").getAttribute("style");
   const before = await camera();
   const language = page.getByRole("slider", { name: "语言", exact: true }),
@@ -25,6 +27,7 @@ test("preference sliders support pointer dragging, keyboard navigation, stored c
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   expect(await camera()).toEqual(before);
   await page.reload();
+  await openSettings(page);
   await expect(
     page.getByRole("slider", { name: "Appearance", exact: true }),
   ).toHaveValue("1");
@@ -50,6 +53,7 @@ test.describe("touch capsules", () => {
     page,
   }) => {
     await page.goto("/");
+    await openSettings(page);
     const before = await page.locator(".world").getAttribute("style");
     const language = page.getByRole("slider", { name: "语言", exact: true }),
       r = (await language.boundingBox())!;

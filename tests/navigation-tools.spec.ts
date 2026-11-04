@@ -1,3 +1,4 @@
+import { openSettings } from "./settings-helper.mjs";
 import { downloadSelectionMenu } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 const note = (id: string, x = 80, y = 120) => ({
@@ -335,6 +336,7 @@ test("JSON and ZIP preserve pin labels and colors, duplicate pins locate indepen
     rail.getByRole("button", { name: "根级内容", exact: true }),
   ).toHaveCount(2);
   const promise = page.waitForEvent("download");
+  await openSettings(page);
   await page.getByRole("button", { name: "导出画布", exact: true }).click();
   const stream = await (await promise).createReadStream(),
     chunks: Buffer[] = [];

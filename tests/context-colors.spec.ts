@@ -1,4 +1,5 @@
 import { downloadSelectionMenu } from "./helpers";
+import { openSettings } from "./settings-helper.mjs";
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { unzipSync, strFromU8 } from "fflate";
 const palette = [
@@ -108,6 +109,7 @@ async function color(page: Page, target: Locator, name: string) {
   await expect(page.getByRole("menu")).toHaveCount(0);
 }
 async function bytes(page: Page, action: string, rightMenu = false) {
+  if (action === "导出画布") await openSettings(page);
   const pending = page.waitForEvent("download");
   if (action === "批量下载") await downloadSelectionMenu(page);
   else

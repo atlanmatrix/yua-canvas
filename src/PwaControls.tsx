@@ -76,7 +76,7 @@ export function PwaControls({
       )}
       {waiting && (
         <button
-          className="floating-button"
+          className="settings-action"
           aria-label={tr("更新应用")}
           title={tr("发现新版本，保存画布后更新并重新加载")}
           disabled={updating}
@@ -98,6 +98,7 @@ export function PwaControls({
           }}
         >
           <RefreshCw size={18} />
+          <span>{tr("更新应用")}</span>
         </button>
       )}
       {error && (

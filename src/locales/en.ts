@@ -1,4 +1,6 @@
 export const english: Record<string, string> = {
+  设置: "Settings",
+  关闭设置: "Close settings",
   "单指 / 双指拖动": "One / two finger drag",
   "平移画布；拖动节点移动": "Pan canvas; drag a node to move it",
   双指捏合: "Pinch with two fingers",

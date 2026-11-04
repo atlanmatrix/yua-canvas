@@ -354,6 +354,7 @@ body
     .modal,
     .cloud-panel,
     .pwa-error,
+    .settings-popover,
     .toolbar,
     .paint-controls,
     .zoom-controls,
@@ -370,6 +371,145 @@ body
   :where(.share-viewer > header)
   .preference-slider:has(input:focus-visible) {
   box-shadow: var(--focus-shadow);
+}
+
+/* Settings is one floating surface, with flat controls inside. */
+body .settings-menu {
+  display: block;
+  width: auto;
+}
+body .settings-popover {
+  position: fixed;
+  inset: 70px 20px auto auto;
+  margin: 0;
+  width: min(304px, calc(100vw - 24px));
+  max-height: calc(100dvh - 90px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--panel-shadow);
+}
+.settings-heading,
+.settings-popover .preference-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+}
+.settings-heading h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.settings-heading button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  color: var(--muted);
+}
+.settings-popover .labeled-preferences {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  font-size: 13px;
+}
+body .settings-popover .preference-slider {
+  --segment: 38px;
+  box-shadow: none;
+}
+body .settings-popover .preference-slider:has(input:focus-visible) {
+  box-shadow: var(--focus-shadow);
+}
+body .settings-popover .settings-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 8px !important;
+  background: transparent;
+  color: var(--ink);
+  text-align: start;
+  font-size: 13px;
+}
+.settings-action svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+body .settings-popover button:enabled:hover,
+body .settings-popover button:focus-visible {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  filter: none;
+}
+.settings-popover button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.settings-save-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.settings-save-status > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.settings-save-status.error > span {
+  background: #ba6149;
+}
+.settings-menu[data-state="正在保存…"] .settings-save-status > span {
+  background: #ccb36f;
+}
+body .settings-popover .pwa-offline,
+body .settings-popover .pwa-error {
+  position: static;
+  max-width: none;
+  margin: 4px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+body .settings-popover .pwa-error {
+  display: block;
+}
+body .canvas-navigation {
+  max-width: calc(100% - 60px);
+  padding: 4px 14px 4px 4px;
+  background: #fff;
+  color: #334155;
+}
+body .canvas-navigation .floating-button {
+  background: transparent;
+  color: inherit;
+}
+body .canvas-navigation span {
+  color: inherit;
+}
+@media (max-width: 700px) {
+  body .settings-popover {
+    top: 62px;
+    right: 12px;
+    max-height: calc(100dvh - 74px);
+  }
+  body .canvas-navigation span {
+    max-width: min(55vw, 240px);
+  }
 }
 /* Filled fields remain distinct without inset or drop shadows in either theme. */
 :root

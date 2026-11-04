@@ -1,3 +1,4 @@
+import { openSettings } from "./settings-helper.mjs";
 import { test, expect } from "@playwright/test";
 const snapshot = {
   version: 1,
@@ -31,6 +32,7 @@ test("share opens read-only, does not replace the local workspace", async ({
 });
 test("unavailable cloud leaves local editing usable", async ({ page }) => {
   await page.goto("/");
+  await openSettings(page);
   await page.getByRole("button", { name: "云同步与分享" }).click();
   await expect(
     page.getByRole("dialog", { name: "云同步与分享" }),
@@ -86,6 +88,7 @@ test("connecting with different local and cloud content pauses, preserves recove
   });
   await page.reload();
   await expect(page.getByText("本机未上传内容")).toBeVisible();
+  await openSettings(page);
   await page.getByRole("button", { name: "云同步与分享" }).click();
   await page.getByRole("button", { name: "连接并同步" }).click();
   await expect(page.getByRole("status")).toContainText("本地和云端均有内容");

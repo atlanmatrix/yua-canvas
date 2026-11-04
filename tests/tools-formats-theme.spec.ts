@@ -1,3 +1,4 @@
+import { openSettings } from "./settings-helper.mjs";
 import { test, expect, type Page } from "@playwright/test";
 const saved = (page: Page) =>
   expect(
@@ -45,7 +46,7 @@ test("malformed currency and weather caches or responses show errors without cra
   const weather = await tool(page, "天气");
   await expect(weather).toContainText("暂时无法获取天气");
   await expect(
-    page.getByRole("button", { name: "导出画布", exact: true }),
+    page.getByRole("button", { name: "设置", exact: true }),
   ).toBeEnabled();
   expect(errors).toEqual([]);
 });
@@ -74,6 +75,7 @@ async function paste(page: Page, source: string) {
 }
 async function exported(page: Page) {
   const pending = page.waitForEvent("download");
+  await openSettings(page);
   await page.getByRole("button", { name: "导出画布", exact: true }).click();
   const stream = await (await pending).createReadStream(),
     chunks: Buffer[] = [];
@@ -401,6 +403,7 @@ test("English and dark/system preferences update live, preserve user content and
   await paste(page, "使用说明");
   const card = await tool(page, "日历");
   await expect(card).toContainText("日历");
+  await openSettings(page);
   await page.getByRole("slider", { name: "语言", exact: true }).press("End");
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.locator(".card-text")).toHaveText("使用说明");
@@ -444,6 +447,7 @@ test("English and dark/system preferences update live, preserve user content and
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.emulateMedia({ colorScheme: "light" });
+  await openSettings(page);
   await page.getByRole("slider", { name: "Appearance" }).press("End");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.emulateMedia({ colorScheme: "dark" });

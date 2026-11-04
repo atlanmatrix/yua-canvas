@@ -1,3 +1,4 @@
+import { openSettings } from "./settings-helper.mjs";
 import { openTextEditor } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
@@ -6,6 +7,7 @@ import { join, basename } from "node:path";
 
 async function board(page: Page) {
   const pending = page.waitForEvent("download");
+  await openSettings(page);
   await page.getByRole("button", { name: "导出画布", exact: true }).click();
   const file = await pending,
     stream = await file.createReadStream();

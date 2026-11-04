@@ -1,3 +1,4 @@
+import { openSettings } from "./settings-helper.mjs";
 import { test, expect, type Page, type Download } from "@playwright/test";
 import { pdfFixture } from "./pdf-fixture.mjs";
 
@@ -15,6 +16,7 @@ async function bytes(download: Download) {
 }
 async function exportJson(page: Page) {
   const pending = page.waitForEvent("download");
+  await openSettings(page);
   await page.getByRole("button", { name: "导出画布", exact: true }).click();
   return bytes(await pending);
 }

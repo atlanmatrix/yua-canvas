@@ -1,5 +1,6 @@
 import { t as tr } from "./i18n";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Cloud, X } from "lucide-react";
 import { api, CloudError, packCloud, unpackCloud, uploadCloud } from "./cloud";
 import {
@@ -22,10 +23,12 @@ export function CloudPanel({
   board,
   ready,
   restore,
+  onOpen,
 }: {
   board: Board;
   ready: boolean;
   restore: (b: Board) => void;
+  onOpen?: () => void;
 }) {
   const [open, setOpen] = useState(location.hash === "#cloud"),
     [user, setUser] = useState<{ owner_id: string; name: string } | null>(null),
@@ -191,255 +194,266 @@ export function CloudPanel({
   return (
     <>
       <button
-        className="floating-button"
+        className="settings-action"
         aria-label={tr("云同步与分享")}
         title={tr("云同步与分享")}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          onOpen?.();
+          setOpen(true);
+        }}
       >
         <Cloud size={18} />
+        <span>{tr("云同步与分享")}</span>
       </button>
-      {open && (
-        <div className="modal-backdrop">
-          <section
-            className="modal compact cloud-panel"
-            role="dialog"
-            aria-modal="true"
-            aria-label={tr("云同步与分享")}
-          >
-            <div className="modal-heading">
-              <h2>{tr("云同步与分享")}</h2>
-              <button
-                aria-label={tr("关闭云同步")}
-                onClick={() => setOpen(false)}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <p role="status">{tr(status)}</p>
-            {!user ? (
-              <>
-                <p>
-                  {tr(
-                    "本地数据继续保存在此浏览器。登录并连接后，同步整个工作区及附件。",
+      {open &&
+        createPortal(
+          <div className="modal-backdrop">
+            <section
+              className="modal compact cloud-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-label={tr("云同步与分享")}
+            >
+              <div className="modal-heading">
+                <h2>{tr("云同步与分享")}</h2>
+                <button
+                  aria-label={tr("关闭云同步")}
+                  onClick={() => setOpen(false)}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <p role="status">{tr(status)}</p>
+              {!user ? (
+                <>
+                  <p>
+                    {tr(
+                      "本地数据继续保存在此浏览器。登录并连接后，同步整个工作区及附件。",
+                    )}
+                  </p>
+                  {available && (
+                    <a className="cloud-login" href="/api/auth/login">
+                      {tr("使用 GitHub 登录")}
+                    </a>
                   )}
-                </p>
-                {available && (
-                  <a className="cloud-login" href="/api/auth/login">
-                    {tr("使用 GitHub 登录")}
-                  </a>
-                )}
-              </>
-            ) : (
-              <>
-                <p>
-                  {tr("账号：")}
-                  {user.name} ·{" "}
-                  {enabled ? tr("自动同步已开启") : tr("自动同步未开启")}
-                </p>
-                <div className="cloud-actions">
+                </>
+              ) : (
+                <>
+                  <p>
+                    {tr("账号：")}
+                    {user.name} ·{" "}
+                    {enabled ? tr("自动同步已开启") : tr("自动同步未开启")}
+                  </p>
+                  <div className="cloud-actions">
+                    <button
+                      disabled={busy || !ready}
+                      onClick={() => {
+                        localStorage.removeItem("yua-cloud-paused");
+                        setEnabled(true);
+                        void lock(() => reconcile(user.owner_id, true));
+                      }}
+                    >
+                      {tr("连接并同步")}
+                    </button>
+                    <button
+                      disabled={busy}
+                      onClick={() => {
+                        localStorage.setItem("yua-cloud-paused", "yes");
+                        setEnabled(false);
+                        setStatus("自动同步已暂停");
+                      }}
+                    >
+                      {tr("暂停同步")}
+                    </button>
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        void lock(async () => {
+                          await api("/auth/logout", {
+                            method: "POST",
+                            body: "{}",
+                          });
+                          setEnabled(false);
+                          setUser(null);
+                          state.current.base = null;
+                          localStorage.removeItem(META);
+                          setStatus("已退出，画布保留在本地");
+                        })
+                      }
+                    >
+                      {tr("退出登录")}
+                    </button>
+                  </div>
+                  {conflict && (
+                    <div className="cloud-conflict">
+                      <p>
+                        {tr(
+                          "同步已暂停，不会覆盖任何一端。采用云端前会在本机保留一份恢复副本。",
+                        )}
+                      </p>
+                      <div className="cloud-actions">
+                        <button
+                          disabled={busy}
+                          onClick={() =>
+                            void download(current.current, "本地画布备份.json")
+                          }
+                        >
+                          {tr("下载本地副本")}
+                        </button>
+                        <button
+                          disabled={busy}
+                          onClick={() =>
+                            void lock(async () => {
+                              const remote = await api("/canvas");
+                              await accept(remote, user.owner_id);
+                              state.current.conflict = false;
+                              setConflict(false);
+                            })
+                          }
+                        >
+                          {tr("备份本地并采用云端")}
+                        </button>
+                        <button
+                          disabled={busy}
+                          onClick={() => {
+                            if (
+                              !confirm(
+                                tr(
+                                  "将以当前本地内容创建云端新版本，其他设备需要重新同步。继续？",
+                                ),
+                              )
+                            )
+                              return;
+                            void lock(async () => {
+                              const remote = await api("/canvas");
+                              await push(user.owner_id, remote.revision);
+                              state.current.conflict = false;
+                              setConflict(false);
+                            });
+                          }}
+                        >
+                          {tr("以本地内容发布新版本")}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <hr />
+                  <p>
+                    {tr(
+                      "分享整个工作区的只读快照。持有链接的人可以查看并下载附件。",
+                    )}
+                  </p>
+                  <label>
+                    {tr("链接有效期")}{" "}
+                    <select
+                      aria-label={tr("分享有效期")}
+                      value={days}
+                      onChange={(e) => setDays(e.target.value)}
+                    >
+                      <option value="1">{tr("1 天")}</option>
+                      <option value="7">{tr("7 天")}</option>
+                      <option value="30">{tr("30 天")}</option>
+                      <option value="">{tr("永久")}</option>
+                    </select>
+                  </label>
                   <button
-                    disabled={busy || !ready}
-                    onClick={() => {
-                      localStorage.removeItem("yua-cloud-paused");
-                      setEnabled(true);
-                      void lock(() => reconcile(user.owner_id, true));
-                    }}
-                  >
-                    {tr("连接并同步")}
-                  </button>
-                  <button
-                    disabled={busy}
-                    onClick={() => {
-                      localStorage.setItem("yua-cloud-paused", "yes");
-                      setEnabled(false);
-                      setStatus("自动同步已暂停");
-                    }}
-                  >
-                    {tr("暂停同步")}
-                  </button>
-                  <button
-                    disabled={busy}
+                    disabled={busy || conflict || !ready}
                     onClick={() =>
                       void lock(async () => {
-                        await api("/auth/logout", {
+                        await reconcile(user.owner_id);
+                        if (state.current.conflict) return;
+                        const packed = await packCloud(current.current);
+                        if (
+                          packed.fingerprint !== state.current.base?.fingerprint
+                        )
+                          throw Error("画布仍在编辑，请稍后重新生成分享");
+                        const d = await api("/shares", {
                           method: "POST",
-                          body: "{}",
+                          body: JSON.stringify({
+                            expiresInDays: days ? Number(days) : null,
+                            expectedRevision: state.current.base?.revision,
+                          }),
                         });
-                        setEnabled(false);
-                        setUser(null);
-                        state.current.base = null;
-                        localStorage.removeItem(META);
-                        setStatus("已退出，画布保留在本地");
+                        setLink(
+                          location.origin +
+                            location.pathname +
+                            "#/s/" +
+                            d.token,
+                        );
+                        await loadShares();
                       })
                     }
                   >
-                    {tr("退出登录")}
+                    {tr("生成分享链接")}
                   </button>
-                </div>
-                {conflict && (
-                  <div className="cloud-conflict">
-                    <p>
-                      {tr(
-                        "同步已暂停，不会覆盖任何一端。采用云端前会在本机保留一份恢复副本。",
-                      )}
-                    </p>
-                    <div className="cloud-actions">
+                  {link && (
+                    <label>
+                      {tr("分享地址")}
+                      <input
+                        aria-label={tr("分享地址")}
+                        readOnly
+                        value={link}
+                        onFocus={(e) => e.target.select()}
+                      />
                       <button
-                        disabled={busy}
                         onClick={() =>
-                          void download(current.current, "本地画布备份.json")
+                          void navigator.clipboard
+                            .writeText(link)
+                            .then(() => setStatus("分享链接已复制"))
+                            .catch(() => setStatus("请选中地址后手动复制"))
                         }
                       >
-                        {tr("下载本地副本")}
+                        {tr("复制链接")}
                       </button>
-                      <button
-                        disabled={busy}
-                        onClick={() =>
-                          void lock(async () => {
-                            const remote = await api("/canvas");
-                            await accept(remote, user.owner_id);
-                            state.current.conflict = false;
-                            setConflict(false);
-                          })
-                        }
-                      >
-                        {tr("备份本地并采用云端")}
-                      </button>
-                      <button
-                        disabled={busy}
-                        onClick={() => {
-                          if (
-                            !confirm(
-                              tr(
-                                "将以当前本地内容创建云端新版本，其他设备需要重新同步。继续？",
-                              ),
-                            )
-                          )
-                            return;
-                          void lock(async () => {
-                            const remote = await api("/canvas");
-                            await push(user.owner_id, remote.revision);
-                            state.current.conflict = false;
-                            setConflict(false);
-                          });
-                        }}
-                      >
-                        {tr("以本地内容发布新版本")}
-                      </button>
-                    </div>
-                  </div>
-                )}
-                <hr />
-                <p>
-                  {tr(
-                    "分享整个工作区的只读快照。持有链接的人可以查看并下载附件。",
+                    </label>
                   )}
-                </p>
-                <label>
-                  {tr("链接有效期")}{" "}
-                  <select
-                    aria-label={tr("分享有效期")}
-                    value={days}
-                    onChange={(e) => setDays(e.target.value)}
-                  >
-                    <option value="1">{tr("1 天")}</option>
-                    <option value="7">{tr("7 天")}</option>
-                    <option value="30">{tr("30 天")}</option>
-                    <option value="">{tr("永久")}</option>
-                  </select>
-                </label>
-                <button
-                  disabled={busy || conflict || !ready}
-                  onClick={() =>
-                    void lock(async () => {
-                      await reconcile(user.owner_id);
-                      if (state.current.conflict) return;
-                      const packed = await packCloud(current.current);
-                      if (
-                        packed.fingerprint !== state.current.base?.fingerprint
-                      )
-                        throw Error("画布仍在编辑，请稍后重新生成分享");
-                      const d = await api("/shares", {
-                        method: "POST",
-                        body: JSON.stringify({
-                          expiresInDays: days ? Number(days) : null,
-                          expectedRevision: state.current.base?.revision,
-                        }),
-                      });
-                      setLink(
-                        location.origin + location.pathname + "#/s/" + d.token,
-                      );
-                      await loadShares();
-                    })
-                  }
-                >
-                  {tr("生成分享链接")}
-                </button>
-                {link && (
-                  <label>
-                    {tr("分享地址")}
-                    <input
-                      aria-label={tr("分享地址")}
-                      readOnly
-                      value={link}
-                      onFocus={(e) => e.target.select()}
-                    />
-                    <button
-                      onClick={() =>
-                        void navigator.clipboard
-                          .writeText(link)
-                          .then(() => setStatus("分享链接已复制"))
-                          .catch(() => setStatus("请选中地址后手动复制"))
-                      }
-                    >
-                      {tr("复制链接")}
-                    </button>
-                  </label>
-                )}
-                <div className="cloud-share-list">
-                  {shares.map((s) => (
-                    <div key={s.id}>
-                      <span>
-                        {new Date(s.created_at).toLocaleString()} ·{" "}
-                        {s.revoked_at
-                          ? tr("已撤销")
-                          : s.expires_at && s.expires_at < Date.now()
-                            ? tr("已过期")
-                            : tr("可访问")}
-                      </span>
-                      <button
-                        disabled={busy || !!s.revoked_at}
-                        onClick={() =>
-                          void lock(async () => {
-                            await api("/shares/" + s.id, { method: "DELETE" });
-                            await loadShares();
-                            setStatus("分享已撤销");
-                          })
-                        }
-                      >
-                        {tr("撤销")}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-            <button
-              onClick={() =>
-                void readRecovery()
-                  .then((b) =>
-                    b
-                      ? download(b, "同步前恢复副本.json")
-                      : setStatus("暂无恢复副本"),
-                  )
-                  .catch(error)
-              }
-            >
-              {tr("下载上次同步前的本地副本")}
-            </button>
-          </section>
-        </div>
-      )}
+                  <div className="cloud-share-list">
+                    {shares.map((s) => (
+                      <div key={s.id}>
+                        <span>
+                          {new Date(s.created_at).toLocaleString()} ·{" "}
+                          {s.revoked_at
+                            ? tr("已撤销")
+                            : s.expires_at && s.expires_at < Date.now()
+                              ? tr("已过期")
+                              : tr("可访问")}
+                        </span>
+                        <button
+                          disabled={busy || !!s.revoked_at}
+                          onClick={() =>
+                            void lock(async () => {
+                              await api("/shares/" + s.id, {
+                                method: "DELETE",
+                              });
+                              await loadShares();
+                              setStatus("分享已撤销");
+                            })
+                          }
+                        >
+                          {tr("撤销")}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              <button
+                onClick={() =>
+                  void readRecovery()
+                    .then((b) =>
+                      b
+                        ? download(b, "同步前恢复副本.json")
+                        : setStatus("暂无恢复副本"),
+                    )
+                    .catch(error)
+                }
+              >
+                {tr("下载上次同步前的本地副本")}
+              </button>
+            </section>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

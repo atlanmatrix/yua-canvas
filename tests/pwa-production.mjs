@@ -1,3 +1,4 @@
+import { openSettings } from "./settings-helper.mjs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
@@ -98,6 +99,7 @@ test("tool state, English and dark preferences and cold syntax workers work offl
   const context = await browser.newContext();
   try {
     const page = await app(context);
+    await openSettings(page);
     await page.getByRole("slider", { name: "语言", exact: true }).press("End");
     await page
       .getByRole("slider", { name: "Appearance", exact: true })
@@ -233,6 +235,7 @@ test("offline reload restores IndexedDB and lazy diagrams while APIs never enter
     await page.reload();
     await expect(page.getByText("离线画布", { exact: true })).toBeVisible();
     await expect(page.getByTestId("card")).toHaveCount(2);
+    await openSettings(page);
     await expect(page.getByText("离线", { exact: true })).toBeVisible();
     assert.equal(
       await page.evaluate(() =>
@@ -370,6 +373,7 @@ test("complete workspace backup restores all canvases and views offline at the P
     await page.getByRole("button", { name: "放大", exact: true }).click();
     const download = async () => {
       const pending = page.waitForEvent("download");
+      await openSettings(page);
       await page.getByRole("button", { name: "导出画布", exact: true }).click();
       const chunks = [];
       for await (const chunk of await (await pending).createReadStream())
@@ -595,6 +599,7 @@ test("update saves pending canvas edits and does not reload other open tabs", as
     await page.evaluate(async () => {
       await (await navigator.serviceWorker.getRegistration()).update();
     });
+    await openSettings(page);
     await expect(
       page.getByRole("button", { name: "更新应用", exact: true }),
     ).toBeVisible({ timeout: 20000 });
@@ -606,6 +611,7 @@ test("update saves pending canvas edits and does not reload other open tabs", as
       "framenavigated",
       (frame) => frame === page.mainFrame(),
     );
+    await openSettings(page);
     await page.getByRole("button", { name: "更新应用", exact: true }).click();
     await navigation;
     await expect(

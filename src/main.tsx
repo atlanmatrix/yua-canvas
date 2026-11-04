@@ -3,7 +3,7 @@ import { defaultAgent } from "./agent";
 import { CanvasCard } from "./CanvasCard";
 import { TOOL_KINDS, TOOL_NAMES, isToolKind } from "./tools";
 import { TOOL_ICONS } from "./ToolCard";
-import { PreferencesControls } from "./PreferencesControls";
+import { SettingsMenu } from "./SettingsMenu";
 import { t as tr, usePreferences } from "./i18n";
 import { detectTextFormat } from "./textFormats";
 import { GroupNameEditor } from "./GroupNameEditor";
@@ -25,7 +25,6 @@ import {
   Pencil,
   Plus,
   ArrowUpRight,
-  Upload,
   Download,
   Type,
   ImagePlus,
@@ -177,10 +176,8 @@ import "./style.css";
 import "./tools.css";
 import "./theme.css";
 import "./controls.css";
-import { PwaControls } from "./PwaControls";
 import { registerPwa } from "./pwa";
 void registerPwa();
-import { CloudPanel } from "./CloudPanel";
 import { ShareViewer } from "./ShareViewer";
 import { MiniatureDialog } from "./Miniature";
 import { miniatureViewUrl } from "./miniatureScene";
@@ -2043,7 +2040,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   // Keyboard commands must see the ready canvas before the saved state paints.
   useLayoutEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (preview3D || importBusy) return;
+      if (
+        preview3D ||
+        importBusy ||
+        document.querySelector(".settings-popover:popover-open")
+      )
+        return;
       setLinkModifier(e.metaKey || e.ctrlKey);
       const key = e.key.toLowerCase(),
         mod = e.ctrlKey || e.metaKey;
@@ -2474,9 +2476,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             </nav>
           )}
           <div className="floating-actions">
-            <PreferencesControls />
-            <CloudPanel board={root} ready={ready} restore={restore} />
-            <PwaControls
+            <SettingsMenu
+              board={root}
+              ready={ready}
+              restore={restore}
+              saveStatus={saveStatus}
+              onImport={() => importInput.current?.click()}
+              onExport={exportAll}
               beforeUpdate={async () => {
                 if (!ready) throw Error("画布尚未读取完成，请稍后更新");
                 const snapshot = latestWorkspace.current;
@@ -2492,34 +2498,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   throw Error("保存期间画布发生变化，请再次点击更新");
               }}
             />
-            <span
-              className={
-                "save-indicator " + (saveStatus === "保存失败" ? "error" : "")
-              }
-              data-state={saveStatus}
-              title={tr(saveStatus)}
-              aria-label={tr(saveStatus)}
-            >
-              <span />
-            </span>
-            <button
-              className="floating-button"
-              aria-label={tr("导入")}
-              title={tr("导入 (⌘/Ctrl O)")}
-              disabled={!ready}
-              onClick={() => importInput.current?.click()}
-            >
-              <Upload size={18} />
-            </button>
-            <button
-              className="floating-button"
-              aria-label={tr("导出画布")}
-              title={tr("导出全部画布 (⌘/Ctrl Shift E)")}
-              disabled={!ready}
-              onClick={exportAll}
-            >
-              <Download size={18} />
-            </button>
           </div>
         </div>
         <PinBar

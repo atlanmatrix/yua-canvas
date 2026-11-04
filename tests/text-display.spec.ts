@@ -1,3 +1,4 @@
+import { openSettings } from "./settings-helper.mjs";
 import { downloadSelectionMenu } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 import { unzipSync, strFromU8 } from "fflate";
@@ -40,6 +41,7 @@ async function camera(page: Page) {
     .evaluate((el) => getComputedStyle(el).transform);
 }
 async function download(page: Page, label: string) {
+  if (label === "导出画布") await openSettings(page);
   const pending = page.waitForEvent("download");
   if (label === "批量下载") await downloadSelectionMenu(page);
   else await page.getByRole("button", { name: label, exact: true }).click();

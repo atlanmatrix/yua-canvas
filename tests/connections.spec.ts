@@ -1,3 +1,4 @@
+import { openSettings } from "./settings-helper.mjs";
 import { test, expect, type Page, type Locator } from "@playwright/test";
 const card = (id: string, x: number, y: number) => ({
   id,
@@ -61,6 +62,7 @@ async function connect(page: Page, from: Locator, to: Locator) {
 }
 async function backup(page: Page) {
   const e = page.waitForEvent("download");
+  await openSettings(page);
   await page.getByRole("button", { name: "导出画布", exact: true }).click();
   const d = await e,
     s = await d.createReadStream(),

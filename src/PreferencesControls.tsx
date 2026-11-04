@@ -50,36 +50,48 @@ function PreferenceSlider<T extends string>({
     </div>
   );
 }
-export function PreferencesControls() {
+export function PreferencesControls({
+  showLabels = false,
+}: {
+  showLabels?: boolean;
+}) {
   const { language, theme } = usePreferences();
   return (
     <div
-      className="preferences-controls"
+      className={
+        "preferences-controls" + (showLabels ? " labeled-preferences" : "")
+      }
       onPointerDown={(event) => event.stopPropagation()}
     >
-      <PreferenceSlider
-        label={tr("语言")}
-        value={language}
-        onChange={(language) => setPreferences({ language })}
-        options={[
-          { value: "zh", label: tr("中文"), content: "中" },
-          { value: "en", label: "English", content: "EN" },
-        ]}
-      />
-      <PreferenceSlider
-        label={tr("外观")}
-        value={theme}
-        onChange={(theme) => setPreferences({ theme })}
-        options={[
-          { value: "light", label: tr("浅色"), content: <Sun size={16} /> },
-          { value: "dark", label: tr("深色"), content: <Moon size={16} /> },
-          {
-            value: "system",
-            label: tr("跟随系统"),
-            content: <Monitor size={16} />,
-          },
-        ]}
-      />
+      <div className="preference-row">
+        {showLabels && <span>{tr("语言")}</span>}
+        <PreferenceSlider
+          label={tr("语言")}
+          value={language}
+          onChange={(language) => setPreferences({ language })}
+          options={[
+            { value: "zh", label: tr("中文"), content: "中" },
+            { value: "en", label: "English", content: "EN" },
+          ]}
+        />
+      </div>
+      <div className="preference-row">
+        {showLabels && <span>{tr("外观")}</span>}
+        <PreferenceSlider
+          label={tr("外观")}
+          value={theme}
+          onChange={(theme) => setPreferences({ theme })}
+          options={[
+            { value: "light", label: tr("浅色"), content: <Sun size={16} /> },
+            { value: "dark", label: tr("深色"), content: <Moon size={16} /> },
+            {
+              value: "system",
+              label: tr("跟随系统"),
+              content: <Monitor size={16} />,
+            },
+          ]}
+        />
+      </div>
     </div>
   );
 }

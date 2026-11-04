@@ -1,3 +1,4 @@
+import { openSettings } from "./settings-helper.mjs";
 import { downloadSelectionMenu } from "./helpers";
 import { openTextEditor } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
@@ -19,6 +20,7 @@ const note = (id: string, x: number, y: number, text = id) => ({
   color: "#ffffff",
 });
 async function download(page: Page, name: string) {
+  if (name === "导出画布") await openSettings(page);
   const pending = page.waitForEvent("download");
   if (name === "批量下载") await downloadSelectionMenu(page);
   else await page.getByRole("button", { name, exact: true }).click();

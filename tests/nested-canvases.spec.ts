@@ -1,3 +1,4 @@
+import { openSettings } from "./settings-helper.mjs";
 import { downloadSelectionMenu } from "./helpers";
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { unzipSync, strFromU8 } from "fflate";
@@ -70,6 +71,7 @@ async function rename(page: Page, card: Locator, name: string) {
   await input.press("Enter");
 }
 async function download(page: Page, name: string) {
+  if (name === "导出画布") await openSettings(page);
   const pending = page.waitForEvent("download");
   if (name === "批量下载") await downloadSelectionMenu(page);
   else await page.getByRole("button", { name, exact: true }).click();
