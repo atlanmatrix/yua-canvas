@@ -9,6 +9,7 @@ import { resolve, extname } from "node:path";
 import { chromium, expect } from "@playwright/test";
 import { pdfFixture } from "./pdf-fixture.mjs";
 const prefix = process.env.PWA_TEST_BASE || "/yua-canvas/";
+const buildBase = process.env.PWA_BUILD_BASE || prefix;
 let server,
   browser,
   origin,
@@ -24,7 +25,7 @@ const mime = {
   ".webmanifest": "application/manifest+json",
 };
 before(async () => {
-  execFileSync("npm", ["run", "build", "--", "--base", prefix], {
+  execFileSync("npm", ["run", "build", "--", "--base", buildBase], {
     stdio: "pipe",
   });
   server = createServer(async (req, res) => {
@@ -149,21 +150,19 @@ test("title, manifest and installation icons are valid at the Pages subpath", as
   try {
     const page = await app(context);
     await expect(page).toHaveTitle("Canvas of Yua");
-    const manifestUrl = await page
+    const manifestHref = await page
       .locator('link[rel="manifest"]')
       .getAttribute("href");
-    assert.equal(manifestUrl, prefix + "manifest.webmanifest");
-    const manifest = await (await fetch(origin + manifestUrl)).json();
+    const manifestUrl = new URL(manifestHref, page.url());
+    assert.equal(manifestUrl.href, origin + prefix + "manifest.webmanifest");
+    const manifest = await (await fetch(manifestUrl)).json();
     assert.equal(manifest.name, "Canvas of Yua");
     assert.equal(manifest.start_url, "./");
     assert.equal(manifest.scope, "./");
     assert.equal(manifest.display, "standalone");
-    assert.equal(
-      new URL(manifest.start_url, origin + manifestUrl).pathname,
-      prefix,
-    );
+    assert.equal(new URL(manifest.start_url, manifestUrl).pathname, prefix);
     for (const icon of manifest.icons.filter((i) => i.type === "image/png")) {
-      const r = await fetch(new URL(icon.src, origin + manifestUrl));
+      const r = await fetch(new URL(icon.src, manifestUrl));
       assert.equal(r.status, 200);
       const bytes = Buffer.from(await r.arrayBuffer());
       const size = Number(icon.sizes.split("x")[0]);

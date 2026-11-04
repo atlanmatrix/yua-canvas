@@ -1,0 +1,85 @@
+name: Publish tag release
+
+on:
+  push:
+    tags: ["**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the tagged source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Build portable static assets
+        run: npm run build -- --base ./
+      - name: Package deployable files
+        working-directory: dist
+        run: |
+          mkdir -p "$RUNNER_TEMP/release"
+          zip -qr "$RUNNER_TEMP/release/yua-canvas-deploy.zip" .
+      - name: Package the tagged source
+        run: git archive --format=zip --prefix=yua-canvas-source/ --output="$RUNNER_TEMP/release/yua-canvas-source.zip" HEAD
+      - name: Verify archives and generate checksums
+        working-directory: ${{ runner.temp }}/release
+        run: |
+          unzip -tq yua-canvas-deploy.zip
+          unzip -tq yua-canvas-source.zip
+          sha256sum yua-canvas-deploy.zip yua-canvas-source.zip > SHA256SUMS
+      - name: Transfer release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: ${{ runner.temp }}/release/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+          overwrite: true
+
+  publish:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: ${{ runner.temp }}/release
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          ## Downloads
+
+          - **yua-canvas-deploy.zip**: Ready-to-deploy static site, including PWA and PDF resources. Extract its contents into your web server's site directory. Relative asset paths support root and subdirectory hosting.
+          - **yua-canvas-source.zip**: Source code at this tag, including the optional Cloudflare backend and deployment instructions.
+          - **SHA256SUMS**: SHA-256 checksums for both ZIP files.
+
+          Serve the deployable files over HTTP(S). See the source README and worker/README.md for build and optional cloud setup instructions.
+          NOTES
+          if gh release view -- "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release upload --clobber -- "$RELEASE_TAG" "$RUNNER_TEMP/release/"*
+          else
+            gh release create --verify-tag --title "$RELEASE_TAG" --generate-notes \
+              --notes-file "$RUNNER_TEMP/release-notes.md" -- "$RELEASE_TAG" "$RUNNER_TEMP/release/"*
+          fi

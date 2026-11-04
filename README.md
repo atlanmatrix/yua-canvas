@@ -94,6 +94,21 @@ npm run preview -- --base /yua-canvas/ --port 4173 --strictPort
 
 `dist/` 也可部署到其他静态托管服务。云服务使用同域 Worker 站点；GitHub Pages 入口使用本地模式。
 
+推送任意 tag 后，[Release 工作流](.github/workflows/release.yml) 自动从该 tag 构建并发布 GitHub Release，附带以下文件：
+
+- `yua-canvas-deploy.zip`：已构建的静态站点，包含 PWA、PDF 字体、解码器和 Worker 等资源。解压后的 `index.html` 位于包根目录，将全部内容放入静态托管目录即可；资源使用相对路径，支持根目录或子目录部署，通过 HTTP(S) 访问。
+- `yua-canvas-source.zip`：该 tag 对应的完整已跟踪源码，包含锁文件、构建脚本和可选 Cloudflare 后端配置；云端数据库、存储和登录的配置见 [worker/README.md](worker/README.md)。
+- `SHA256SUMS`：两个 ZIP 包的 SHA-256 校验值。
+
+例如 `git tag v1.0.1` 后执行 `git push origin v1.0.1`。工作流使用内置 `GITHUB_TOKEN`；同一 tag 的工作流重新运行时更新附件并保留已有 Release 描述。打包成功后才会创建 Release，已有的 Pages 部署流程保持原有触发方式。
+
+本地可验证 Release 使用的相对路径构建：
+
+```sh
+PWA_BUILD_BASE=./ npm run test:pwa                  # 部署在 /yua-canvas/ 下
+PWA_BUILD_BASE=./ PWA_TEST_BASE=/ npm run test:pwa  # 部署在站点根目录
+```
+
 生产版支持 PWA 安装。首次联网加载后，应用外壳和构建资源可离线使用；API、会话和云端附件不进入 Service Worker 缓存。登录、同步和打开尚未加载的分享仍需网络。
 
 发现更新时显示「更新应用」，点击后先保存工作区再重新加载，其他标签页不强制刷新。Manifest、Service Worker 和 PDF 资源跟随部署子路径。图标源文件为 `public/icon.svg`，修改后可执行 `npm run icons` 重新生成安装图标。
