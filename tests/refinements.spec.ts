@@ -132,12 +132,12 @@ test("env previews, 16px filenames/icons, invisible resize corners and unified g
   await page.getByRole("button", { name: "保存分组" }).click();
   await page.getByRole("button", { name: "适应所有内容" }).click();
   await expect(page.locator(".group-title")).toHaveCSS(
-    "background-color",
-    "rgba(0, 0, 0, 0)",
+    "backdrop-filter",
+    /blur\(/,
   );
   await expect(page.locator(".group-fit")).toHaveCSS(
-    "background-color",
-    "rgba(0, 0, 0, 0)",
+    "backdrop-filter",
+    /blur\(/,
   );
   await expect(page.getByTestId("resize-se")).toHaveCSS(
     "border-top-width",

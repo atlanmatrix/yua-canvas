@@ -8,7 +8,8 @@ import {
   aborted,
 } from "./previewCache";
 import { readPdfBitmap, savePdfBitmap, type PdfBitmap } from "./previewDisk";
-export const PDF_PREVIEW_MAX_EDGE = 1024;
+export const PDF_PREVIEW_MAX_EDGE = 8192;
+const PDF_PREVIEW_MAX_PIXELS = 12 * 1024 * 1024;
 const bitmaps = new PreviewCache<string, PdfBitmap>(64 * 1024 * 1024, 128);
 let id = 0;
 const identities = new WeakMap<Blob, number>();
@@ -36,10 +37,7 @@ function digest(blob: Blob) {
 export function pdfResolution(value: number) {
   return Math.max(
     128,
-    Math.min(
-      PDF_PREVIEW_MAX_EDGE,
-      2 ** Math.ceil(Math.log2(Math.max(1, value))),
-    ),
+    Math.min(PDF_PREVIEW_MAX_EDGE, Math.ceil(Math.max(1, value) / 128) * 128),
   );
 }
 type DocumentEntry = {
@@ -157,7 +155,7 @@ async function produce(
 ): Promise<PdfBitmap> {
   const hash = await digest(blob);
   checkAbort(signal);
-  const key = `pdf-v1:${hash}:${page}:${width}x${height}`;
+  const key = `pdf-v2:${hash}:${page}:${width}x${height}`;
   const previous = pageLocks.get(key);
   if (previous) {
     await previous;
@@ -188,7 +186,11 @@ async function produce(
       checkAbort(signal);
       const natural = documentPage.getViewport({ scale: 1 });
       const viewport = documentPage.getViewport({
-        scale: Math.min(width / natural.width, height / natural.height),
+        scale: Math.min(
+          width / natural.width,
+          height / natural.height,
+          Math.sqrt(PDF_PREVIEW_MAX_PIXELS / (natural.width * natural.height)),
+        ),
       });
       const canvas = document.createElement("canvas");
       canvas.width = Math.ceil(viewport.width);
@@ -200,8 +202,7 @@ async function produce(
       const bitmap = await new Promise<Blob>((resolve, reject) =>
         canvas.toBlob(
           (b) => (b ? resolve(b) : reject(Error("PDF preview failed"))),
-          "image/webp",
-          0.9,
+          "image/png",
         ),
       );
       checkAbort(signal);
@@ -211,6 +212,7 @@ async function produce(
         pages: lease.document.numPages,
         width: canvas.width,
         height: canvas.height,
+        aspectRatio: natural.width / natural.height,
       };
       canvas.width = canvas.height = 0;
       await savePdfBitmap(key, result);

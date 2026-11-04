@@ -143,6 +143,8 @@ import {
 } from "./fragments";
 import {
   cardRect,
+  resizeRect,
+  pdfGeometry,
   textSize,
   TEXT_MAX_WIDTH,
   settleGroups,
@@ -176,6 +178,8 @@ import "./style.css";
 import "./tools.css";
 import "./theme.css";
 import "./controls.css";
+import "./resize.css";
+import "./glass.css";
 import { registerPwa } from "./pwa";
 void registerPwa();
 import { ShareViewer } from "./ShareViewer";
@@ -209,6 +213,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   const latestWorkspace = useRef({ root, view, navigation });
   latestWorkspace.current = { root, view, navigation };
   const [dragCursor, setDragCursor] = useState(false);
+  const [touchMode, setTouchMode] = useState(
+    () => matchMedia("(pointer: coarse)").matches,
+  );
   const [linkModifier, setLinkModifier] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState(false);
   const [pending3DOpen, setPending3DOpen] = useState<{
@@ -338,7 +345,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setCreatePreview(null);
     setLinkDraft(null);
     if (g?.kind === "create") suppressToolbarClick.current = true;
-    if (g?.moved && (g.kind === "move" || g.kind === "resize"))
+    if (g?.kind === "resize") {
+      cancel();
+      return;
+    }
+    if (g?.moved && g.kind === "move")
       setBoard((b) => settleGroups(b, g.groupId ? [] : g.ids));
     if (g) end();
   };
@@ -816,7 +827,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         text: "",
         color: colors[0],
         ...(point || center()),
-        ...textSize(""),
+        ...textSize("", "wrap", 320),
         textMode: "wrap",
         textAutoHeight: true,
       },
@@ -1555,50 +1566,44 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       const original = g.cards.find((c) => c.id === g.cardId)!;
       const b = g.bounds,
         edge = g.edge!;
-      let width = Math.max(
+      const proportional =
+        original.kind === "image" ||
+        pdfGeometry(original) ||
+        !!original.contentAspectRatio ||
+        e.shiftKey;
+      const rect = resizeRect(
+        b,
+        edge,
+        dx / g.view.z,
+        dy / g.view.z,
+        proportional,
         64,
-        Math.min(
-          original.kind === "text" ? TEXT_MAX_WIDTH : 8000,
-          b.width +
-            (edge.includes("e")
-              ? dx / g.view.z
-              : edge.includes("w")
-                ? -dx / g.view.z
-                : 0),
-        ),
-      );
-      let height = Math.max(
         32,
-        b.height +
-          (edge.includes("s")
-            ? dy / g.view.z
-            : edge.includes("n")
-              ? -dy / g.view.z
-              : 0),
+        original.kind === "text" ? TEXT_MAX_WIDTH : 8000,
       );
-      if (original.kind === "image") {
-        const ratio = b.width / b.height;
-        if (edge === "n" || edge === "s") width = height * ratio;
-        else height = width / ratio;
-      }
-      if (
-        original.displayMode !== "medium" &&
+      const autoHeight =
         original.kind === "text" &&
-        original.textAutoHeight
-      )
-        height = textSize(
+        original.textAutoHeight &&
+        !e.shiftKey &&
+        (edge === "e" || edge === "w");
+      if (autoHeight && original.displayMode !== "medium")
+        rect.height = textSize(
           original.text,
           original.textMode,
-          width,
+          rect.width,
           original.textStyle,
         ).height;
+      const factor = pdfGeometry(original) ? 1.5 : 1;
       const next = {
         ...original,
+        ...(original.kind === "text" && !autoHeight
+          ? { textAutoHeight: false }
+          : {}),
         ...(original.displayMode === "medium"
-          ? { previewWidth: width, previewHeight: height }
-          : { width, height }),
-        x: edge.includes("w") ? b.x + b.width - width : b.x,
-        y: edge.includes("n") ? b.y + b.height - height : b.y,
+          ? { previewWidth: rect.width, previewHeight: rect.height }
+          : { width: rect.width / factor, height: rect.height / factor }),
+        x: rect.x,
+        y: rect.y,
       };
       setBoard((b) => {
         const cards = b.cards.map((c) => (c.id === next.id ? next : c));
@@ -1606,32 +1611,15 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       });
     }
     if (g.kind === "resize" && g.bounds && !g.cardId) {
-      const b = g.bounds,
-        edge = g.edge!;
-      const width = Math.max(
+      const bounds = resizeRect(
+        g.bounds,
+        g.edge!,
+        dx / g.view.z,
+        dy / g.view.z,
+        e.shiftKey,
         160,
-        b.width +
-          (edge.includes("e")
-            ? dx / g.view.z
-            : edge.includes("w")
-              ? -dx / g.view.z
-              : 0),
-      );
-      const height = Math.max(
         120,
-        b.height +
-          (edge.includes("s")
-            ? dy / g.view.z
-            : edge.includes("n")
-              ? -dy / g.view.z
-              : 0),
       );
-      const bounds = {
-        x: edge.includes("w") ? b.x + b.width - width : b.x,
-        y: edge.includes("n") ? b.y + b.height - height : b.y,
-        width,
-        height,
-      };
       setBoard((b) => ({
         ...b,
         groups: b.groups.map((group) =>
@@ -2437,6 +2425,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       inert={preview3D}
       onPointerMoveCapture={(e) => setLinkModifier(e.metaKey || e.ctrlKey)}
       onPointerDownCapture={(e) => {
+        setTouchMode(e.pointerType === "touch");
         cancelViewAnimation();
         setLinkModifier(e.metaKey || e.ctrlKey);
         if (
@@ -2448,6 +2437,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       onWheelCapture={cancelViewAnimation}
       className={
         "app " +
+        (touchMode ? "touch-input " : "") +
         (preview3D ? "previewing-3d " : "") +
         (linkModifier ? "link-modifier " : "") +
         (linkDraft ? "connecting " : "") +
@@ -2455,7 +2445,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       }
       onPointerMove={pointerMove}
       onPointerUp={pointerUp}
-      onPointerCancel={pointerUp}
+      onPointerCancel={cancelGesture}
       onLostPointerCapture={() => {
         if (gesture.current) cancelGesture();
       }}
@@ -2515,10 +2505,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         <div
           className={"canvas " + (tool === "hand" ? "hand-tool" : "")}
           ref={surface}
-          style={{
-            backgroundPosition: `${view.x}px ${view.y}px`,
-            backgroundSize: `${24 * view.z}px ${24 * view.z}px`,
-          }}
+          style={
+            {
+              "--canvas-zoom": view.z,
+              backgroundPosition: `${view.x}px ${view.y}px`,
+              backgroundSize: `${24 * view.z}px ${24 * view.z}px`,
+            } as React.CSSProperties
+          }
           onPointerMoveCapture={touch.move}
           onPointerUpCapture={touch.up}
           onPointerCancelCapture={touch.up}
@@ -2894,6 +2887,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 key={c.id}
                 card={c}
                 selected={selection.includes(c.id)}
+                touchMode={touchMode}
                 editing={editingCard === c.id}
                 editingTask={editingCard === c.id ? editingTask : undefined}
                 editingTaskOffset={

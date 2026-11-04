@@ -38,6 +38,7 @@ export type Card = {
   displayMode?: DisplayMode;
   previewWidth?: number;
   previewHeight?: number;
+  contentAspectRatio?: number;
   masked?: boolean;
   remark?: string;
   textStyle?: TextStyle;
@@ -399,8 +400,13 @@ export async function importBoard(
       )
         throw new Error("卡片数据无效");
       if (!validPresentation(c)) throw Error("组件显示设置无效");
-      if (isToolKind(c.kind as string) && !validToolText(c.kind as ToolKind, c.text)) throw Error("工具配置无效");
-      if (c.kind === "agent" && !validAgentText(c.text)) throw Error("Agent 配置无效");
+      if (
+        isToolKind(c.kind as string) &&
+        !validToolText(c.kind as ToolKind, c.text)
+      )
+        throw Error("工具配置无效");
+      if (c.kind === "agent" && !validAgentText(c.text))
+        throw Error("Agent 配置无效");
       ids.add(c.id);
       if (
         isApplicationKind(c.kind as string) &&
@@ -523,6 +529,7 @@ export async function importBoard(
         displayMode: c.displayMode as Card["displayMode"],
         previewWidth: c.previewWidth as number | undefined,
         previewHeight: c.previewHeight as number | undefined,
+        contentAspectRatio: c.contentAspectRatio as number | undefined,
         masked: c.masked as boolean | undefined,
         remark: c.remark as string | undefined,
         textStyle: c.textStyle as Card["textStyle"],

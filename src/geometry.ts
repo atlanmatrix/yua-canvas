@@ -16,28 +16,108 @@ function scrollbarSize() {
   element.remove();
   return scrollbar;
 }
-export const cardRect = (
-  c: Pick<Card, "x" | "y" | "width" | "height"> &
-    Partial<
-      Pick<Card, "kind" | "displayMode" | "previewWidth" | "previewHeight">
-    >,
-): Rect => {
-  const width = c.width || 240,
-    height = c.height || 250;
+type CardGeometry = Pick<Card, "x" | "y" | "width" | "height"> &
+  Partial<
+    Pick<
+      Card,
+      | "kind"
+      | "displayMode"
+      | "previewWidth"
+      | "previewHeight"
+      | "mime"
+      | "title"
+      | "contentAspectRatio"
+    >
+  >;
+export const pdfGeometry = (c: Pick<CardGeometry, "kind" | "mime" | "title">) =>
+  c.kind === "file" &&
+  (c.mime === "application/pdf" || /\.pdf$/i.test(c.title || ""));
+export function contentCardSize(c: CardGeometry) {
+  const factor = pdfGeometry(c) ? 1.5 : 1;
+  const width = (c.width || 240) * factor;
+  return {
+    width,
+    height: c.contentAspectRatio
+      ? width / c.contentAspectRatio
+      : (c.height || 250) * factor,
+  };
+}
+export const cardRect = (c: CardGeometry): Rect => {
+  const { width, height } = contentCardSize(c);
   if (c.kind !== "canvas" && c.displayMode === "small")
     return { x: c.x, y: c.y, width: 56, height: 56 };
-  if (c.kind !== "canvas" && c.displayMode === "medium")
+  if (c.kind !== "canvas" && c.displayMode === "medium") {
+    const scale = pdfGeometry(c)
+      ? 1 / 1.5
+      : Math.min(1, 320 / width, 240 / height);
+    const previewWidth = c.previewWidth || width * scale;
+    const previewHeight =
+      c.previewHeight ||
+      (c.contentAspectRatio
+        ? previewWidth / c.contentAspectRatio
+        : height * scale);
     return {
       x: c.x,
       y: c.y,
-      width: c.previewWidth || Math.min(width, 320),
-      height: c.previewHeight || Math.min(height, 240),
+      width: previewWidth,
+      height: previewHeight,
     };
+  }
   return { x: c.x, y: c.y, width, height };
 };
 
 export type ArrowDirection =
   "arrowup" | "arrowdown" | "arrowleft" | "arrowright";
+
+export function resizeRect(
+  bounds: Rect,
+  edge: string,
+  dx: number,
+  dy: number,
+  proportional = false,
+  minWidth = 64,
+  minHeight = 32,
+  maxWidth = 8000,
+) {
+  const horizontal = edge.includes("e") || edge.includes("w");
+  const vertical = edge.includes("n") || edge.includes("s");
+  let width = bounds.width + (edge.includes("w") ? -dx : horizontal ? dx : 0);
+  let height = bounds.height + (edge.includes("n") ? -dy : vertical ? dy : 0);
+  if (proportional) {
+    const sx = width / bounds.width,
+      sy = height / bounds.height;
+    let scale = !horizontal
+      ? sy
+      : !vertical
+        ? sx
+        : Math.abs(sx - 1) >= Math.abs(sy - 1)
+          ? sx
+          : sy;
+    scale = Math.max(
+      Math.max(minWidth / bounds.width, minHeight / bounds.height),
+      Math.min(maxWidth / bounds.width, 8000 / bounds.height, scale),
+    );
+    width = bounds.width * scale;
+    height = bounds.height * scale;
+  } else {
+    width = Math.max(minWidth, Math.min(maxWidth, width));
+    height = Math.max(minHeight, Math.min(8000, height));
+  }
+  return {
+    x: edge.includes("w")
+      ? bounds.x + bounds.width - width
+      : proportional && !horizontal
+        ? bounds.x + (bounds.width - width) / 2
+        : bounds.x,
+    y: edge.includes("n")
+      ? bounds.y + bounds.height - height
+      : proportional && !vertical
+        ? bounds.y + (bounds.height - height) / 2
+        : bounds.y,
+    width,
+    height,
+  };
+}
 
 export function adjacentCard(
   cards: Card[],

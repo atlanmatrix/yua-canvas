@@ -1,0 +1,114 @@
+.pdf-navigation {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+body .pdf-preview .pdf-page-controls {
+  top: auto;
+  right: auto;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100% - 12px);
+  padding: 4px;
+  border-radius: 999px;
+  color: var(--ink);
+}
+body .pdf-preview .pdf-page-controls button {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  color: inherit;
+}
+body .pdf-preview .pdf-page-controls input {
+  width: 42px;
+  height: 30px;
+  min-width: 0;
+  padding: 3px;
+  font: 12px system-ui;
+  text-align: center;
+  color: inherit;
+}
+.pdf-page-count {
+  font-size: 12px;
+  white-space: nowrap;
+  padding-right: 4px;
+}
+body .card.selected .pdf-page-controls,
+body .share-card:hover .pdf-page-controls,
+body .pdf-preview:focus-within .pdf-page-controls,
+body .touch-input .pdf-page-controls {
+  opacity: 1;
+  pointer-events: auto;
+}
+.pdf-thumbnails {
+  position: absolute;
+  inset: 0 auto 52px 0;
+  width: min(96px, 40%);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  pointer-events: auto;
+  touch-action: pan-y;
+  border-radius: 12px;
+  scrollbar-width: thin;
+}
+body .pdf-preview .pdf-thumbnail {
+  position: absolute;
+  left: 4px;
+  width: calc(100% - 8px);
+  height: 106px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px;
+  border-radius: 8px !important;
+  background: transparent;
+  color: var(--ink);
+  box-shadow: none;
+  font: 11px system-ui;
+}
+.pdf-thumbnail img,
+.pdf-thumbnail-placeholder {
+  display: block;
+  width: 100%;
+  height: 80px;
+  object-fit: contain;
+  min-height: 0;
+  flex: 1;
+}
+body .pdf-thumbnail[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.pdf-thumbnail-placeholder {
+  background: #94a3b822;
+  border-radius: 4px;
+}
+body .pdf-page-controls button:enabled:hover,
+body .pdf-thumbnail:enabled:hover {
+  background: var(--accent-soft);
+}
+.pdf-page-controls button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+@media (hover: none), (pointer: coarse) {
+  body .pdf-preview .pdf-page-controls {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  body .pdf-preview .pdf-page-controls button {
+    width: 34px;
+    height: 34px;
+  }
+  body .pdf-preview .pdf-page-controls input {
+    font-size: 16px;
+  }
+}

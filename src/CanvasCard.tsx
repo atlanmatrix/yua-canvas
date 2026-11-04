@@ -75,6 +75,7 @@ const emptyOffsets: Record<string, { y: number; visible: boolean }> = {};
 export const CanvasCard = memo(function CanvasCard({
   card: c,
   selected,
+  touchMode = false,
   editing,
   editingTask,
   editingTaskOffset,
@@ -91,6 +92,7 @@ export const CanvasCard = memo(function CanvasCard({
 }: {
   card: Card;
   selected: boolean;
+  touchMode?: boolean;
   editing: boolean;
   editingTask?: string;
   editingTaskOffset?: number;
@@ -131,6 +133,25 @@ export const CanvasCard = memo(function CanvasCard({
     downloadCard,
   } = actions;
   const workspace = { updateRoot: actions.updateRoot };
+  const updateAspect = (width: number, height: number) => {
+    const ratio = width / height;
+    if (
+      !Number.isFinite(ratio) ||
+      ratio < 0.001 ||
+      ratio > 1000 ||
+      Math.abs((c.contentAspectRatio || 0) - ratio) < 0.000001
+    )
+      return;
+    setBoard(
+      (b) => ({
+        ...b,
+        cards: b.cards.map((card) =>
+          card.id === c.id ? { ...card, contentAspectRatio: ratio } : card,
+        ),
+      }),
+      { recordHistory: false, preserveLayout: true },
+    );
+  };
   const activePort = (id: string, side: Side, task?: string) =>
     connectionTarget?.card === id &&
     connectionTarget.side === side &&
@@ -439,6 +460,7 @@ export const CanvasCard = memo(function CanvasCard({
                 language="mermaid"
                 standalone
                 onSize={(width, height) => {
+                  updateAspect(width, height);
                   if (c.width || c.height) return;
                   const scale = Math.min(1, 800 / width, 1200 / height);
                   setBoard(
@@ -529,6 +551,7 @@ export const CanvasCard = memo(function CanvasCard({
           ) : isPdfFile(c) || isMarkdownFile(c) ? (
             <Attachment
               card={c}
+              onPdfAspectChange={updateAspect}
               onPdfPageChange={(pdfPage) => {
                 setBoard(
                   (b) => ({
@@ -693,9 +716,11 @@ export const CanvasCard = memo(function CanvasCard({
       )}
       {c.displayMode !== "small" &&
         selected &&
-        ((c.kind === "text" && c.textAutoHeight) || c.kind === "vscode"
-          ? ["e", "w"]
-          : ["n", "s", "e", "w", "ne", "nw", "se", "sw"]
+        (touchMode
+          ? ["ne", "nw", "se", "sw"]
+          : (c.kind === "text" && c.textAutoHeight) || c.kind === "vscode"
+            ? ["e", "w"]
+            : ["n", "s", "e", "w", "ne", "nw", "se", "sw"]
         ).map((edge) => (
           <div
             key={edge}

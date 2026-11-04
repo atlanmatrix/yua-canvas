@@ -127,6 +127,7 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
           displayMode: card.displayMode,
           previewWidth: card.previewWidth,
           previewHeight: card.previewHeight,
+          contentAspectRatio: card.contentAspectRatio,
           masked: card.masked,
           remark: card.remark,
           textStyle: card.textStyle,

@@ -1,0 +1,66 @@
+.canvas {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+/* Hit areas and arcs stay the same screen size at every camera zoom. */
+.touch-input .resize-handle:is(.resize-n, .resize-s, .resize-e, .resize-w) {
+  display: none;
+}
+.touch-input .group-boundary:not(.group-selected) > .resize-handle {
+  display: none;
+}
+.touch-input .resize-handle:is(.resize-ne, .resize-nw, .resize-se, .resize-sw) {
+  --handle-size: calc(44px / var(--canvas-zoom, 1));
+  --handle-offset: calc(-22px / var(--canvas-zoom, 1));
+  width: var(--handle-size);
+  height: var(--handle-size);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  z-index: 8;
+}
+/* Keep the hit area outside the content so corner buttons remain tappable. */
+.touch-input .resize-nw {
+  clip-path: polygon(0 0, 100% 0, 100% 55%, 55% 55%, 55% 100%, 0 100%);
+}
+.touch-input .resize-ne {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 45% 100%, 45% 55%, 0 55%);
+}
+.touch-input .resize-se {
+  clip-path: polygon(45% 0, 100% 0, 100% 100%, 0 100%, 0 45%, 45% 45%);
+}
+.touch-input .resize-sw {
+  clip-path: polygon(0 0, 55% 0, 55% 45%, 100% 45%, 100% 100%, 0 100%);
+}
+.touch-input .resize-handle:is(.resize-nw, .resize-ne) {
+  top: var(--handle-offset);
+}
+.touch-input .resize-handle:is(.resize-sw, .resize-se) {
+  bottom: var(--handle-offset);
+}
+.touch-input .resize-handle:is(.resize-nw, .resize-sw) {
+  left: var(--handle-offset);
+}
+.touch-input .resize-handle:is(.resize-ne, .resize-se) {
+  right: var(--handle-offset);
+}
+.touch-input
+  .resize-handle:is(.resize-ne, .resize-nw, .resize-se, .resize-sw)::after {
+  content: "";
+  position: absolute;
+  inset: calc(10px / var(--canvas-zoom, 1));
+  border: 0 solid var(--accent);
+  border-width: calc(3px / var(--canvas-zoom, 1)) 0 0
+    calc(3px / var(--canvas-zoom, 1));
+  border-radius: 100% 0 0 0;
+  pointer-events: none;
+}
+.touch-input .resize-ne::after {
+  transform: rotate(90deg);
+}
+.touch-input .resize-se::after {
+  transform: rotate(180deg);
+}
+.touch-input .resize-sw::after {
+  transform: rotate(270deg);
+}

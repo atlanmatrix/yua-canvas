@@ -1,0 +1,198 @@
+:root {
+  --glass-surface: color-mix(in srgb, var(--surface) 76%, transparent);
+  --glass-field: color-mix(in srgb, var(--surface-muted) 66%, transparent);
+  --glass-thumb: color-mix(in srgb, var(--surface) 82%, transparent);
+  --glass-filter: blur(18px) saturate(145%);
+}
+/* Floating surfaces own elevation; nested tools keep their flat hierarchy. */
+:root[data-theme]
+  body
+  :is(
+    .floating-button,
+    .cloud-login,
+    .help-button,
+    .card-download,
+    .text-display-toggle,
+    .group-title,
+    .group-fit,
+    .app-terminal-actions button,
+    .toolbar,
+    .zoom-controls,
+    .paint-controls,
+    .text-format-toolbar,
+    .context-menu,
+    .settings-popover,
+    .modal,
+    .cloud-panel,
+    .canvas-navigation,
+    .share-zoom,
+    .share-viewer > header,
+    .minimap,
+    .canvas3d-actions > button,
+    .canvas3d-layer-title,
+    .level-caption,
+    .connection-label,
+    .connection-label-editor,
+    .component-remark,
+    .toast,
+    .pwa-error,
+    .pin-bar > button,
+    .pin-bar > input,
+    .group-name-editor,
+    .pdf-page-controls,
+    .pdf-thumbnails
+  ) {
+  background: var(--glass-surface);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+}
+:root[data-theme]
+  body
+  :is(.toolbar, .paint-controls, .canvas-navigation)
+  button {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:root[data-theme]
+  body
+  :is(.toolbar, .paint-controls, .canvas-navigation)
+  button:is(:enabled:hover, :focus-visible, [aria-pressed="true"]) {
+  background: color-mix(in srgb, var(--accent-soft) 76%, transparent);
+}
+:root[data-theme] body .preference-slider {
+  background: var(--glass-field);
+}
+:root[data-theme] body .preference-slider-thumb {
+  background: var(--glass-thumb);
+}
+:root[data-theme]
+  body
+  :where(
+    .modal,
+    .agent-card,
+    .tool-component,
+    .text-format-toolbar,
+    .pdf-page-controls
+  )
+  :is(
+    input:not([type="color"]):not([type="checkbox"]):not([type="radio"]):not(
+        [type="range"]
+      ):not([type="file"]),
+    select,
+    textarea
+  ):not(.canvas-editor) {
+  background-color: var(--glass-field);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+:root[data-theme]
+  body
+  :where(.modal, .tool-component, .agent-card)
+  button:where(
+    :not([aria-pressed="true"]):not([aria-checked="true"]):not(.primary):not(
+        .agent-primary
+      )
+  ) {
+  background-color: var(--glass-field);
+}
+:root[data-theme]
+  body
+  :where(.modal, .tool-component, .agent-card)
+  button:enabled:hover {
+  background-color: color-mix(in srgb, var(--accent-soft) 78%, transparent);
+}
+/* A blurred pseudo-surface keeps nested fixed submenus in viewport coordinates. */
+:root[data-theme] body div.context-menu {
+  isolation: isolate;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:root[data-theme] body .context-menu::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--glass-surface);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  pointer-events: none;
+}
+:root[data-theme]
+  body
+  :is(button.primary, button.agent-primary, .calculator-keys button.primary) {
+  background: color-mix(in srgb, var(--accent) 88%, transparent);
+  color: white;
+}
+:root[data-theme] body nav.canvas-navigation {
+  background: rgb(255 255 255 / 78%);
+  color: #334155;
+}
+:root[data-theme]
+  body
+  :is(
+    .toolbar,
+    .paint-controls,
+    .zoom-controls,
+    .text-format-toolbar,
+    .canvas-navigation,
+    .share-zoom,
+    .share-viewer > header,
+    .pdf-page-controls
+  )
+  button {
+  box-shadow: none;
+}
+:root[data-theme] body select option {
+  background: var(--surface);
+  color: var(--ink);
+}
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  :root {
+    --glass-surface: var(--surface);
+    --glass-field: var(--surface-muted);
+    --glass-thumb: var(--surface);
+    --glass-filter: none;
+  }
+  :root[data-theme] body :is(input, textarea, select):not(.canvas-editor) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  :root[data-theme] body nav.canvas-navigation {
+    background: white;
+  }
+}
+:root[data-theme]
+  body
+  input:is([type="checkbox"], [type="radio"]):not(:checked),
+:root[data-theme] body input[type="range"]:not(.preference-range) {
+  background: var(--glass-field);
+}
+:root[data-theme]
+  body
+  :is(
+    .zoom-controls,
+    .share-zoom,
+    .text-format-toolbar,
+    .pdf-page-controls,
+    .share-viewer > header
+  )
+  :is(button, a) {
+  background: transparent;
+}
+:root[data-theme]
+  body
+  :is(
+    .zoom-controls,
+    .share-zoom,
+    .text-format-toolbar,
+    .pdf-page-controls,
+    .share-viewer > header
+  )
+  button:is(:enabled:hover, :focus-visible, [aria-pressed="true"]),
+:root[data-theme] body .floating-button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent-soft) 76%, transparent);
+  color: var(--accent-strong);
+}

@@ -15,7 +15,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import { type Card, type Group, type Board, groupTreeIds } from "./storage";
-import { cardRect } from "./geometry";
+import { cardRect, contentCardSize, pdfGeometry } from "./geometry";
 import { NoteText } from "./NoteText";
 import { Diagram } from "./Markdown";
 import { Attachment } from "./Attachment";
@@ -74,10 +74,12 @@ export function PreviewFrame({
   children: ReactNode;
 }) {
   const r = cardRect(card),
-    width = card.width || 240,
-    height = card.height || 250;
+    natural = contentCardSize(card);
+  // Dimensions stored on cards include the one-pixel frame on each side.
+  const width = Math.max(1, natural.width - 2),
+    height = Math.max(1, natural.height - 2);
   const scaled =
-    !editing &&
+    !pdfGeometry(card) &&
     card.kind !== "canvas" &&
     card.kind !== "miniature" &&
     card.displayMode === "medium";
@@ -96,10 +98,8 @@ export function PreviewFrame({
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [scaled]);
-  const scale = scaled
-    ? Math.min(1, size.width / width, size.height / height)
-    : 1;
+  }, [scaled, r.width, r.height, width, height]);
+  const scale = scaled ? Math.min(size.width / width, size.height / height) : 1;
   return (
     <div
       ref={element}

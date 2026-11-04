@@ -15,10 +15,12 @@ const AttachmentContent = memo(function AttachmentContent({
   card,
   large = false,
   onPdfPageChange,
+  onPdfAspectChange,
 }: {
   card: Card;
   large?: boolean;
   onPdfPageChange?: (page: number) => void;
+  onPdfAspectChange?: (width: number, height: number) => void;
 }) {
   usePreferences();
   const [asset, setAsset] = useState<{
@@ -76,7 +78,13 @@ const AttachmentContent = memo(function AttachmentContent({
     return () => URL.revokeObjectURL(u);
   }, [card.blob, card.mime, card.kind, large]);
   if (!large && isPdfFile(card))
-    return <PdfPreview card={card} onPageChange={onPdfPageChange} />;
+    return (
+      <PdfPreview
+        card={card}
+        onPageChange={onPdfPageChange}
+        onAspectChange={onPdfAspectChange}
+      />
+    );
   if (!large && isMarkdownFile(card))
     return (
       <div
@@ -142,10 +150,12 @@ export function Attachment({
   card,
   large = false,
   onPdfPageChange,
+  onPdfAspectChange,
 }: {
   card: Card;
   large?: boolean;
   onPdfPageChange?: (page: number) => void;
+  onPdfAspectChange?: (width: number, height: number) => void;
 }) {
   const change = useRef(onPdfPageChange);
   change.current = onPdfPageChange;
@@ -155,6 +165,7 @@ export function Attachment({
       card={card}
       large={large}
       onPdfPageChange={onPdfPageChange ? handler : undefined}
+      onPdfAspectChange={onPdfAspectChange}
     />
   );
   return large || isPdfFile(card) ? (

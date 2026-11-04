@@ -1,4 +1,8 @@
 export const english: Record<string, string> = {
+  "PDF 缩略图": "PDF thumbnails",
+  显示缩略图: "Show thumbnails",
+  "PDF 页码": "PDF page number",
+  "跳转到第 {0} 页": "Go to page {0}",
   设置: "Settings",
   关闭设置: "Close settings",
   "单指 / 双指拖动": "One / two finger drag",

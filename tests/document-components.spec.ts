@@ -180,7 +180,7 @@ test("PDF renders its first page, shows hover controls, and remembers a differen
   await expect(
     card.locator(".card-top,.attachment-title,footer,iframe"),
   ).toHaveCount(0);
-  await page.mouse.move(20, 300);
+  await page.mouse.click(20, 300);
   await expect(card.locator(".pdf-page-controls")).toHaveCSS("opacity", "0");
   const first = await card
     .locator("canvas")

@@ -1,13 +1,16 @@
-export function pdfFixture() {
-  const streams = [
-    "1 0 0 rg 0 0 200 300 re f 1 g BT /F1 20 Tf 30 150 Td (Page 1) Tj ET",
-    "0 0 1 rg 0 0 200 300 re f 1 g BT /F1 20 Tf 30 150 Td (Page 2) Tj ET",
-  ];
+export function pdfFixture(pageCount = 2) {
+  const streams = Array.from(
+    { length: pageCount },
+    (_, i) =>
+      `${i === 0 ? "1 0 0" : "0 0 1"} rg 0 0 200 300 re f 1 g BT /F1 20 Tf 30 150 Td (Page ${i + 1}) Tj ET`,
+  );
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 300] /Resources << /Font << /F1 7 0 R >> >> /Contents 5 0 R >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 300] /Resources << /Font << /F1 7 0 R >> >> /Contents 6 0 R >>",
+    `<< /Type /Pages /Kids [${streams.map((_, i) => `${i + 3} 0 R`).join(" ")}] /Count ${pageCount} >>`,
+    ...streams.map(
+      (_, i) =>
+        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 300] /Resources << /Font << /F1 ${pageCount * 2 + 3} 0 R >> >> /Contents ${pageCount + i + 3} 0 R >>`,
+    ),
     ...streams.map(
       (stream) =>
         `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`,

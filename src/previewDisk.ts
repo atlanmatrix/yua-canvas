@@ -4,6 +4,7 @@ export type PdfBitmap = {
   pages: number;
   width: number;
   height: number;
+  aspectRatio?: number;
 };
 type Entry = PdfBitmap & { key: string; used: number; bytes: number };
 let database: Promise<IDBDatabase> | undefined;

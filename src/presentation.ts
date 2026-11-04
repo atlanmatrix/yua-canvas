@@ -47,6 +47,13 @@ export function validPresentation(value: any, group = false): boolean {
     if (value[k] !== undefined && (!finite(value[k]) || value[k] <= 0))
       return false;
   const s = value.textStyle;
+  if (
+    value.contentAspectRatio !== undefined &&
+    (!Number.isFinite(value.contentAspectRatio) ||
+      value.contentAspectRatio < 0.001 ||
+      value.contentAspectRatio > 1000)
+  )
+    return false;
   return (
     s === undefined ||
     (!!s &&

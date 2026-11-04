@@ -19,6 +19,7 @@ const file = (id: string, text: string, x = 80, y = 100) => ({
 const pdf = (id: string, x = 80, y = 100) => ({
   ...file(id, "", x, y),
   title: id + ".pdf",
+  contentAspectRatio: 2 / 3,
   mime: "application/pdf",
   blob: "data:application/pdf;base64," + pdfFixture().toString("base64"),
   height: 480,
@@ -85,6 +86,15 @@ test("144 document cards retain geometry and selection while only nearby preview
       page.locator('.preview-boundary[data-preview-state="active"]').count(),
     )
     .toBeLessThanOrEqual(16);
+  await expect
+    .poll(async () => {
+      const m = await metrics(page);
+      return (
+        (await page.locator(".markdown-file-preview h1").count()) ===
+        m.textReads
+      );
+    })
+    .toBe(true);
   const before = await metrics(page);
   expect(before.pdfLoads).toBe(0);
   expect(before.textReads).toBeLessThan(20);

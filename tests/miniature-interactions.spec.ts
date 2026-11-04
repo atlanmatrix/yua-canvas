@@ -35,8 +35,8 @@ test("idle models hide their chrome; hover and selection reveal a dashed frame a
   expect(link.y).toBeGreaterThanOrEqual(name.y + name.height);
   await expect(card.locator(".miniature-name")).toHaveCSS("font-size", "13px");
   await expect(card.locator(".miniature-name")).toHaveCSS(
-    "background-color",
-    "rgb(255, 255, 255)",
+    "backdrop-filter",
+    /blur\(/,
   );
   await page.locator(".canvas").click({ position: { x: 10, y: 100 } });
   await expect(card.locator(".miniature-labels")).toBeHidden();
