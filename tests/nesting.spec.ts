@@ -1,4 +1,4 @@
-import { openSettings } from "./settings-helper.mjs";
+import { openSettings, exportCanvas } from "./settings-helper.mjs";
 import { test, expect, type Page } from "@playwright/test";
 async function load(page: Page, groups: unknown[], cards: unknown[]) {
   await page.goto("/");
@@ -41,7 +41,7 @@ const note = (id: string, x: number, y: number, group?: string) => ({
 async function backup(page: Page) {
   const event = page.waitForEvent("download");
   await openSettings(page);
-  await page.getByRole("button", { name: "导出画布" }).click();
+  await exportCanvas(page);
   const d = await event,
     stream = await d.createReadStream(),
     chunks: Buffer[] = [];

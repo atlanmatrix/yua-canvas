@@ -1,4 +1,18 @@
 export const english: Record<string, string> = {
+  选择工具: "Selection tool",
+  "屏蔽 / 取消屏蔽选中内容；未选中时平移":
+    "Mask / unmask selection; pan when nothing is selected",
+  "多选组件间的连线会自动选中。右键「导出」可选择画布 JSON、组件压缩包或 PNG 图像；设置中的画布和压缩包包含整个工作区，PNG 导出当前画布。":
+    "Connections between selected components are selected automatically. Export from the context menu as canvas JSON, a component archive or a PNG image. Settings exports the entire workspace as canvas JSON or an archive, and the current canvas as PNG.",
+
+  导出: "Export",
+  组件压缩包: "Component archive",
+  "PNG 图像": "PNG image",
+  导出格式: "Export format",
+  没有可导出的内容: "There is no content to export",
+  "预览尚未完成，请稍后重试导出":
+    "Previews are still loading. Please try exporting again shortly.",
+
   "PDF 缩略图": "PDF thumbnails",
   显示缩略图: "Show thumbnails",
   "PDF 页码": "PDF page number",
@@ -655,12 +669,12 @@ export const english: Record<string, string> = {
     "Components default to medium previews. Display mode offers small (type icon), medium (scaled preview), and large (actual size), excluding groups and child canvases. Mask hides content; Note adds text to its right. Groups switch between free layout and list views without losing positions. The brush button sits beside the bottom toolbar and opens a top toolbar for color, width, undo, clear, hide and exit. Strokes are smoothed and drawn above components. The floating text toolbar offers font, size, bold, italic, underline, strikethrough, text and background colors.",
   "进入子画布后，可通过返回按钮或缩略图旁的层级短线切换。⌘/Ctrl + ↑ 返回父画布；选中一个子画布后，⌘/Ctrl + ↓ 进入该子画布。深灰短线表示当前画布，悬浮可预览对应画布。缩略图在闲置时淡出，悬浮、缩放或拖动时恢复。每个子画布只有一个直接父画布；已有父级或已创建父画布时不能重复创建父画布。":
     "Use Back or the hierarchy markers beside the minimap to navigate child canvases. ⌘/Ctrl + ↑ opens the parent; ⌘/Ctrl + ↓ opens a selected child. The dark marker indicates the current canvas; hover to preview another. The minimap fades when idle and returns on hover, zoom or drag. Each canvas has one direct parent, and a parent cannot be created twice.",
-  "顶部「导出」会备份整个工作区，包括父级、兄弟和全部子画布、组件、原始附件、分组、连线、Pin，以及各层缩放、平移和当前层级。导入完整备份会替换整个工作区并恢复原有标识和视图；旧版画布 JSON 仍导入当前层，选中元素的 ZIP 下载用于局部迁移。Miniature 保存场景地址、最新视角和已生成的静态图片，不打包外部网站内容。":
-    "Export backs up the entire workspace, including parents, siblings, children, components, original files, groups, connections, Pins, saved camera views and navigation. Importing a complete backup replaces the workspace and restores IDs and views. Legacy canvas JSON imports into the current canvas; selection ZIP exports support partial transfers. Miniature saves its scene URL, latest view and static preview without packaging external website content.",
+  "设置「导出 → 画布」会备份整个工作区，包括父级、兄弟和全部子画布、组件、原始附件、分组、连线、Pin，以及各层缩放、平移和当前层级。导入完整备份会替换整个工作区并恢复原有标识和视图；旧版画布 JSON 仍导入当前层，选中元素的画布或 ZIP 导出用于局部迁移。Miniature 保存场景地址、最新视角和已生成的静态图片，不打包外部网站内容。":
+    "Export backs up the entire workspace, including parents, siblings, children, components, original files, groups, connections, Pins, saved camera views and navigation. Importing a complete backup replaces the workspace and restores IDs and views. Legacy canvas JSON imports into the current canvas; selection JSON and ZIP exports support partial transfers. Miniature saves its scene URL, latest view and static preview without packaging external website content.",
   "默认自动保存到当前浏览器的 IndexedDB，请定期导出备份。可选云同步需配置云服务并登录；剪切只有在剪贴板及本地缓存保存成功后才移除原内容。右键粘贴需要剪贴板读取权限，权限受限时可用键盘粘贴。":
     "Data is automatically saved in this browser’s IndexedDB. Export regular backups. Optional cloud sync requires a configured cloud service and sign-in. Cut removes content only after the clipboard and local cache are saved. Menu paste needs clipboard permission; keyboard paste remains available when permission is restricted.",
-  "画布空白处右键「新建」，可在右击位置创建文本、图片、文件、Mermaid、Miniature 或分组。「新建工具」中提供 TODO、计算器、汇率计算、温度转换、距离转换、天气与日历。粘贴时自动检测 Markdown、JSON、代码和配置等格式，生成可编辑文件并高亮；普通文字保持文本组件，Mermaid 直接显示图表。新建文件后点击组件编辑内容和文件名；工具栏可上传已有文件。Markdown 直接渲染内容，PDF 悬浮可翻页并记住页码。拖动边框调整尺寸，从边缘的 + 拖出连线。多选后可创建分组，右键查看复制、剪切、下载、Pin 和外观操作。多选或分组下载为 ZIP。":
-    "Right-click empty canvas space and use New to create text, images, editable files, Mermaid diagrams, Miniatures or groups. New tool contains TODO, calculator, currency, temperature and distance converters, weather and calendar. Paste structured text to create a file with format detection and syntax highlighting; ordinary prose stays text. Mermaid renders as a diagram, Markdown as a document, and PDF remembers its last page. Resize from the edges, drag a + port to connect, or select multiple components to group them. Right-click for Copy, Cut, Download, Pin and display options. Downloading multiple components or a group produces a ZIP containing their files and layout.",
+  "画布空白处右键「新建」，可在右击位置创建文本、图片、文件、Mermaid、Miniature 或分组。「新建工具」中提供 TODO、计算器、汇率计算、温度转换、距离转换、天气与日历。粘贴时自动检测 Markdown、JSON、代码和配置等格式，生成可编辑文件并高亮；普通文字保持文本组件，Mermaid 直接显示图表。新建文件后点击组件编辑内容和文件名；工具栏可上传已有文件。Markdown 直接渲染内容，PDF 悬浮可翻页并记住页码。拖动边框调整尺寸，从边缘的 + 拖出连线。多选后可创建分组，右键查看复制、剪切、下载、Pin 和外观操作。多选或分组可导出画布、ZIP 或 PNG。":
+    "Right-click empty canvas space and use New to create text, images, editable files, Mermaid diagrams, Miniatures or groups. New tool contains TODO, calculator, currency, temperature and distance converters, weather and calendar. Paste structured text to create a file with format detection and syntax highlighting; ordinary prose stays text. Mermaid renders as a diagram, Markdown as a document, and PDF remembers its last page. Resize from the edges, drag a + port to connect, or select multiple components to group them. Right-click for Copy, Cut, Download, Pin and display options. Export multiple components or a group as canvas JSON, a component ZIP archive or PNG.",
   文件超过大小限制: "File exceeds the size limit",
   请求内容为空: "Request body is empty",
   "JSON 无效": "Invalid JSON",

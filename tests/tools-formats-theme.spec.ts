@@ -1,4 +1,4 @@
-import { openSettings } from "./settings-helper.mjs";
+import { openSettings, exportCanvas } from "./settings-helper.mjs";
 import { test, expect, type Page } from "@playwright/test";
 const saved = (page: Page) =>
   expect(
@@ -76,7 +76,7 @@ async function paste(page: Page, source: string) {
 async function exported(page: Page) {
   const pending = page.waitForEvent("download");
   await openSettings(page);
-  await page.getByRole("button", { name: "导出画布", exact: true }).click();
+  await exportCanvas(page);
   const stream = await (await pending).createReadStream(),
     chunks: Buffer[] = [];
   for await (const chunk of stream!) chunks.push(chunk);
@@ -101,7 +101,7 @@ test("tool submenu contains TODO and all six tools, separated from New, and reta
       .getByRole("menu", { name: "新建工具组件", exact: true })
       .getByRole("menuitem"),
   ).toHaveText([
-    "任务",
+    /^任务T$/,
     "计算器",
     "汇率计算",
     "摄氏度 / 华氏度",
@@ -426,7 +426,7 @@ test("English and dark/system preferences update live, preserve user content and
       .getByRole("menu", { name: "New tool menu", exact: true })
       .getByRole("menuitem"),
   ).toHaveText([
-    "TODO",
+    /^TODOT$/,
     "Calculator",
     "Currency exchange",
     "Celsius / Fahrenheit",

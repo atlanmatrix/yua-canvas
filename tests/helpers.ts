@@ -24,5 +24,6 @@ export async function downloadSelectionMenu(page: Page) {
   await page
     .locator(".canvas")
     .click({ button: "right", position: { x: 10, y: 10 } });
-  await page.getByRole("menuitem", { name: "下载", exact: true }).click();
+  await page.getByRole("menuitem", { name: "导出", exact: true }).click();
+  await page.getByRole("menuitem", { name: "组件压缩包", exact: true }).click();
 }

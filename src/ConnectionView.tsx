@@ -72,6 +72,7 @@ export function ConnectionView({
         d={d}
         role="button"
         aria-label={tr("选择连线")}
+        aria-pressed={selected}
         onPointerDown={(e) => e.stopPropagation()}
         onClick={onSelect}
         onDoubleClick={(e) => {

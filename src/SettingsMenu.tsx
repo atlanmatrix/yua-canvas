@@ -1,10 +1,12 @@
 import { useId, useRef, useState } from "react";
-import { Download, Settings, Upload, X } from "lucide-react";
+import { Settings, Upload, X } from "lucide-react";
 import { CloudPanel } from "./CloudPanel";
 import { PreferencesControls } from "./PreferencesControls";
 import { PwaControls } from "./PwaControls";
 import { t as tr } from "./i18n";
 import type { Board } from "./storage";
+import { ExportMenu, type ExportFormat } from "./ExportMenu";
+import { MenuButton } from "./MenuShortcut";
 
 export function SettingsMenu({
   board,
@@ -14,6 +16,7 @@ export function SettingsMenu({
   beforeUpdate,
   onImport,
   onExport,
+  exporting,
 }: {
   board: Board;
   ready: boolean;
@@ -21,7 +24,8 @@ export function SettingsMenu({
   saveStatus: string;
   beforeUpdate: () => Promise<void>;
   onImport: () => void;
-  onExport: () => void;
+  onExport: (format: ExportFormat) => void;
+  exporting?: boolean;
 }) {
   const id = useId(),
     panel = useRef<HTMLDivElement>(null);
@@ -50,6 +54,17 @@ export function SettingsMenu({
         onToggle={(event) =>
           setOpen(event.currentTarget.matches(":popover-open"))
         }
+        onKeyDownCapture={(event) => {
+          if (!(event.metaKey || event.ctrlKey)) return;
+          const key = event.key.toLowerCase();
+          if (ready && (key === "o" || (key === "e" && event.shiftKey))) {
+            event.preventDefault();
+            event.stopPropagation();
+            close();
+            if (key === "o") onImport();
+            else onExport("canvas");
+          }
+        }}
         onKeyDown={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
@@ -66,8 +81,9 @@ export function SettingsMenu({
           restore={restore}
           onOpen={close}
         />
-        <button
+        <MenuButton
           className="settings-action"
+          shortcut="import"
           disabled={!ready}
           onClick={() => {
             close();
@@ -76,18 +92,16 @@ export function SettingsMenu({
         >
           <Upload size={18} />
           <span>{tr("导入")}</span>
-        </button>
-        <button
-          className="settings-action"
-          disabled={!ready}
-          onClick={() => {
+        </MenuButton>
+        <ExportMenu
+          key={open ? "open" : "closed"}
+          settings
+          disabled={!ready || exporting}
+          onExport={(format) => {
             close();
-            onExport();
+            onExport(format);
           }}
-        >
-          <Download size={18} />
-          <span>{tr("导出画布")}</span>
-        </button>
+        />
         <PwaControls beforeUpdate={beforeUpdate} />
         <div
           className={

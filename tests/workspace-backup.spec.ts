@@ -1,4 +1,4 @@
-import { openSettings } from "./settings-helper.mjs";
+import { openSettings, exportCanvas } from "./settings-helper.mjs";
 import { test, expect, type Page } from "@playwright/test";
 import { openTextEditor } from "./helpers";
 
@@ -195,7 +195,7 @@ async function snapshot(page: Page) {
 async function backup(page: Page) {
   const pending = page.waitForEvent("download");
   await openSettings(page);
-  await page.getByRole("button", { name: "导出画布", exact: true }).click();
+  await exportCanvas(page);
   const stream = await (await pending).createReadStream(),
     chunks: Buffer[] = [];
   for await (const chunk of stream!) chunks.push(chunk);

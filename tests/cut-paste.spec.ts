@@ -1,4 +1,4 @@
-import { openSettings } from "./settings-helper.mjs";
+import { openSettings, exportCanvas } from "./settings-helper.mjs";
 import { test, expect, type Page } from "@playwright/test";
 const note = (id: string, x: number, y: number) => ({
   id,
@@ -93,7 +93,7 @@ async function setup(page: Page, group = false) {
 async function snapshot(page: Page) {
   const promise = page.waitForEvent("download");
   await openSettings(page);
-  await page.getByRole("button", { name: "导出画布", exact: true }).click();
+  await exportCanvas(page);
   const download = await promise,
     stream = await download.createReadStream(),
     chunks: Buffer[] = [];

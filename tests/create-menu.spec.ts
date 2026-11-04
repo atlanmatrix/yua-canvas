@@ -69,8 +69,8 @@ test("hover and click open all component types; text is created at zoomed right-
   await trigger.hover();
   const submenu = page.getByRole("menu", { name: "新建组件", exact: true });
   await expect(submenu.getByRole("menuitem")).toHaveText([
-    "文本",
-    "图片",
+    /^文本N$/,
+    /^图片I$/,
     "文件",
     "Mermaid",
     "Agent",

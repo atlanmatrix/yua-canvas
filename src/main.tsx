@@ -3,6 +3,8 @@ import { defaultAgent } from "./agent";
 import { CanvasCard } from "./CanvasCard";
 import { TOOL_KINDS, TOOL_NAMES, isToolKind } from "./tools";
 import { TOOL_ICONS } from "./ToolCard";
+import { ExportMenu, type ExportFormat } from "./ExportMenu";
+import { MenuButton } from "./MenuShortcut";
 import { SettingsMenu } from "./SettingsMenu";
 import { t as tr, usePreferences } from "./i18n";
 import { detectTextFormat } from "./textFormats";
@@ -1975,21 +1977,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       clipboardBusy.current = false;
     }
   };
-  const downloadSelected = async (ids: string[], groupId?: string) => {
-    if (archiveBusy) return;
-    setArchiveBusy(true);
-    try {
-      const fragment = archiveSelection(board, ids, groupId);
-      download(
-        await createArchive(fragment),
-        `yua-canvas-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`,
-      );
-    } catch (error) {
-      notify(error instanceof Error ? error.message : "打包下载失败");
-    } finally {
-      setArchiveBusy(false);
-    }
-  };
   const exportAll = async () => {
     try {
       const snapshot = latestWorkspace.current;
@@ -2009,6 +1996,42 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       notify("工作区已导出，包含全部画布和附件");
     } catch {
       notify("导出失败，请重试");
+    }
+  };
+  const exportChoice = async (
+    format: ExportFormat,
+    ids?: string[],
+    groupId?: string,
+  ) => {
+    if (archiveBusy) return;
+    setMenu(null);
+    if (format === "canvas" && ids === undefined) {
+      await exportAll();
+      return;
+    }
+    setArchiveBusy(true);
+    try {
+      const fragment =
+        ids === undefined ? undefined : archiveSelection(board, ids, groupId);
+      const snapshot: Board = fragment
+        ? { version: 1, ...fragment }
+        : latestWorkspace.current.root;
+      const name = `yua-canvas-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+      if (format === "canvas") {
+        download(
+          new Blob([await exportBoard(snapshot)], { type: "application/json" }),
+          `${name}.json`,
+        );
+      } else if (format === "archive") {
+        download(await createArchive(snapshot), `${name}.zip`);
+      } else {
+        const { exportPng } = await import("./exportPng");
+        download(await exportPng(fragment ? snapshot : board), `${name}.png`);
+      }
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "导出失败，请重试");
+    } finally {
+      setArchiveBusy(false);
     }
   };
   const importFile = async (file?: File) => {
@@ -2153,8 +2176,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         e.preventDefault();
         removeSelected();
       } else if (key === "v") setTool("select");
-      else if (key === "h") setTool("hand");
-      else if (key === "p") {
+      else if (key === "h" && !e.repeat && !gesture.current) {
+        e.preventDefault();
+        if (selection.length || selectedGroup) toggleMasked();
+        else setTool("hand");
+      } else if (key === "p") {
         if (editSession.current) finishEditing(editSession.current.id);
         setTool("draw");
       } else if (key === "n" && !e.repeat) {
@@ -2366,6 +2392,45 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       ? selection
       : [menuCard.id]
     : [];
+  const menuMasked = menuGroup
+    ? !!menuGroup.masked
+    : menuCardIds.length > 0 &&
+      board.cards
+        .filter((c) => menuCardIds.includes(c.id))
+        .every((c) => c.masked);
+  const selectedConnectionIds = useMemo(() => {
+    const ids = new Set(
+      selectedFragment(board, selection, selectedGroup).cards.map(
+        (card) => card.id,
+      ),
+    );
+    const result = new Set<string>();
+    if (ids.size > 1)
+      for (const connection of board.connections || []) {
+        if (ids.has(connection.from.card) && ids.has(connection.to.card))
+          result.add(connection.id);
+      }
+    if (selectedConnection) result.add(selectedConnection);
+    return result;
+  }, [board, selection, selectedGroup, selectedConnection]);
+  const toggleMasked = (ids = selection, groupId = selectedGroup) => {
+    const cards = board.cards.filter((card) => ids.includes(card.id));
+    const group = board.groups.find((group) => group.id === groupId);
+    const masked = group ? !group.masked : !cards.every((card) => card.masked);
+    setBoard(
+      (b) => ({
+        ...b,
+        cards: b.cards.map((card) =>
+          ids.includes(card.id) ? { ...card, masked } : card,
+        ),
+        groups: b.groups.map((group) =>
+          group.id === groupId ? { ...group, masked } : group,
+        ),
+      }),
+      { preserveLayout: true },
+    );
+    setMenu(null);
+  };
   const cardPath = useMemo(() => path, [JSON.stringify(path)]);
   const cardActions = useLatestActions(
     {
@@ -2472,7 +2537,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               restore={restore}
               saveStatus={saveStatus}
               onImport={() => importInput.current?.click()}
-              onExport={exportAll}
+              onExport={(format) => void exportChoice(format)}
+              exporting={archiveBusy}
               beforeUpdate={async () => {
                 if (!ready) throw Error("画布尚未读取完成，请稍后更新");
                 const snapshot = latestWorkspace.current;
@@ -2642,7 +2708,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       connection={c}
                       cards={board.cards}
                       offsets={taskOffsets}
-                      selected={selectedConnection === c.id}
+                      selected={selectedConnectionIds.has(c.id)}
                       editorLayer={connectionEditors}
                       labelLayer={connectionLabels}
                       onSelect={() => {
@@ -3151,22 +3217,24 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             <>
               <MenuSection label={tr("新建内容")}>
                 <ContextSubmenu key={`${menu.x}:${menu.y}`} label={tr("新建")}>
-                  <button
+                  <MenuButton
+                    shortcut="text"
                     role="menuitem"
                     disabled={!ready}
                     onClick={() => createFromMenu("text")}
                   >
                     <Type size={14} />
                     {tr("文本")}
-                  </button>
-                  <button
+                  </MenuButton>
+                  <MenuButton
+                    shortcut="image"
                     role="menuitem"
                     disabled={!ready}
                     onClick={() => createFromMenu("image")}
                   >
                     <ImagePlus size={14} />
                     {tr("图片")}
-                  </button>
+                  </MenuButton>
                   <button
                     role="menuitem"
                     disabled={!ready}
@@ -3199,27 +3267,29 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     <Box size={14} />
                     Miniature
                   </button>
-                  <button
+                  <MenuButton
+                    shortcut={selection.length > 1 ? "group" : undefined}
                     role="menuitem"
                     disabled={!ready}
                     onClick={() => createFromMenu("group")}
                   >
                     <Folder size={14} />
                     {tr("分组")}
-                  </button>
+                  </MenuButton>
                 </ContextSubmenu>
                 <ContextSubmenu
                   key={`tools-${menu.x}:${menu.y}`}
                   label={tr("新建工具")}
                 >
-                  <button
+                  <MenuButton
+                    shortcut="todo"
                     role="menuitem"
                     disabled={!ready}
                     onClick={() => createFromMenu("todo")}
                   >
                     <ListTodo size={14} />
                     {tr("任务")}
-                  </button>
+                  </MenuButton>
                   {TOOL_KINDS.map((kind) => {
                     const Icon = TOOL_ICONS[kind];
                     return (
@@ -3259,19 +3329,15 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               </MenuSection>
               <MenuSection label={tr("内容操作")}>
                 {(selection.length > 0 || selectedGroup) && (
-                  <button
-                    role="menuitem"
+                  <ExportMenu
                     disabled={archiveBusy}
-                    onClick={() => {
-                      setMenu(null);
-                      void downloadSelected(selection, selectedGroup);
-                    }}
-                  >
-                    <Download size={14} />
-                    {tr("下载")}
-                  </button>
+                    onExport={(format) =>
+                      void exportChoice(format, selection, selectedGroup)
+                    }
+                  />
                 )}
-                <button
+                <MenuButton
+                  shortcut="paste"
                   role="menuitem"
                   onClick={() => {
                     const r = surface.current!.getBoundingClientRect();
@@ -3283,17 +3349,18 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 >
                   <ClipboardPaste size={14} />
                   {tr("粘贴")}
-                </button>
+                </MenuButton>
               </MenuSection>
               <MenuSection label={tr("画布层级")}>
-                <button
+                <MenuButton
+                  shortcut="parent"
                   role="menuitem"
                   disabled={!path.length}
                   onClick={() => navigateCanvas(path.slice(0, -1))}
                 >
                   <ArrowLeft size={14} />
                   {tr("返回父画布")}
-                </button>
+                </MenuButton>
                 <button
                   role="menuitem"
                   disabled={!workspace.canCreateParent}
@@ -3328,7 +3395,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     menuCard.kind === "file" ||
                     isApplicationKind(menuCard.kind) ||
                     menuCard.editableFile) && (
-                    <button
+                    <MenuButton
+                      shortcut={
+                        !isApplicationKind(menuCard.kind) &&
+                        menuCardIds.length === 1
+                          ? "open"
+                          : undefined
+                      }
                       role="menuitem"
                       onClick={() => {
                         const href =
@@ -3345,19 +3418,21 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       {isApplicationKind(menuCard.kind)
                         ? tr("配置关联")
                         : tr("打开")}
-                    </button>
+                    </MenuButton>
                   )}
-                  <button
+                  <MenuButton
+                    shortcut="copy"
                     role="menuitem"
                     onClick={() => {
                       setMenu(null);
-                      void copySelected([menuCard.id]);
+                      void copySelected(menuCardIds);
                     }}
                   >
                     <Copy size={14} />
                     {tr("复制")}
-                  </button>
-                  <button
+                  </MenuButton>
+                  <MenuButton
+                    shortcut="cut"
                     role="menuitem"
                     onClick={() => {
                       setMenu(null);
@@ -3366,7 +3441,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   >
                     <Scissors size={14} />
                     {tr("剪切")}
-                  </button>
+                  </MenuButton>
                   <button
                     role="menuitem"
                     onClick={() => {
@@ -3405,23 +3480,31 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       {tr("重命名")}
                     </button>
                   )}
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      setMenu(null);
-                      if (menuCardIds.length > 1)
-                        void downloadSelected(menuCardIds);
-                      else void downloadCard(menuCard);
-                    }}
-                  >
-                    <Download size={14} />
-                    {tr("下载")}
-                  </button>
+                  {menuCardIds.length > 1 ? (
+                    <ExportMenu
+                      disabled={archiveBusy}
+                      onExport={(format) =>
+                        void exportChoice(format, menuCardIds)
+                      }
+                    />
+                  ) : (
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setMenu(null);
+                        void downloadCard(menuCard);
+                      }}
+                    >
+                      <Download size={14} />
+                      {tr("下载")}
+                    </button>
+                  )}
                 </MenuSection>
               )}
               {menuGroup && (
                 <MenuSection label={tr("内容操作")}>
-                  <button
+                  <MenuButton
+                    shortcut="copy"
                     role="menuitem"
                     onClick={() => {
                       setMenu(null);
@@ -3430,19 +3513,15 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   >
                     <Copy size={14} />
                     {tr("复制")}
-                  </button>
-                  <button
-                    role="menuitem"
+                  </MenuButton>
+                  <ExportMenu
                     disabled={archiveBusy}
-                    onClick={() => {
-                      setMenu(null);
-                      void downloadSelected([], menuGroup.id);
-                    }}
-                  >
-                    <Download size={14} />
-                    {tr("下载")}
-                  </button>
-                  <button
+                    onExport={(format) =>
+                      void exportChoice(format, [], menuGroup.id)
+                    }
+                  />
+                  <MenuButton
+                    shortcut="cut"
                     role="menuitem"
                     onClick={() => {
                       setMenu(null);
@@ -3454,7 +3533,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   >
                     <Scissors size={14} />
                     {tr("剪切")}
-                  </button>
+                  </MenuButton>
                 </MenuSection>
               )}
               {menuGroup && (
@@ -3560,40 +3639,16 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 </MenuSection>
               )}
               <MenuSection label={tr("内容显示")}>
-                <button
+                <MenuButton
+                  shortcut="mask"
                   role="menuitem"
-                  onClick={() => {
-                    const masked = !(menuCard || menuGroup)?.masked;
-                    setBoard(
-                      (b) => ({
-                        ...b,
-                        cards: menuCard
-                          ? b.cards.map((c) =>
-                              menuCardIds.includes(c.id) ? { ...c, masked } : c,
-                            )
-                          : b.cards,
-                        groups: menuGroup
-                          ? b.groups.map((g) =>
-                              g.id === menuGroup.id ? { ...g, masked } : g,
-                            )
-                          : b.groups,
-                      }),
-                      { preserveLayout: true },
-                    );
-                    setMenu(null);
-                  }}
+                  onClick={() =>
+                    toggleMasked(menuCard ? menuCardIds : [], menuGroup?.id)
+                  }
                 >
-                  {(menuCard || menuGroup)?.masked ? (
-                    <Eye size={14} />
-                  ) : (
-                    <EyeOff size={14} />
-                  )}
-                  <span>
-                    {(menuCard || menuGroup)?.masked
-                      ? tr("取消遮罩")
-                      : tr("遮罩")}
-                  </span>
-                </button>
+                  {menuMasked ? <Eye size={14} /> : <EyeOff size={14} />}
+                  <span>{menuMasked ? tr("取消遮罩") : tr("遮罩")}</span>
+                </MenuButton>
                 <button
                   role="menuitem"
                   onClick={() => {
@@ -3614,7 +3669,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               <MenuSection label={tr("分组操作")}>
                 {menu.kind === "card" ? (
                   <>
-                    <button
+                    <MenuButton
+                      shortcut={menuCardIds.length > 1 ? "group" : undefined}
                       role="menuitem"
                       onClick={() => {
                         setMenu(null);
@@ -3623,11 +3679,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     >
                       <Folder size={14} />
                       {tr("创建分组")}
-                    </button>
+                    </MenuButton>
                     {board.cards.some(
                       (card) => menuCardIds.includes(card.id) && card.group,
                     ) && (
-                      <button
+                      <MenuButton
+                        shortcut="ungroup"
                         role="menuitem"
                         onClick={() => {
                           setMenu(null);
@@ -3642,7 +3699,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       >
                         <Unlink size={14} />
                         {tr("移出分组")}
-                      </button>
+                      </MenuButton>
                     )}
                   </>
                 ) : (
@@ -3662,7 +3719,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 />
               </MenuSection>
               <MenuSection label={tr("删除操作")}>
-                <button
+                <MenuButton
+                  shortcut="delete"
                   className="danger"
                   role="menuitem"
                   onClick={() =>
@@ -3674,7 +3732,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 >
                   <Trash2 size={14} />
                   {tr("删除")}
-                </button>
+                </MenuButton>
               </MenuSection>
             </>
           )}

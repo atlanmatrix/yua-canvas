@@ -1,9 +1,10 @@
 :root {
-  --glass-surface: color-mix(in srgb, var(--surface) 76%, transparent);
-  --glass-field: color-mix(in srgb, var(--surface-muted) 66%, transparent);
-  --glass-thumb: color-mix(in srgb, var(--surface) 82%, transparent);
+  --glass-surface: color-mix(in srgb, var(--surface) 61%, transparent);
+  --glass-field: color-mix(in srgb, var(--surface-muted) 51%, transparent);
+  --glass-thumb: color-mix(in srgb, var(--surface) 67%, transparent);
   --glass-filter: blur(18px) saturate(145%);
-  --todo-marker: #b8c2cf66;
+  --todo-marker: #b8c2cf40;
+  --glass-field-filter: blur(8px);
   --preference-track-surface: #ecf0f6;
   --preference-thumb-surface: #fafcff;
   --preference-label: #475569;
@@ -69,7 +70,7 @@
   body
   :is(.toolbar, .paint-controls, .canvas-navigation)
   button:is(:enabled:hover, :focus-visible, [aria-pressed="true"]) {
-  background: color-mix(in srgb, var(--accent-soft) 76%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 61%, transparent);
 }
 :root[data-theme] body .preference-slider {
   background: var(--glass-field);
@@ -94,8 +95,8 @@
     textarea
   ):not(.canvas-editor) {
   background-color: var(--glass-field);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: var(--glass-field-filter);
+  backdrop-filter: var(--glass-field-filter);
 }
 :root[data-theme]
   body
@@ -111,7 +112,7 @@
   body
   :where(.modal, .tool-component, .agent-card)
   button:enabled:hover {
-  background-color: color-mix(in srgb, var(--accent-soft) 78%, transparent);
+  background-color: color-mix(in srgb, var(--accent-soft) 63%, transparent);
 }
 /* A blurred pseudo-surface keeps nested fixed submenus in viewport coordinates. */
 :root[data-theme] body div.context-menu {
@@ -134,11 +135,11 @@
 :root[data-theme]
   body
   :is(button.primary, button.agent-primary, .calculator-keys button.primary) {
-  background: color-mix(in srgb, var(--accent) 88%, transparent);
+  background: color-mix(in srgb, var(--accent) 73%, transparent);
   color: white;
 }
 :root[data-theme] body nav.canvas-navigation {
-  background: rgb(255 255 255 / 78%);
+  background: rgb(255 255 255 / 63%);
   color: #334155;
 }
 :root[data-theme]
@@ -204,7 +205,7 @@
   )
   button:is(:enabled:hover, :focus-visible, [aria-pressed="true"]),
 :root[data-theme] body .floating-button[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--accent-soft) 76%, transparent);
+  background: color-mix(in srgb, var(--accent-soft) 61%, transparent);
   color: var(--accent-strong);
 }
 
@@ -224,7 +225,11 @@
 
 /* Scheme C keeps settings tracks and thumbs flat, separated by pale fills. */
 :root[data-theme] body .settings-popover .preference-slider {
-  background: var(--preference-track-surface);
+  background: color-mix(
+    in srgb,
+    var(--preference-track-surface) 85%,
+    transparent
+  );
   box-shadow: none;
 }
 :root[data-theme]
@@ -234,7 +239,11 @@
   box-shadow: var(--focus-shadow);
 }
 :root[data-theme] body .settings-popover .preference-slider-thumb {
-  background: var(--preference-thumb-surface);
+  background: color-mix(
+    in srgb,
+    var(--preference-thumb-surface) 85%,
+    transparent
+  );
   box-shadow: none;
 }
 :root[data-theme] body .settings-popover .preference-slider-labels > span {
@@ -262,4 +271,43 @@
   :root[data-theme] body .settings-popover .preference-slider-labels > .active {
     color: HighlightText;
   }
+}
+
+/* Dialog contents stay opaque, while floating controls retain their glass fill. */
+:root[data-theme]
+  body
+  :is(
+    section.modal,
+    form.modal,
+    div.modal,
+    div.settings-popover,
+    section.cloud-panel
+  ) {
+  background: var(--surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  --glass-filter: none;
+  --glass-field-filter: none;
+  --glass-surface: var(--surface);
+}
+.modal-backdrop {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.menu-shortcut {
+  margin-left: auto;
+  padding-left: 12px;
+  flex-shrink: 0;
+  color: var(--muted);
+  opacity: 0.7;
+  font: 10px/1.2 system-ui;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.context-submenu-host > button {
+  gap: 8px;
+}
+.context-submenu-host .submenu-arrow {
+  margin-left: auto;
 }

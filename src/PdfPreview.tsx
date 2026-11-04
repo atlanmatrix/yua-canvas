@@ -1,6 +1,7 @@
 import "./pdf.css";
 import { t as tr } from "./i18n";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useContext, useEffect, useRef, useState } from "react";
+import { ExportPreviewContext } from "./ExportPreviewContext";
 import {
   ChevronUp,
   ChevronDown,
@@ -46,7 +47,9 @@ function PdfContent({
   }>();
   const [rendered, setRendered] = useState(0),
     [error, setError] = useState(false);
-  const busy = usePreviewMoving();
+  const exporting = useContext(ExportPreviewContext);
+  const moving = usePreviewMoving();
+  const busy = exporting === undefined && moving;
   const pages =
     result && result.source === blob ? result.bitmap.pages : undefined;
   const actual = pages ? Math.min(page, pages) : page;
@@ -106,7 +109,7 @@ function PdfContent({
   useEffect(() => {
     if (busy || !size.width || !size.height) return;
     const r = host.current!.getBoundingClientRect(),
-      ratio = devicePixelRatio || 1;
+      ratio = exporting ?? (devicePixelRatio || 1);
     setDensity((old) => {
       const next = {
         width: pdfResolution(r.width * ratio),
@@ -116,7 +119,7 @@ function PdfContent({
         ? old
         : next;
     });
-  }, [busy, size.width, size.height]);
+  }, [busy, size.width, size.height, exporting]);
   useEffect(() => {
     if (!blob || !density.width || !density.height || busy) return;
     const controller = new AbortController();

@@ -1,6 +1,7 @@
 import { FileText } from "lucide-react";
 import {
   memo,
+  useContext,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -8,6 +9,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { ExportPreviewContext } from "./ExportPreviewContext";
 const listeners = new Set<() => void>();
 let moving = false,
   timer: ReturnType<typeof setTimeout> | undefined;
@@ -233,7 +235,8 @@ export const PreviewBoundary = memo(function PreviewBoundary({
     if (state.active !== detailed)
       setState({ visible: true, active: detailed });
   }, [busy, state.visible, state.active, chunk, allowTiny]);
-  const active = force || state.active;
+  const exporting = useContext(ExportPreviewContext);
+  const active = force || exporting !== undefined || state.active;
   useLayoutEffect(() => {
     if (!chunk || !active) return;
     const element = host.current!;

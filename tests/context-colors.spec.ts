@@ -1,5 +1,5 @@
 import { downloadSelectionMenu } from "./helpers";
-import { openSettings } from "./settings-helper.mjs";
+import { openSettings, exportCanvas } from "./settings-helper.mjs";
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { unzipSync, strFromU8 } from "fflate";
 const palette = [
@@ -111,7 +111,8 @@ async function color(page: Page, target: Locator, name: string) {
 async function bytes(page: Page, action: string, rightMenu = false) {
   if (action === "导出画布") await openSettings(page);
   const pending = page.waitForEvent("download");
-  if (action === "批量下载") await downloadSelectionMenu(page);
+  if (action === "导出画布") await exportCanvas(page);
+  else if (action === "批量下载") await downloadSelectionMenu(page);
   else
     await page
       .getByRole(rightMenu ? "menuitem" : "button", {
@@ -136,7 +137,7 @@ test("text menus copy, download and open the clicked text; file menus download o
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await setup(page);
   const note = card(page, "普通文本");
-  await page.keyboard.press("ControlOrMeta+a");
+  await note.click();
   await menu(page, note);
   await page.getByRole("menuitem", { name: "复制", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("已复制");

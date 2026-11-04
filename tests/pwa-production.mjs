@@ -1,4 +1,4 @@
-import { openSettings } from "./settings-helper.mjs";
+import { openSettings, exportCanvas } from "./settings-helper.mjs";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
@@ -373,7 +373,7 @@ test("complete workspace backup restores all canvases and views offline at the P
     const download = async () => {
       const pending = page.waitForEvent("download");
       await openSettings(page);
-      await page.getByRole("button", { name: "导出画布", exact: true }).click();
+      await exportCanvas(page);
       const chunks = [];
       for await (const chunk of await (await pending).createReadStream())
         chunks.push(chunk);

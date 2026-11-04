@@ -1,4 +1,4 @@
-import { openSettings } from "./settings-helper.mjs";
+import { openSettings, exportCanvas } from "./settings-helper.mjs";
 import { test, expect, type Page } from "@playwright/test";
 // Deliberately fake credentials: every provider request is intercepted.
 const fakeKey = "fake-agent-test-credential";
@@ -20,7 +20,7 @@ async function send(page: Page, text: string) {
 async function download(page: Page) {
   const promise = page.waitForEvent("download");
   await openSettings(page);
-  await page.getByRole("button", { name: "导出画布", exact: true }).click();
+  await exportCanvas(page);
   const result = await promise,
     stream = await result.createReadStream();
   const chunks: Buffer[] = [];
@@ -93,7 +93,8 @@ test("Agent streams multi-turn responses, restores history, and keeps keys out o
   await page.keyboard.press("ControlOrMeta+a");
   await page.mouse.click(10, 200, { button: "right" });
   const pending = page.waitForEvent("download");
-  await page.getByRole("menuitem", { name: "下载", exact: true }).click();
+  await page.getByRole("menuitem", { name: "导出", exact: true }).click();
+  await page.getByRole("menuitem", { name: "组件压缩包", exact: true }).click();
   const zip = await pending,
     stream = await zip.createReadStream(),
     chunks: Buffer[] = [];

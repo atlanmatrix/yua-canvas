@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { openSettings } from "./settings-helper.mjs";
+import { openSettings, exportCanvas } from "./settings-helper.mjs";
 
 test("settings keeps canvas commands isolated while open, dismisses with Escape or outside input, and restores focus", async ({
   page,
@@ -77,7 +77,7 @@ test("settings imports and exports the workspace, closes for the cloud dialog, a
     "已保存至本地",
   );
   const downloading = page.waitForEvent("download");
-  await page.getByRole("button", { name: "导出画布", exact: true }).click();
+  await exportCanvas(page);
   const stream = await (await downloading).createReadStream(),
     chunks: Buffer[] = [];
   for await (const chunk of stream!) chunks.push(chunk);

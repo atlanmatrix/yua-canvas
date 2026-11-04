@@ -182,9 +182,19 @@ export function CanvasContextMenu({
 export function ContextSubmenu({
   label,
   children,
+  icon,
+  menuLabel,
+  buttonClassName,
+  buttonRole = "menuitem",
+  disabled,
 }: {
   label: string;
   children: ReactNode;
+  icon?: ReactNode;
+  menuLabel?: string;
+  buttonClassName?: string;
+  buttonRole?: "button" | "menuitem";
+  disabled?: boolean;
 }) {
   const [localOpen, setLocalOpen] = useState(false);
   const controller = useContext(SubmenuContext),
@@ -211,21 +221,30 @@ export function ContextSubmenu({
       const bounds = submenu.current?.getBoundingClientRect();
       if (!anchor || !bounds) return;
       const preferred = anchor.right + 4;
+      const below =
+        preferred + bounds.width > innerWidth - 8 &&
+        anchor.left - bounds.width - 4 < 8;
       setPosition({
         x: Math.max(
           8,
           Math.min(
-            preferred + bounds.width <= innerWidth - 8
-              ? preferred
-              : anchor.left - bounds.width - 4,
+            below
+              ? anchor.left
+              : preferred + bounds.width <= innerWidth - 8
+                ? preferred
+                : anchor.left - bounds.width - 4,
             innerWidth - bounds.width - 8,
           ),
         ),
         y: Math.max(
           8,
           Math.min(
-            anchor.top -
-              parseFloat(getComputedStyle(submenu.current!).paddingTop),
+            below
+              ? anchor.bottom + 4 + bounds.height <= innerHeight - 8
+                ? anchor.bottom + 4
+                : anchor.top - bounds.height - 4
+              : anchor.top -
+                  parseFloat(getComputedStyle(submenu.current!).paddingTop),
             innerHeight - bounds.height - 8,
           ),
         ),
@@ -254,10 +273,10 @@ export function ContextSubmenu({
       className="context-submenu-host"
       onPointerEnter={() => {
         cancelClose();
-        if (controller?.mode.current !== "keyboard") setOpen(true);
+        if (!disabled && controller?.mode.current !== "keyboard") setOpen(true);
       }}
       onPointerMove={() => {
-        if (!open && controller?.mode.current !== "keyboard") {
+        if (!disabled && !open && controller?.mode.current !== "keyboard") {
           cancelClose();
           setOpen(true);
         }
@@ -269,7 +288,9 @@ export function ContextSubmenu({
     >
       <button
         ref={trigger}
-        role="menuitem"
+        role={buttonRole}
+        className={buttonClassName}
+        disabled={disabled}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={(e) => {
@@ -299,6 +320,7 @@ export function ContextSubmenu({
           }
         }}
       >
+        {icon}
         <span>{label}</span>
         <span className="submenu-arrow" aria-hidden="true">
           ›
@@ -309,17 +331,18 @@ export function ContextSubmenu({
           ref={submenu}
           className="context-menu context-submenu"
           role="menu"
-          aria-label={tr("{0}组件", label)}
+          aria-label={menuLabel || tr("{0}组件", label)}
           style={{ left: position.x, top: position.y }}
           onKeyDown={(e) => {
-            e.stopPropagation();
             if (["Escape", "ArrowLeft"].includes(e.key)) {
+              e.stopPropagation();
               e.preventDefault();
               close();
               return;
             }
             if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key))
               return;
+            e.stopPropagation();
             e.preventDefault();
             const items = [
               ...e.currentTarget.querySelectorAll<HTMLButtonElement>(

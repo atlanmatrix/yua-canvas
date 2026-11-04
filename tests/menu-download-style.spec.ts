@@ -103,7 +103,8 @@ async function setup(page: Page) {
 }
 async function zipFromMenu(page: Page) {
   const pending = page.waitForEvent("download");
-  await page.getByRole("menuitem", { name: "下载", exact: true }).click();
+  await page.getByRole("menuitem", { name: "导出", exact: true }).click();
+  await page.getByRole("menuitem", { name: "组件压缩包", exact: true }).click();
   const d = await pending;
   expect(d.suggestedFilename()).toMatch(/\.zip$/);
   const stream = await d.createReadStream(),

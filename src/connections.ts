@@ -110,6 +110,17 @@ export function curve(...args: Parameters<typeof curvePoints>) {
   const [from, a, b, to] = curvePoints(...args);
   return `M ${from.x} ${from.y} C ${a.x} ${a.y}, ${b.x} ${b.y}, ${to.x} ${to.y}`;
 }
+export function curveBounds(...args: Parameters<typeof curvePoints>) {
+  const points = curvePoints(...args);
+  const x = Math.min(...points.map((p) => p.x)),
+    y = Math.min(...points.map((p) => p.y));
+  return {
+    x,
+    y,
+    width: Math.max(...points.map((p) => p.x)) - x,
+    height: Math.max(...points.map((p) => p.y)) - y,
+  };
+}
 export function curveMidpoint(...args: Parameters<typeof curvePoints>) {
   const [from, a, b, to] = curvePoints(...args);
   return {

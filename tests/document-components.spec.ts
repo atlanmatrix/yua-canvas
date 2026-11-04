@@ -1,4 +1,4 @@
-import { openSettings } from "./settings-helper.mjs";
+import { openSettings, exportCanvas } from "./settings-helper.mjs";
 import { test, expect, type Page, type Download } from "@playwright/test";
 import { pdfFixture } from "./pdf-fixture.mjs";
 
@@ -17,7 +17,7 @@ async function bytes(download: Download) {
 async function exportJson(page: Page) {
   const pending = page.waitForEvent("download");
   await openSettings(page);
-  await page.getByRole("button", { name: "导出画布", exact: true }).click();
+  await exportCanvas(page);
   return bytes(await pending);
 }
 async function paste(page: Page, source: string) {
@@ -286,7 +286,8 @@ test("JSON and ZIP round trips retain Mermaid, PDF pages, editable files and att
     .locator(".canvas")
     .click({ button: "right", position: { x: 10, y: 200 } });
   const pending = page.waitForEvent("download");
-  await page.getByRole("menuitem", { name: "下载", exact: true }).click();
+  await page.getByRole("menuitem", { name: "导出", exact: true }).click();
+  await page.getByRole("menuitem", { name: "组件压缩包", exact: true }).click();
   const zip = await bytes(await pending);
   await page.getByTestId("files").setInputFiles({
     name: "documents.zip",

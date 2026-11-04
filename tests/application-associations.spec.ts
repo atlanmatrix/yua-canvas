@@ -1,4 +1,4 @@
-import { openSettings } from "./settings-helper.mjs";
+import { openSettings, exportCanvas } from "./settings-helper.mjs";
 import { test, expect, type Page, type Download } from "@playwright/test";
 import { unzipSync, strFromU8 } from "fflate";
 import { execFileSync } from "node:child_process";
@@ -23,7 +23,7 @@ async function downloadBytes(download: Download) {
 async function exportJson(page: Page) {
   const pending = page.waitForEvent("download");
   await openSettings(page);
-  await page.getByRole("button", { name: "导出画布", exact: true }).click();
+  await exportCanvas(page);
   return downloadBytes(await pending);
 }
 async function create(page: Page, name: string, x = 200, y = 180) {
@@ -279,7 +279,8 @@ test("JSON and ZIP preserve application configurations without executing them or
     .locator(".canvas")
     .click({ button: "right", position: { x: 10, y: 200 } });
   const pending = page.waitForEvent("download");
-  await page.getByRole("menuitem", { name: "下载", exact: true }).click();
+  await page.getByRole("menuitem", { name: "导出", exact: true }).click();
+  await page.getByRole("menuitem", { name: "组件压缩包", exact: true }).click();
   const zip = await downloadBytes(await pending);
   await page.getByTestId("files").setInputFiles({
     name: "applications.zip",

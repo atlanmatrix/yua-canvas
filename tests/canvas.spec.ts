@@ -1,4 +1,4 @@
-import { openSettings } from "./settings-helper.mjs";
+import { openSettings, exportCanvas } from "./settings-helper.mjs";
 import { openTextEditor } from "./helpers";
 import { test, expect } from "@playwright/test";
 test("notes, grouping, persistence, attachments and portable backup", async ({
@@ -54,7 +54,7 @@ test("notes, grouping, persistence, attachments and portable backup", async ({
     .toBe(1);
   const pending = page.waitForEvent("download");
   await openSettings(page);
-  await page.getByRole("button", { name: "导出画布", exact: true }).click();
+  await exportCanvas(page);
   const file = await pending;
   const stream = await file.createReadStream();
   const chunks: Buffer[] = [];
@@ -617,7 +617,7 @@ test("group expands for intersecting cards and resizes independently with persis
   expect(await rect()).toEqual({ x: 80, y: 60, w: 660, h: 490 });
   const downloadEvent = page.waitForEvent("download");
   await openSettings(page);
-  await page.getByRole("button", { name: "导出画布" }).click();
+  await exportCanvas(page);
   const download = await downloadEvent;
   const stream = await download.createReadStream();
   const chunks: Buffer[] = [];
@@ -680,7 +680,7 @@ test("Todo tasks can be created, completed, edited and restored from a backup", 
   await expect(card).toHaveCount(1);
   const downloadEvent = page.waitForEvent("download");
   await openSettings(page);
-  await page.getByRole("button", { name: "导出画布" }).click();
+  await exportCanvas(page);
   const download = await downloadEvent;
   const stream = await download.createReadStream();
   const chunks: Buffer[] = [];
