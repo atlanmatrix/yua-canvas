@@ -3,23 +3,17 @@
   --glass-field: color-mix(in srgb, var(--surface-muted) 66%, transparent);
   --glass-thumb: color-mix(in srgb, var(--surface) 82%, transparent);
   --glass-filter: blur(18px) saturate(145%);
-  --preference-track-surface: linear-gradient(180deg, #bfcbd9ed, #d5deeaeb);
-  --preference-track-depth:
-    inset 0 2px 4px #25344d35, inset 0 -1px 1px #ffffffbf;
-  --preference-thumb-surface: linear-gradient(180deg, #fffffffa, #edf3fbf2);
-  --preference-thumb-depth:
-    0 2px 5px #25344d38, 0 1px 2px #25344d24, inset 0 1px 0 #fff;
+  --todo-marker: #b8c2cf66;
+  --preference-track-surface: #ecf0f6;
+  --preference-thumb-surface: #fafcff;
   --preference-label: #475569;
   --preference-active-label: #1d4ed8;
 }
 :root[data-theme="dark"] {
-  --preference-track-surface: linear-gradient(180deg, #10151ff2, #1a2433ee);
-  --preference-track-depth: inset 0 2px 5px #000a, inset 0 -1px 1px #c7d9f51a;
-  --preference-thumb-surface: linear-gradient(180deg, #4b5a72f5, #354258fa);
-  --preference-thumb-depth:
-    0 3px 6px #0008, 0 1px 2px #0006, inset 0 1px 0 #dbeafe4d;
-  --preference-label: #a7b5ca;
-  --preference-active-label: #d6e4ff;
+  --preference-track-surface: #3b4a60;
+  --preference-thumb-surface: #64748b;
+  --preference-label: #c4cfdf;
+  --preference-active-label: #fafcff;
 }
 /* Floating surfaces own elevation; nested tools keep their flat hierarchy. */
 :root[data-theme]
@@ -219,29 +213,29 @@
   body
   :is(.todo-list, .todo-editor)
   input[type="checkbox"]:not(:checked) {
-  background: color-mix(in srgb, var(--ink) 64%, transparent);
+  background: var(--todo-marker);
 }
 :root[data-theme]
   body
   :is(.todo-list, .todo-editor)
   input[type="checkbox"]:not(:checked):enabled:hover {
-  background: color-mix(in srgb, var(--ink) 78%, transparent);
+  background: color-mix(in srgb, var(--todo-marker) 88%, var(--ink));
 }
 
-/* Settings switches intentionally pair a recessed track with a raised thumb. */
+/* Scheme C keeps settings tracks and thumbs flat, separated by pale fills. */
 :root[data-theme] body .settings-popover .preference-slider {
   background: var(--preference-track-surface);
-  box-shadow: var(--preference-track-depth);
+  box-shadow: none;
 }
 :root[data-theme]
   body
   .settings-popover
   .preference-slider:has(input:focus-visible) {
-  box-shadow: var(--preference-track-depth), var(--focus-shadow);
+  box-shadow: var(--focus-shadow);
 }
 :root[data-theme] body .settings-popover .preference-slider-thumb {
   background: var(--preference-thumb-surface);
-  box-shadow: var(--preference-thumb-depth);
+  box-shadow: none;
 }
 :root[data-theme] body .settings-popover .preference-slider-labels > span {
   color: var(--preference-label);
