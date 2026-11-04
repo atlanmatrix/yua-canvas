@@ -69,7 +69,30 @@ export function iconMotionRecipe(
     circles = tag(shapes, "circle"),
     rects = tag(shapes, "rect");
   const result: MotionPart[] = [];
-  const strength = phase === "hover" ? 1 : 1.4;
+  const strength =
+    phase === "hover"
+      ? 1.8
+      : phase === "busy"
+        ? 1.4
+        : phase === "press"
+          ? 1.6
+          : 2.2;
+  const amplify = (value: string) =>
+    value.replace(
+      /(translate(?:X|Y)?|rotate|skew(?:X|Y)?|scale(?:X|Y)?)\(([^)]+)\)/g,
+      (_, kind: string, values: string) =>
+        `${kind}(${values.replace(/-?\d*\.?\d+/g, (number) => {
+          const value = Number(number);
+          return String(
+            Number(
+              (kind.startsWith("scale")
+                ? 1 + (value - 1) * strength
+                : value * strength
+              ).toFixed(3),
+            ),
+          );
+        })})`,
+    );
   const transform = (
     nodes: Elements,
     value: string,
@@ -82,18 +105,18 @@ export function iconMotionRecipe(
       origin,
       frames: [
         { transform: identity },
-        { transform: value, offset: 0.48 },
+        { transform: amplify(value), offset: 0.42 },
         { transform: identity },
       ],
     });
   const move = (nodes: Elements, x: number, y: number, part: string) =>
-    transform(nodes, `translate(${x * strength}px,${y * strength}px)`, part);
+    transform(nodes, `translate(${x}px,${y}px)`, part);
   const rotate = (
     nodes: Elements,
     angle: number,
     part: string,
     origin?: string,
-  ) => transform(nodes, `rotate(${angle * strength}deg)`, part, origin);
+  ) => transform(nodes, `rotate(${angle}deg)`, part, origin);
   const draw = (nodes: Elements, part: string) => {
     for (const node of nodes) {
       if (getComputedStyle(node).stroke === "none") continue;
@@ -110,9 +133,19 @@ export function iconMotionRecipe(
         frames: [
           {
             strokeDasharray: `${length} ${length}`,
-            strokeDashoffset: length * (phase === "hover" ? 0.28 : 1),
-            opacity: 0.65,
+            strokeDashoffset: phase === "entry" ? length : 0,
+            opacity: phase === "entry" ? 0.7 : 1,
           },
+          ...(phase === "entry"
+            ? []
+            : [
+                {
+                  strokeDasharray: `${length} ${length}`,
+                  strokeDashoffset: length * (phase === "hover" ? 0.5 : 1),
+                  opacity: 0.7,
+                  offset: 0.35,
+                },
+              ]),
           {
             strokeDasharray: `${length} ${length}`,
             strokeDashoffset: 0,
@@ -125,7 +158,7 @@ export function iconMotionRecipe(
   const stagger = (nodes: Elements, part: string, axis: "x" | "y" = "y") =>
     nodes.forEach((node, i) => {
       move([node], axis === "x" ? 1 : 0, axis === "y" ? -1 : 0, part);
-      result[result.length - 1].delay = Math.min(i * 12, 60);
+      result[result.length - 1].delay = Math.min(i * 22, 110);
     });
   const blink = (nodes: Elements, part = "eyes") =>
     result.push({
@@ -277,7 +310,7 @@ export function iconMotionRecipe(
             ? [
                 { transform: "rotate(0deg)" },
                 {
-                  transform: `rotate(${name === "RotateCcw" ? -18 : 18}deg)`,
+                  transform: `rotate(${(name === "RotateCcw" ? -18 : 18) * strength}deg)`,
                   offset: 0.5,
                 },
                 { transform: "rotate(0deg)" },

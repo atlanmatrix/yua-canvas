@@ -6,8 +6,79 @@ import {
 } from "./iconMotionActivity";
 const active = new Map<
   SVGSVGElement,
-  { phase: MotionPhase; animations: Set<Animation> }
+  { phase: MotionPhase | "settle"; animations: Set<Animation> }
 >();
+type Pose = Record<string, string>;
+const smooth = "cubic-bezier(.45,0,.2,1)";
+const properties = [
+  "transform",
+  "opacity",
+  "strokeWidth",
+  "strokeDasharray",
+  "strokeDashoffset",
+];
+const cssName = (property: string) =>
+  property.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+function currentPoses(svg: SVGSVGElement) {
+  const poses = new Map<SVGGeometryElement, Pose>();
+  for (const animation of active.get(svg)?.animations || []) {
+    if (animation.playState === "finished" || animation.playState === "idle")
+      continue;
+    const effect = animation.effect as KeyframeEffect;
+    const node = effect.target as SVGGeometryElement;
+    if (!node) continue;
+    const style = getComputedStyle(node),
+      pose = poses.get(node) || {};
+    for (const property of properties) {
+      if (effect.getKeyframes().some((frame) => property in frame))
+        pose[property] = style.getPropertyValue(cssName(property));
+    }
+    if ("transform" in pose) pose.transformOrigin = style.transformOrigin;
+    poses.set(node, pose);
+  }
+  return poses;
+}
+function track(
+  svg: SVGSVGElement,
+  run: { phase: MotionPhase | "settle"; animations: Set<Animation> },
+  animation: Animation,
+) {
+  run.animations.add(animation);
+  const finish = () => {
+    run.animations.delete(animation);
+    if (!run.animations.size && active.get(svg) === run) {
+      active.delete(svg);
+      delete svg.dataset.iconPhase;
+    }
+  };
+  void animation.finished.then(finish, finish);
+}
+function returnToRest(
+  svg: SVGSVGElement,
+  run: { phase: MotionPhase | "settle"; animations: Set<Animation> },
+  node: SVGGeometryElement,
+  pose: Pose,
+) {
+  if (!Object.keys(pose).length) return;
+  const style = getComputedStyle(node),
+    rest: Pose = {};
+  for (const property of Object.keys(pose))
+    rest[property] = style.getPropertyValue(cssName(property));
+  // A complete length of dash is visually solid; switch back to CSS 'none'
+  // only after its offset reaches zero, avoiding a discrete halfway jump.
+  if (rest.strokeDasharray === "none")
+    rest.strokeDasharray = pose.strokeDasharray;
+  if (Object.keys(pose).every((property) => pose[property] === rest[property]))
+    return;
+  track(
+    svg,
+    run,
+    node.animate([pose, rest], {
+      duration: 260,
+      easing: "cubic-bezier(.22,1,.36,1)",
+    }),
+  );
+}
 const busy = new Set<SVGSVGElement>();
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 const iconSelector = "svg[data-ui-icon]:not([data-icon-static])";
@@ -51,6 +122,19 @@ export function stopIconMotion(svg: SVGSVGElement) {
   run?.animations.forEach((animation) => animation.cancel());
   delete svg.dataset.iconPhase;
 }
+function settleIconMotion(svg: SVGSVGElement) {
+  const poses = currentPoses(svg);
+  stopIconMotion(svg);
+  if (!usable(svg)) return;
+  const run = { phase: "settle" as const, animations: new Set<Animation>() };
+  active.set(svg, run);
+  svg.dataset.iconPhase = "settle";
+  for (const [node, pose] of poses) returnToRest(svg, run, node, pose);
+  if (!run.animations.size) {
+    active.delete(svg);
+    delete svg.dataset.iconPhase;
+  }
+}
 export function playIconMotion(svg: SVGSVGElement, phase: MotionPhase) {
   const explicit =
     (phase === "press" || phase === "click") && !!svg.closest(interactive);
@@ -59,6 +143,7 @@ export function playIconMotion(svg: SVGSVGElement, phase: MotionPhase) {
     now = performance.now();
   if (phase === "click" && last?.phase === phase && now - last.time < 70)
     return;
+  const poses = currentPoses(svg);
   stopIconMotion(svg);
   const run = { phase, animations: new Set<Animation>() };
   const parts = iconMotionRecipe(svg, phase);
@@ -66,41 +151,68 @@ export function playIconMotion(svg: SVGSVGElement, phase: MotionPhase) {
   recent.set(svg, { phase, time: now });
   active.set(svg, run);
   svg.dataset.iconPhase = phase;
+  // Restore an interrupted gesture once before starting a stable infinite loop.
+  // Repeating a captured matrix as the first frame can lose full rotations or
+  // introduce a jump at every loop boundary.
+  const bridgeBusy = phase === "busy" && poses.size > 0;
+  // Several semantic parts can target different properties of the same path.
+  const animated = new Map<SVGGeometryElement, Set<string>>();
+  for (const part of parts)
+    for (const node of part.nodes) {
+      const keys = animated.get(node) || new Set<string>();
+      for (const frame of part.frames)
+        for (const property of properties)
+          if (property in frame) keys.add(property);
+      animated.set(node, keys);
+    }
+  for (const [node, pose] of poses) {
+    const remaining = bridgeBusy
+      ? pose
+      : Object.fromEntries(
+          Object.entries(pose).filter(
+            ([property]) =>
+              !animated.get(node)?.has(property) &&
+              (property !== "transformOrigin" ||
+                !animated.get(node)?.has("transform")),
+          ),
+        );
+    returnToRest(svg, run, node, remaining);
+  }
   for (const part of parts)
     for (const node of part.nodes) {
       node.setAttribute("data-motion-part", part.name);
-      const frames = part.frames.map((frame) => ({
+      const frames: Keyframe[] = part.frames.map((frame) => ({
         ...frame,
         transformBox: "view-box",
         transformOrigin: part.origin || "12px 12px",
+        easing:
+          phase === "busy" && svg.dataset.uiIcon !== "Bot" ? "linear" : smooth,
       }));
+      const pose = poses.get(node);
+      if (pose && !bridgeBusy)
+        for (const [property, value] of Object.entries(pose)) {
+          if (
+            property in frames[0] ||
+            (property === "transformOrigin" && "transform" in frames[0])
+          )
+            frames[0][property] = value;
+        }
       const animation = node.animate(frames, {
         duration:
           phase === "busy"
             ? svg.dataset.uiIcon === "Bot"
-              ? 1600
-              : 1000
+              ? 2200
+              : 1400
             : phase === "press"
-              ? 110
+              ? 160
               : phase === "hover"
-                ? 200
-                : 280,
-        delay: part.delay || 0,
-        easing:
-          phase === "busy" && svg.dataset.uiIcon !== "Bot"
-            ? "linear"
-            : "cubic-bezier(.2,.7,.25,1)",
+                ? 440
+                : 640,
+        delay: (part.delay || 0) + (bridgeBusy ? 260 : 0),
+        easing: "linear",
         iterations: phase === "busy" ? Infinity : 1,
       });
-      run.animations.add(animation);
-      const finish = () => {
-        run.animations.delete(animation);
-        if (!run.animations.size && active.get(svg) === run) {
-          active.delete(svg);
-          delete svg.dataset.iconPhase;
-        }
-      };
-      void animation.finished.then(finish, finish);
+      track(svg, run, animation);
     }
 }
 export function setIconBusy(svg: SVGSVGElement, value: boolean) {
@@ -108,8 +220,8 @@ export function setIconBusy(svg: SVGSVGElement, value: boolean) {
     busy.add(svg);
     playIconMotion(svg, "busy");
   } else {
-    busy.delete(svg);
-    stopIconMotion(svg);
+    const wasBusy = busy.delete(svg);
+    if (wasBusy && active.get(svg)?.phase === "busy") settleIconMotion(svg);
   }
 }
 export function releaseIconMotion(svg: SVGSVGElement) {
@@ -209,7 +321,7 @@ export function installIconMotion() {
     const current = owner(event.target);
     if (current && current !== owner(event.relatedTarget)) {
       icons(current).forEach((svg) => {
-        if (active.get(svg)?.phase === "hover") stopIconMotion(svg);
+        if (active.get(svg)?.phase === "hover") settleIconMotion(svg);
       });
       if (hover === current) {
         hover = null;
@@ -257,7 +369,7 @@ export function installIconMotion() {
     if (event.buttons || !hover?.matches(".preference-slider")) return;
     const next = icons(hover, event)[0];
     if (next && next !== sliderIcon) {
-      if (sliderIcon) stopIconMotion(sliderIcon);
+      if (sliderIcon) settleIconMotion(sliderIcon);
       sliderIcon = next;
       playIconMotion(next, "hover");
     }

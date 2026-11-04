@@ -42,7 +42,6 @@ export function animatedIcon(name: string, Base: LucideIcon) {
         const svg = ref.current!;
         if (exporting) return;
         setIconBusy(svg, motionBusy);
-        return () => releaseIconMotion(svg);
       }, [motionBusy, exporting]);
       useEffect(() => {
         if (

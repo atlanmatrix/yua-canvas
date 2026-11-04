@@ -440,3 +440,166 @@ test("SVG instances inside passive preview content receive feedback without addi
   expect(await preview.getAttribute("tabindex")).toBeNull();
   await expect.poll(() => count(icon)).toBe(0);
 });
+
+test("larger motions stay continuous when a hover becomes a press or returns to rest", async ({
+  page,
+}) => {
+  await gallery(page);
+  const control = page.getByRole("button", {
+    name: "demo Settings",
+    exact: true,
+  });
+  await control.hover();
+  const press = await control.evaluate((button) => {
+    const icon = button.querySelector("svg")!,
+      path = icon.querySelector("path")!;
+    const running = icon.getAnimations({ subtree: true });
+    for (const animation of running) {
+      animation.pause();
+      animation.currentTime = 200;
+    }
+    const before = new DOMMatrix(getComputedStyle(path).transform);
+    const duration = Number(running[0].effect!.getTiming().duration);
+    button.dispatchEvent(
+      new PointerEvent("pointerdown", {
+        bubbles: true,
+        pointerType: "mouse",
+        pointerId: 1,
+        button: 0,
+        buttons: 1,
+      }),
+    );
+    for (const animation of icon.getAnimations({ subtree: true })) {
+      animation.pause();
+      animation.currentTime = 0;
+    }
+    const after = new DOMMatrix(getComputedStyle(path).transform);
+    button.dispatchEvent(
+      new PointerEvent("pointerup", {
+        bubbles: true,
+        pointerType: "mouse",
+        pointerId: 1,
+        button: 0,
+        buttons: 0,
+      }),
+    );
+    return {
+      before: [before.a, before.b, before.c, before.d, before.e, before.f],
+      after: [after.a, after.b, after.c, after.d, after.e, after.f],
+      duration,
+    };
+  });
+  expect(press.duration).toBeGreaterThan(300);
+  expect(Math.abs(press.before[1])).toBeGreaterThan(0.35);
+  press.before.forEach((value, index) =>
+    expect(press.after[index]).toBeCloseTo(value, 4),
+  );
+  const copy = page.getByRole("button", { name: "demo Copy", exact: true });
+  await copy.hover();
+  const leaving = await copy.evaluate((button) => {
+    const icon = button.querySelector("svg")!,
+      rect = icon.querySelector("rect")!;
+    for (const animation of icon.getAnimations({ subtree: true })) {
+      animation.pause();
+      animation.currentTime = 180;
+    }
+    const before = new DOMMatrix(getComputedStyle(rect).transform);
+    button.dispatchEvent(
+      new PointerEvent("pointerout", {
+        bubbles: true,
+        pointerType: "mouse",
+        relatedTarget: document.body,
+      }),
+    );
+    const animations = icon.getAnimations({ subtree: true });
+    for (const animation of animations) {
+      animation.pause();
+      animation.currentTime = 0;
+    }
+    const after = new DOMMatrix(getComputedStyle(rect).transform);
+    animations.forEach((animation) => animation.play());
+    return {
+      before: [before.a, before.b, before.c, before.d, before.e, before.f],
+      after: [after.a, after.b, after.c, after.d, after.e, after.f],
+      phase: icon.getAttribute("data-icon-phase"),
+    };
+  });
+  expect(leaving.phase).toBe("settle");
+  leaving.before.forEach((value, index) =>
+    expect(leaving.after[index]).toBeCloseTo(value, 4),
+  );
+  await expect.poll(() => count(svg(page, "Copy"))).toBe(0);
+  expect(
+    await svg(page, "Copy")
+      .locator("rect")
+      .evaluate((node) => getComputedStyle(node).transform),
+  ).toBe("none");
+});
+
+test("finishing a loading state eases back to its resting icon", async ({
+  page,
+}) => {
+  await gallery(page);
+  await page.evaluate(async () => {
+    const reactModule = await import("/node_modules/.vite/deps/react.js"),
+      React = reactModule.default || reactModule;
+    const domModule =
+        await import("/node_modules/.vite/deps/react-dom_client.js"),
+      DOM = domModule.default || domModule;
+    const { RefreshCw } = await import("/src/icons.tsx");
+    const host = document.createElement("div");
+    host.style.cssText = "position:fixed;left:20px;top:10px;z-index:1000";
+    document.body.append(host);
+    function Loading() {
+      const [busy, setBusy] = React.useState(false);
+      return React.createElement(
+        "button",
+        {
+          "aria-label": "finish loading",
+          onClick: () => setBusy(!busy),
+          style: { width: 50, height: 50 },
+        },
+        React.createElement(RefreshCw, { motionBusy: busy }),
+      );
+    }
+    DOM.createRoot(host).render(React.createElement(Loading));
+  });
+  const button = page.getByRole("button", {
+      name: "finish loading",
+      exact: true,
+    }),
+    icon = button.locator("svg");
+  await button.click();
+  await expect(icon).toHaveAttribute("data-icon-phase", "busy");
+  const turning = await icon.evaluate((node) => {
+    const animations = node
+      .getAnimations({ subtree: true })
+      .filter(
+        (animation) => animation.effect!.getTiming().iterations === Infinity,
+      );
+    const sample = (fraction: number) => {
+      for (const animation of animations) {
+        const timing = animation.effect!.getTiming();
+        animation.pause();
+        animation.currentTime =
+          Number(timing.delay) + Number(timing.duration) * fraction;
+      }
+      return new DOMMatrix(
+        getComputedStyle(node.querySelector("path")!).transform,
+      ).b;
+    };
+    return { quarter: sample(0.25), threeQuarters: sample(0.75) };
+  });
+  expect(turning.quarter).toBeGreaterThan(0.8);
+  expect(turning.threeQuarters).toBeLessThan(-0.8);
+  await button.click();
+  await expect(icon).toHaveAttribute("data-icon-phase", "settle");
+  await expect.poll(() => count(icon)).toBe(0);
+  expect(
+    await icon.evaluate((node) =>
+      [...node.children].every(
+        (part) => getComputedStyle(part).transform === "none",
+      ),
+    ),
+  ).toBe(true);
+});
