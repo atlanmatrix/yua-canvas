@@ -2302,3 +2302,6 @@ main {
 .cloud-server-row > button:last-child { width:auto; flex:none; }
 .cloud-panel label { display:grid; gap:6px; margin-block:12px; }
 .cloud-panel input { max-width:100%; }
+
+.cloud-panel .cloud-login:disabled { background: #e5e7eb; color: #6b7280; opacity: 1; cursor: not-allowed; }
+.cloud-panel .cloud-sync-option { display: flex; align-items: center; gap: 6px; margin: 0; }

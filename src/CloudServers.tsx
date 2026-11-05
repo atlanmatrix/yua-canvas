@@ -26,9 +26,7 @@ function read(): Server[] {
       id: "local",
       name: "当前站点",
       origin: "",
-      selected:
-        !!localStorage.getItem("yua-cloud-baseline") &&
-        localStorage.getItem("yua-cloud-paused") !== "yes",
+      selected: false,
     },
   ];
 }

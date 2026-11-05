@@ -55,12 +55,14 @@ export function CloudPanel({
     server.id === "local"
       ? "yua-cloud-baseline"
       : "yua-cloud-baseline:" + server.id;
-  const pausedKey = "yua-cloud-paused:" + server.id;
   const open = visible;
   const [user, setUser] = useState<{ owner_id: string; name: string } | null>(
       null,
     ),
-    [available, setAvailable] = useState(true),
+    [available, setAvailable] = useState(false),
+    [checking, setChecking] = useState(false),
+    [online, setOnline] = useState(navigator.onLine),
+    [refreshVersion, setRefreshVersion] = useState(0),
     [status, setStatus] = useState("未连接云端"),
     [conflict, setConflict] = useState(false),
     [busy, setBusy] = useState(false),
@@ -184,24 +186,45 @@ export function CloudPanel({
     else if (initial) setStatus("已与云端同步");
   }
   useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+  useEffect(() => {
     if (!selected && !open) return;
+    if (!online) {
+      setAvailable(false);
+      setChecking(false);
+      setStatus("网络不可用，请联网后刷新连接状态");
+      return;
+    }
     let active = true;
+    setChecking(true);
     api("/session")
       .then((d) => {
         if (!active) return;
         setAvailable(true);
         setUser(d.user);
+        if (!selected)
+          setStatus(d.user ? "已登录，请手动勾选开启自动同步" : "未连接云端");
       })
       .catch((e) => {
         if (!active || (e instanceof DOMException && e.name === "AbortError"))
           return;
         setAvailable(false);
         error(e);
+      })
+      .finally(() => {
+        if (active) setChecking(false);
       });
     return () => {
       active = false;
     };
-  }, [selected, open]);
+  }, [selected, open, refreshVersion, online]);
   useEffect(() => {
     if (!selected || !user || !ready) return;
     const run = () => void lock(() => reconcile(user.owner_id, true));
@@ -264,12 +287,13 @@ export function CloudPanel({
                 <>
                   <p>
                     {tr(
-                      "本地数据继续保存在此浏览器。登录并连接后，同步整个工作区及附件。",
+                      "本地数据继续保存在此浏览器。登录后不会自动同步，手动勾选后才同步整个工作区及附件。",
                     )}
                   </p>
-                  {available && (
+                  <div className="cloud-actions">
                     <button
                       className="cloud-login"
+                      disabled={!available || checking || !online}
                       onClick={() => {
                         if (!server.origin) {
                           location.href = "/api/auth/login";
@@ -297,7 +321,12 @@ export function CloudPanel({
                           void api("/session")
                             .then((d) => {
                               setUser(d.user);
-                              onSelected(true);
+                              setAvailable(true);
+                              setStatus(
+                                selection.current
+                                  ? "自动同步已开启"
+                                  : "已登录，请手动勾选开启自动同步",
+                              );
                             })
                             .catch(error);
                         };
@@ -312,7 +341,13 @@ export function CloudPanel({
                     >
                       {tr("使用 GitHub 登录")}
                     </button>
-                  )}
+                    <button
+                      disabled={checking}
+                      onClick={() => setRefreshVersion((v) => v + 1)}
+                    >
+                      {checking ? tr("正在检查连接…") : tr("刷新连接状态")}
+                    </button>
+                  </div>
                 </>
               ) : (
                 <>
@@ -322,26 +357,18 @@ export function CloudPanel({
                     {selected ? tr("自动同步已开启") : tr("自动同步未开启")}
                   </p>
                   <div className="cloud-actions">
-                    <button
-                      disabled={busy || !ready}
-                      onClick={() => {
-                        localStorage.removeItem(pausedKey);
-                        onSelected(true);
-                        void lock(() => reconcile(user.owner_id, true));
-                      }}
-                    >
-                      {tr("连接并同步")}
-                    </button>
-                    <button
-                      disabled={busy}
-                      onClick={() => {
-                        localStorage.setItem(pausedKey, "yes");
-                        onSelected(false);
-                        setStatus("自动同步已暂停");
-                      }}
-                    >
-                      {tr("暂停同步")}
-                    </button>
+                    <label className="cloud-sync-option">
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        disabled={busy || !ready}
+                        onChange={(e) => {
+                          onSelected(e.target.checked);
+                          if (!e.target.checked) setStatus("自动同步已暂停");
+                        }}
+                      />
+                      {tr("自动同步")}
+                    </label>
                     <button
                       disabled={busy}
                       onClick={() =>

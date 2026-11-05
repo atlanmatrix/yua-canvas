@@ -432,6 +432,15 @@ export const english: Record<string, string> = {
   关闭云同步: "Close cloud sync",
   "账号：": "Account: ",
   "使用 GitHub 登录": "Sign in with GitHub",
+  刷新连接状态: "Refresh connection status",
+  "网络不可用，请联网后刷新连接状态":
+    "Network unavailable. Reconnect and refresh the connection status.",
+  "正在检查连接…": "Checking connection…",
+  自动同步: "Automatic sync",
+  "已登录，请手动勾选开启自动同步":
+    "Signed in. Check automatic sync to enable it.",
+  "本地数据继续保存在此浏览器。登录后不会自动同步，手动勾选后才同步整个工作区及附件。":
+    "Local data stays in this browser. Signing in does not start sync. Check automatic sync to sync the workspace and attachments.",
   连接并同步: "Connect and sync",
   暂停同步: "Pause sync",
   自动同步已开启: "Automatic sync on",

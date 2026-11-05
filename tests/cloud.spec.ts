@@ -92,7 +92,7 @@ test("connecting with different local and cloud content pauses, preserves recove
   await openSettings(page);
   await page.getByRole("button", { name: "云同步与分享" }).click();
   await page.getByRole("button", { name: "管理服务器：当前站点" }).click();
-  await page.getByRole("button", { name: "连接并同步" }).click();
+  await page.getByRole("checkbox", { name: "自动同步", exact: true }).check();
   await expect(page.getByRole("status")).toContainText("本地和云端均有内容");
   expect(writes).toBe(0);
   await page.getByRole("button", { name: "备份本地并采用云端" }).click();
@@ -290,4 +290,108 @@ test("remote share resolves its snapshot and hash-checked attachment from the li
     "https://share.example/api/shares/resolve",
     "https://share.example/api/assets/" + id,
   ]);
+});
+
+test("offline sign-in stays visible, refresh recovers, and OAuth waits for manual sync opt-in", async ({
+  page,
+}) => {
+  let online = false,
+    signedIn = false,
+    canvasRequests = 0;
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "yua-cloud-servers",
+      JSON.stringify([
+        {
+          id: "remote",
+          name: "Remote",
+          origin: "https://login.example",
+          selected: false,
+        },
+      ]),
+    );
+  });
+  await page.context().route("https://login.example/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/auth/login") {
+      signedIn = true;
+      return route.fulfill({
+        contentType: "text/html",
+        body: `<script>window.opener.postMessage({type:"yua-login",token:"${"a".repeat(64)}"}, "http://127.0.0.1:5173");window.close();</script>`,
+      });
+    }
+    if (!online) return route.abort("internetdisconnected");
+    if (path === "/api/session")
+      return route.fulfill({
+        json: {
+          user: signedIn ? { owner_id: "owner", name: "tester" } : null,
+        },
+      });
+    if (path === "/api/shares") return route.fulfill({ json: { shares: [] } });
+    canvasRequests++;
+    return route.fulfill({ json: { revision: 1, snapshot: null } });
+  });
+  await page.goto("/");
+  await openSettings(page);
+  await page.getByRole("button", { name: "云同步与分享" }).click();
+  await page.getByRole("button", { name: "管理服务器：Remote" }).click();
+  const login = page.getByRole("button", { name: "使用 GitHub 登录" });
+  const refresh = page.getByRole("button", { name: "刷新连接状态" });
+  await expect(login).toBeVisible();
+  await expect(login).toBeDisabled();
+  await expect(refresh).toBeEnabled();
+  online = true;
+  await refresh.click();
+  await expect(login).toBeEnabled();
+  await page.context().setOffline(true);
+  await expect(login).toBeDisabled();
+  await page.context().setOffline(false);
+  await expect(login).toBeEnabled();
+  await login.click();
+  const sync = page.getByRole("checkbox", { name: "自动同步", exact: true });
+  await expect(sync).not.toBeChecked();
+  await expect(page.getByRole("status")).toContainText("已登录，请手动勾选");
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("focus"));
+    window.dispatchEvent(new Event("online"));
+  });
+  await page.waitForTimeout(1700);
+  expect(canvasRequests).toBe(0);
+  expect(
+    await page.evaluate(
+      () => JSON.parse(localStorage.getItem("yua-cloud-servers")!)[0].selected,
+    ),
+  ).toBe(false);
+  await sync.check();
+  await expect.poll(() => canvasRequests).toBeGreaterThan(0);
+  await expect(page.getByRole("status")).toContainText("已与云端同步");
+});
+
+test("legacy sync baseline does not implicitly opt in the default server", async ({
+  page,
+}) => {
+  let requests = 0;
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      "yua-cloud-baseline",
+      JSON.stringify({
+        owner: "owner",
+        revision: 1,
+        fingerprint: "legacy",
+      }),
+    ),
+  );
+  await page.route("**/api/**", (route) => {
+    requests++;
+    return route.fulfill({
+      json: { user: { owner_id: "owner", name: "tester" } },
+    });
+  });
+  await page.goto("/");
+  await openSettings(page);
+  await page.getByRole("button", { name: "云同步与分享" }).click();
+  await expect(
+    page.getByRole("menuitemcheckbox", { name: "当前站点", exact: true }),
+  ).toHaveAttribute("aria-checked", "false");
+  expect(requests).toBe(0);
 });
