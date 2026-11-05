@@ -21,7 +21,7 @@ import { StrokeView } from "./PaintLayer";
 import { NoteText } from "./NoteText";
 import { strokeBounds } from "./presentation";
 import { useEffect, useRef, useState } from "react";
-import { api, unpackCloud } from "./cloud";
+import { cloudClient, serverOrigin } from "./cloud";
 import {
   type Board,
   type Card,
@@ -70,8 +70,22 @@ export function ShareViewer({ token }: { token: string }) {
   useCanvasWheelGuard(surface, { enabled: !!board });
   useEffect(() => {
     let active = true;
-    api("/shares/resolve", { method: "POST", body: JSON.stringify({ token }) })
-      .then((d) => unpackCloud(d.snapshot, token))
+    let origin = "";
+    try {
+      const value = new URLSearchParams(location.hash.split("?")[1]).get(
+        "server",
+      );
+      if (value) origin = serverOrigin(value);
+    } catch {
+      setError("服务器地址无效");
+      return;
+    }
+    const { api, unpackCloud } = cloudClient(origin);
+    api("/shares/resolve", {
+      method: "POST",
+      body: JSON.stringify({ token: token.split("?")[0] }),
+    })
+      .then((d) => unpackCloud(d.snapshot, token.split("?")[0]))
       .then((b) => {
         if (active) setRoot(b);
       })

@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from "react";
 import { Settings, Upload, X } from "./icons";
-import { CloudPanel } from "./CloudPanel";
+import { CloudServers } from "./CloudServers";
 import { PreferencesControls } from "./PreferencesControls";
 import { PwaControls } from "./PwaControls";
 import { t as tr } from "./i18n";
@@ -75,7 +75,7 @@ export function SettingsMenu({
           </button>
         </div>
         <PreferencesControls showLabels />
-        <CloudPanel
+        <CloudServers
           board={board}
           ready={ready}
           restore={restore}

@@ -1,4 +1,22 @@
 export const english: Record<string, string> = {
+  "云端请求超时，请稍后重试": "Cloud request timed out. Try again later.",
+  同步服务器: "Sync servers",
+  新增服务器: "Add server",
+  当前站点: "Current site",
+  管理服务器: "Manage server",
+  管理: "Manage",
+  服务器名称: "Server name",
+  服务器地址: "Server address",
+  添加服务器: "Add server",
+  "新增后默认不选中；可同时选择多个服务器，也可全部取消。":
+    "New servers start unselected. Select multiple servers or leave all unselected.",
+  "请输入服务器 HTTPS 来源地址（本地可使用 HTTP）":
+    "Enter the server HTTPS origin (HTTP is allowed locally)",
+  请输入服务器名称: "Enter a server name",
+  服务器已存在: "This server already exists",
+  请允许登录弹窗: "Allow the login popup",
+  服务器地址无效: "Invalid server address",
+
   选择工具: "Selection tool",
   "屏蔽 / 取消屏蔽选中内容；未选中时平移":
     "Mask / unmask selection; pan when nothing is selected",

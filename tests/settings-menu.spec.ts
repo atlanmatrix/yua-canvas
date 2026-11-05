@@ -87,6 +87,7 @@ test("settings imports and exports the workspace, closes for the cloud dialog, a
   await expect(page.locator(".settings-popover")).not.toBeVisible();
   await openSettings(page);
   await page.getByRole("button", { name: "云同步与分享", exact: true }).click();
+  await page.getByRole("button", { name: "管理服务器：当前站点" }).click();
   await expect(
     page.getByRole("dialog", { name: "云同步与分享", exact: true }),
   ).toBeVisible();

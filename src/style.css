@@ -2296,3 +2296,9 @@ main {
 /* These scrollers are handled before canvas gestures, including inside scaled cards. */
 .canvas :is(.agent-messages, .agent-settings, .note-body, .todo-list, .file-content-thumbnail, .markdown-file-preview, .app-terminal pre),
 .share-surface :is(.agent-messages, .agent-settings) { touch-action: none; }
+
+.cloud-server-row { display:flex; align-items:center; gap:4px; }
+.cloud-server-row > button:first-child { flex:1; min-width:0; }
+.cloud-server-row > button:last-child { width:auto; flex:none; }
+.cloud-panel label { display:grid; gap:6px; margin-block:12px; }
+.cloud-panel input { max-width:100%; }

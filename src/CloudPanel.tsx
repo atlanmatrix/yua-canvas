@@ -1,8 +1,8 @@
 import { t as tr } from "./i18n";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Cloud, X } from "./icons";
-import { api, CloudError, packCloud, unpackCloud, uploadCloud } from "./cloud";
+import { X } from "./icons";
+import { cloudClient, CloudError, packCloud } from "./cloud";
 import {
   type Board,
   exportBoard,
@@ -10,9 +10,10 @@ import {
   saveRecovery,
   readRecovery,
 } from "./storage";
-const META = "yua-cloud-baseline";
+
+let syncQueue: Promise<void> = Promise.resolve();
 type Baseline = { owner: string; revision: number; fingerprint: string };
-function baseline(): Baseline | null {
+function baseline(META: string): Baseline | null {
   try {
     return JSON.parse(localStorage.getItem(META) || "null");
   } catch {
@@ -23,17 +24,43 @@ export function CloudPanel({
   board,
   ready,
   restore,
-  onOpen,
+  server,
+  selected,
+  onSelected,
+  visible,
+  onClose,
 }: {
   board: Board;
   ready: boolean;
   restore: (b: Board) => void;
-  onOpen?: () => void;
+  server: { id: string; name: string; origin: string };
+  selected: boolean;
+  onSelected: (value: boolean) => void;
+  visible: boolean;
+  onClose: () => void;
 }) {
-  const [open, setOpen] = useState(location.hash === "#cloud"),
-    [user, setUser] = useState<{ owner_id: string; name: string } | null>(null),
+  const controller = useRef(new AbortController());
+  const selection = useRef(selected);
+  selection.current = selected;
+  const { api, uploadCloud, unpackCloud, authKey } = useMemo(
+    () => cloudClient(server.origin, () => controller.current.signal),
+    [server.origin],
+  );
+  useEffect(() => {
+    controller.current.abort();
+    controller.current = new AbortController();
+    return () => controller.current.abort();
+  }, [selected]);
+  const META =
+    server.id === "local"
+      ? "yua-cloud-baseline"
+      : "yua-cloud-baseline:" + server.id;
+  const pausedKey = "yua-cloud-paused:" + server.id;
+  const open = visible;
+  const [user, setUser] = useState<{ owner_id: string; name: string } | null>(
+      null,
+    ),
     [available, setAvailable] = useState(true),
-    [enabled, setEnabled] = useState(false),
     [status, setStatus] = useState("未连接云端"),
     [conflict, setConflict] = useState(false),
     [busy, setBusy] = useState(false),
@@ -52,7 +79,14 @@ export function CloudPanel({
     state.current.base = b;
   }
   function error(e: unknown) {
-    setStatus(e instanceof Error ? e.message : "同步失败");
+    if (e instanceof DOMException && e.name === "AbortError") return;
+    setStatus(
+      e instanceof DOMException && e.name === "TimeoutError"
+        ? "云端请求超时，请稍后重试"
+        : e instanceof Error
+          ? e.message
+          : "同步失败",
+    );
     if (e instanceof CloudError && e.status === 409) {
       state.current.conflict = true;
       setConflict(true);
@@ -60,26 +94,36 @@ export function CloudPanel({
   }
   async function lock(fn: () => Promise<void>) {
     if (state.current.busy) return;
+    const previous = syncQueue;
+    let release!: () => void;
+    syncQueue = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     state.current.busy = true;
     setBusy(true);
     try {
+      await previous;
       await fn();
     } catch (e) {
       error(e);
     } finally {
+      release();
       state.current.busy = false;
       setBusy(false);
     }
   }
   async function accept(remote: any, owner: string) {
+    if (!selection.current) return;
     const before = current.current,
       next = await unpackCloud(remote.snapshot);
     const packed = await packCloud(next);
-    if (current.current !== before) throw Error("读取期间发生编辑，请重试");
+    if (!selection.current || current.current !== before)
+      throw Error("读取期间发生编辑，请重试");
     await saveRecovery(before);
-    if (current.current !== before) throw Error("读取期间发生编辑，请重试");
+    if (!selection.current || current.current !== before)
+      throw Error("读取期间发生编辑，请重试");
     await saveBoard(next);
-    if (current.current !== before) {
+    if (!selection.current || current.current !== before) {
       await saveBoard(current.current);
       throw Error("读取期间发生编辑，请重试");
     }
@@ -92,9 +136,11 @@ export function CloudPanel({
     setStatus("已与云端同步");
   }
   async function push(owner: string, revision: number) {
+    if (!selection.current) return;
     const source = current.current;
     setStatus("正在同步…");
     const result = await uploadCloud(source, revision);
+    if (!selection.current) return;
     remember({
       owner,
       revision: result.revision,
@@ -103,12 +149,12 @@ export function CloudPanel({
     setStatus("已与云端同步");
   }
   async function reconcile(owner: string, initial = false) {
-    if (state.current.conflict) return;
+    if (!selection.current || state.current.conflict) return;
     const source = current.current,
       packed = await packCloud(source),
       remote = await api("/canvas");
-    if (current.current !== source) return;
-    const base = state.current.base || baseline();
+    if (!selection.current || current.current !== source) return;
+    const base = state.current.base || baseline(META);
     const valid = base?.owner === owner ? base : null;
     if (!remote.snapshot) {
       await push(owner, 0);
@@ -138,23 +184,26 @@ export function CloudPanel({
     else if (initial) setStatus("已与云端同步");
   }
   useEffect(() => {
+    if (!selected && !open) return;
+    let active = true;
     api("/session")
       .then((d) => {
+        if (!active) return;
+        setAvailable(true);
         setUser(d.user);
-        if (
-          d.user &&
-          baseline()?.owner === d.user.owner_id &&
-          localStorage.getItem("yua-cloud-paused") !== "yes"
-        )
-          setEnabled(true);
       })
       .catch((e) => {
+        if (!active || (e instanceof DOMException && e.name === "AbortError"))
+          return;
         setAvailable(false);
         error(e);
       });
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [selected, open]);
   useEffect(() => {
-    if (!enabled || !user || !ready) return;
+    if (!selected || !user || !ready) return;
     const run = () => void lock(() => reconcile(user.owner_id, true));
     run();
     const timer = setInterval(run, 15000);
@@ -165,15 +214,15 @@ export function CloudPanel({
       window.removeEventListener("focus", run);
       window.removeEventListener("online", run);
     };
-  }, [enabled, user, ready]);
+  }, [selected, user, ready]);
   useEffect(() => {
-    if (!enabled || !user || !ready) return;
+    if (!selected || !user || !ready) return;
     const timer = setTimeout(
       () => void lock(() => reconcile(user.owner_id)),
       1500,
     );
     return () => clearTimeout(timer);
-  }, [board, enabled, user, ready]);
+  }, [board, selected, user, ready]);
   async function loadShares() {
     const d = await api("/shares");
     setShares(d.shares);
@@ -193,18 +242,6 @@ export function CloudPanel({
   };
   return (
     <>
-      <button
-        className="settings-action"
-        aria-label={tr("云同步与分享")}
-        title={tr("云同步与分享")}
-        onClick={() => {
-          onOpen?.();
-          setOpen(true);
-        }}
-      >
-        <Cloud size={18} />
-        <span>{tr("云同步与分享")}</span>
-      </button>
       {open &&
         createPortal(
           <div className="modal-backdrop">
@@ -215,11 +252,10 @@ export function CloudPanel({
               aria-label={tr("云同步与分享")}
             >
               <div className="modal-heading">
-                <h2>{tr("云同步与分享")}</h2>
-                <button
-                  aria-label={tr("关闭云同步")}
-                  onClick={() => setOpen(false)}
-                >
+                <h2>
+                  {server.name} · {tr("云同步与分享")}
+                </h2>
+                <button aria-label={tr("关闭云同步")} onClick={onClose}>
                   <X size={18} />
                 </button>
               </div>
@@ -232,9 +268,50 @@ export function CloudPanel({
                     )}
                   </p>
                   {available && (
-                    <a className="cloud-login" href="/api/auth/login">
+                    <button
+                      className="cloud-login"
+                      onClick={() => {
+                        if (!server.origin) {
+                          location.href = "/api/auth/login";
+                          return;
+                        }
+                        const popup = window.open(
+                          server.origin + "/api/auth/login",
+                          "yua-login-" + server.id,
+                          "popup,width=600,height=720",
+                        );
+                        if (!popup) {
+                          setStatus("请允许登录弹窗");
+                          return;
+                        }
+                        const receive = (event: MessageEvent) => {
+                          if (
+                            event.origin !== server.origin ||
+                            event.source !== popup ||
+                            event.data?.type !== "yua-login" ||
+                            !/^[a-f0-9]{64}$/.test(event.data.token)
+                          )
+                            return;
+                          localStorage.setItem(authKey, event.data.token);
+                          window.removeEventListener("message", receive);
+                          void api("/session")
+                            .then((d) => {
+                              setUser(d.user);
+                              onSelected(true);
+                            })
+                            .catch(error);
+                        };
+                        window.addEventListener("message", receive);
+                        const timer = setInterval(() => {
+                          if (popup.closed) {
+                            clearInterval(timer);
+                            window.removeEventListener("message", receive);
+                          }
+                        }, 1000);
+                      }}
+                    >
                       {tr("使用 GitHub 登录")}
-                    </a>
+                    </button>
                   )}
                 </>
               ) : (
@@ -242,14 +319,14 @@ export function CloudPanel({
                   <p>
                     {tr("账号：")}
                     {user.name} ·{" "}
-                    {enabled ? tr("自动同步已开启") : tr("自动同步未开启")}
+                    {selected ? tr("自动同步已开启") : tr("自动同步未开启")}
                   </p>
                   <div className="cloud-actions">
                     <button
                       disabled={busy || !ready}
                       onClick={() => {
-                        localStorage.removeItem("yua-cloud-paused");
-                        setEnabled(true);
+                        localStorage.removeItem(pausedKey);
+                        onSelected(true);
                         void lock(() => reconcile(user.owner_id, true));
                       }}
                     >
@@ -258,8 +335,8 @@ export function CloudPanel({
                     <button
                       disabled={busy}
                       onClick={() => {
-                        localStorage.setItem("yua-cloud-paused", "yes");
-                        setEnabled(false);
+                        localStorage.setItem(pausedKey, "yes");
+                        onSelected(false);
                         setStatus("自动同步已暂停");
                       }}
                     >
@@ -273,8 +350,9 @@ export function CloudPanel({
                             method: "POST",
                             body: "{}",
                           });
-                          setEnabled(false);
+                          onSelected(false);
                           setUser(null);
+                          localStorage.removeItem(authKey);
                           state.current.base = null;
                           localStorage.removeItem(META);
                           setStatus("已退出，画布保留在本地");
@@ -357,11 +435,12 @@ export function CloudPanel({
                     </select>
                   </label>
                   <button
-                    disabled={busy || conflict || !ready}
+                    disabled={busy || conflict || !ready || !selected}
                     onClick={() =>
                       void lock(async () => {
                         await reconcile(user.owner_id);
-                        if (state.current.conflict) return;
+                        if (!selection.current || state.current.conflict)
+                          return;
                         const packed = await packCloud(current.current);
                         if (
                           packed.fingerprint !== state.current.base?.fingerprint
@@ -378,7 +457,10 @@ export function CloudPanel({
                           location.origin +
                             location.pathname +
                             "#/s/" +
-                            d.token,
+                            d.token +
+                            (server.origin
+                              ? "?server=" + encodeURIComponent(server.origin)
+                              : ""),
                         );
                         await loadShares();
                       })
