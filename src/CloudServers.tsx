@@ -1,18 +1,27 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { ContextSubmenu } from "./CanvasContextMenu";
-import { Cloud, X } from "./icons";
+import { Cloud, Plus, X } from "./icons";
 import { CloudPanel } from "./CloudPanel";
 import { serverOrigin } from "./cloud";
 import { t as tr } from "./i18n";
 import type { Board } from "./storage";
 type Server = { id: string; name: string; origin: string; selected: boolean };
 const KEY = "yua-cloud-servers";
+const DEFAULT_SERVER: Server = {
+  id: "default",
+  name: "Yua Cloud",
+  origin: "https://yua-worker.atlanmatrix.workers.dev",
+  selected: false,
+};
 function read(): Server[] {
+  let servers: Server[] = [
+    { id: "local", name: "当前站点", origin: "", selected: false },
+  ];
   try {
     const stored = JSON.parse(localStorage.getItem(KEY) || "null");
     if (Array.isArray(stored))
-      return stored.filter(
+      servers = stored.filter(
         (s) =>
           s &&
           typeof s.id === "string" &&
@@ -21,14 +30,9 @@ function read(): Server[] {
           (s.origin === "" || serverOrigin(s.origin) === s.origin),
       );
   } catch {}
-  return [
-    {
-      id: "local",
-      name: "当前站点",
-      origin: "",
-      selected: false,
-    },
-  ];
+  return servers.some((s) => s.origin === DEFAULT_SERVER.origin)
+    ? servers
+    : [{ ...DEFAULT_SERVER }, ...servers];
 }
 export function CloudServers(props: {
   board: Board;
@@ -57,6 +61,39 @@ export function CloudServers(props: {
         buttonClassName="settings-action"
         buttonRole="button"
       >
+        {servers.map((s) => {
+          const label = s.id === "local" ? tr(s.name) : s.name;
+          return (
+            <div key={s.id} className="cloud-server-row">
+              <button
+                role="menuitem"
+                aria-label={label}
+                onClick={() => {
+                  setEditing(s.id);
+                  props.onOpen();
+                }}
+              >
+                <span>{label}</span>
+              </button>
+              <button
+                role="switch"
+                className="cloud-switch"
+                aria-label={`${tr("自动同步")}：${label}`}
+                aria-checked={s.selected}
+                onClick={() =>
+                  save(
+                    servers.map((v) =>
+                      v.id === s.id ? { ...v, selected: !v.selected } : v,
+                    ),
+                  )
+                }
+              >
+                <span aria-hidden="true" />
+              </button>
+            </div>
+          );
+        })}
+        <div role="separator" className="cloud-menu-divider" />
         <button
           role="menuitem"
           onClick={() => {
@@ -64,37 +101,9 @@ export function CloudServers(props: {
             props.onOpen();
           }}
         >
+          <Plus size={16} />
           {tr("新增服务器")}
         </button>
-        <div role="separator" />
-        {servers.map((s) => (
-          <div key={s.id} className="cloud-server-row">
-            <button
-              role="menuitemcheckbox"
-              aria-checked={s.selected}
-              aria-label={s.id === "local" ? tr(s.name) : s.name}
-              onClick={() =>
-                save(
-                  servers.map((v) =>
-                    v.id === s.id ? { ...v, selected: !v.selected } : v,
-                  ),
-                )
-              }
-            >
-              <span aria-hidden="true">{s.selected ? "☑" : "☐"}</span>
-              <span>{s.name === "当前站点" ? tr(s.name) : s.name}</span>
-            </button>
-            <button
-              aria-label={`${tr("管理服务器")}：${s.id === "local" ? tr(s.name) : s.name}`}
-              onClick={() => {
-                setEditing(s.id);
-                props.onOpen();
-              }}
-            >
-              {tr("管理")}
-            </button>
-          </div>
-        ))}
       </ContextSubmenu>
       {servers.map((s) => (
         <CloudPanel
@@ -155,6 +164,7 @@ export function CloudServers(props: {
                 <h2>{tr("新增服务器")}</h2>
                 <button
                   type="button"
+                  className="cloud-icon-button"
                   aria-label={tr("关闭")}
                   onClick={() => setAdding(false)}
                 >
@@ -162,29 +172,30 @@ export function CloudServers(props: {
                 </button>
               </div>
               <label>
-                {tr("服务器名称")}
-                <input
-                  required
-                  maxLength={80}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </label>
-              <label>
                 {tr("服务器地址")}
                 <input
                   required
                   type="url"
+                  autoComplete="url"
                   placeholder="https://yua-worker.example.workers.dev"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                 />
               </label>
-              <p>
-                {tr("新增后默认不选中；可同时选择多个服务器，也可全部取消。")}
-              </p>
+              <label>
+                {tr("服务器名称")}
+                <input
+                  required
+                  maxLength={80}
+                  autoComplete="off"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </label>
               {error && <p role="alert">{tr(error)}</p>}
-              <button type="submit">{tr("添加服务器")}</button>
+              <button type="submit" className="cloud-primary">
+                {tr("确认")}
+              </button>
             </form>
           </div>,
           document.body,

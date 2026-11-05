@@ -1,15 +1,10 @@
 import { t as tr } from "./i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { X } from "./icons";
+import { LogOut, RefreshCw, X } from "./icons";
+import { SelectField } from "./SelectField";
 import { cloudClient, CloudError, packCloud } from "./cloud";
-import {
-  type Board,
-  exportBoard,
-  saveBoard,
-  saveRecovery,
-  readRecovery,
-} from "./storage";
+import { type Board, exportBoard, saveBoard, saveRecovery } from "./storage";
 
 let syncQueue: Promise<void> = Promise.resolve();
 type Baseline = { owner: string; revision: number; fingerprint: string };
@@ -40,6 +35,7 @@ export function CloudPanel({
   onClose: () => void;
 }) {
   const controller = useRef(new AbortController());
+  const logoutButton = useRef<HTMLButtonElement>(null);
   const selection = useRef(selected);
   selection.current = selected;
   const { api, uploadCloud, unpackCloud, authKey } = useMemo(
@@ -60,10 +56,14 @@ export function CloudPanel({
       null,
     ),
     [available, setAvailable] = useState(false),
-    [checking, setChecking] = useState(false),
+    [checking, setChecking] = useState(true),
+    [connection, setConnection] = useState<"checking" | "connected" | "failed">(
+      "checking",
+    ),
+    [confirmLogout, setConfirmLogout] = useState(false),
     [online, setOnline] = useState(navigator.onLine),
     [refreshVersion, setRefreshVersion] = useState(0),
-    [status, setStatus] = useState("未连接云端"),
+    [status, setStatus] = useState(""),
     [conflict, setConflict] = useState(false),
     [busy, setBusy] = useState(false),
     [link, setLink] = useState(""),
@@ -230,31 +230,35 @@ export function CloudPanel({
   }, []);
   useEffect(() => {
     if (!selected && !open) return;
-    if (!online) {
-      setAvailable(false);
-      setChecking(false);
-      setStatus("网络不可用，请联网后刷新连接状态");
-      return;
-    }
     let active = true;
     setChecking(true);
-    api("/session")
-      .then((d) => {
-        if (!active) return;
-        setAvailable(true);
-        setUser(d.user);
-        if (!selected)
-          setStatus(d.user ? "已登录，请手动勾选开启自动同步" : "未连接云端");
-      })
-      .catch((e) => {
-        if (!active || (e instanceof DOMException && e.name === "AbortError"))
+    setAvailable(false);
+    setConnection("checking");
+    async function connect() {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (!online) throw Error("网络不可用，请联网后刷新连接状态");
+          const d = await api("/session", {
+            signal: AbortSignal.any([
+              controller.current.signal,
+              AbortSignal.timeout(5000),
+            ]),
+          });
+          if (!active) return;
+          setAvailable(true);
+          setConnection("connected");
+          setUser(d.user);
           return;
-        setAvailable(false);
-        error(e);
-      })
-      .finally(() => {
-        if (active) setChecking(false);
-      });
+        } catch (e) {
+          if (!active || (e instanceof DOMException && e.name === "AbortError"))
+            return;
+          if (attempt === 2) setConnection("failed");
+        }
+      }
+    }
+    void connect().finally(() => {
+      if (active) setChecking(false);
+    });
     return () => {
       active = false;
     };
@@ -297,6 +301,70 @@ export function CloudPanel({
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
+  function login() {
+    if (!server.origin) {
+      location.href = "/api/auth/login";
+      return;
+    }
+    const popup = window.open(
+      server.origin + "/api/auth/login",
+      "yua-login-" + server.id,
+      "popup,width=600,height=720",
+    );
+    if (!popup) {
+      setStatus("请允许登录弹窗");
+      return;
+    }
+    const receive = (event: MessageEvent) => {
+      if (
+        event.origin !== server.origin ||
+        event.source !== popup ||
+        event.data?.type !== "yua-login" ||
+        !/^[a-f0-9]{64}$/.test(event.data.token)
+      )
+        return;
+      localStorage.setItem(authKey, event.data.token);
+      window.removeEventListener("message", receive);
+      void api("/session")
+        .then((d) => {
+          setUser(d.user);
+          setAvailable(true);
+          setConnection("connected");
+          setStatus("");
+        })
+        .catch(error);
+    };
+    window.addEventListener("message", receive);
+    const timer = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(timer);
+        window.removeEventListener("message", receive);
+      }
+    }, 1000);
+  }
+  function cancelLogout() {
+    setConfirmLogout(false);
+    requestAnimationFrame(() => logoutButton.current?.focus());
+  }
+  async function logout() {
+    setConfirmLogout(false);
+    await lock(async () => {
+      await api("/auth/logout", { method: "POST", body: "{}" });
+      onSelected(false);
+      setUser(null);
+      localStorage.removeItem(authKey);
+      state.current.base = null;
+      localStorage.removeItem(META);
+      setStatus("已退出，画布保留在本地");
+    });
+  }
+  const connectionLabel = tr(
+    connection === "checking"
+      ? "正在连接"
+      : connection === "connected"
+        ? "连接成功"
+        : "三次连接失败",
+  );
   return (
     <>
       {open &&
@@ -304,126 +372,101 @@ export function CloudPanel({
           <div className="modal-backdrop">
             <section
               className="modal compact cloud-panel"
+              inert={confirmLogout}
               role="dialog"
               aria-modal="true"
               aria-label={tr("云同步与分享")}
             >
               <div className="modal-heading">
-                <h2>
-                  {server.name} · {tr("云同步与分享")}
+                <h2 className="cloud-server-heading" aria-live="polite">
+                  <span
+                    className="cloud-status-dot"
+                    data-state={connection}
+                    role="img"
+                    aria-label={connectionLabel}
+                    title={connectionLabel}
+                  />
+                  <span>
+                    {server.id === "local" ? tr(server.name) : server.name}
+                  </span>
                 </h2>
-                <button aria-label={tr("关闭云同步")} onClick={onClose}>
+                <button
+                  className="cloud-icon-button"
+                  aria-label={tr("关闭云同步")}
+                  onClick={onClose}
+                >
                   <X size={18} />
                 </button>
               </div>
-              <p role="status">{tr(status)}</p>
+              {status && (
+                <p role="status" className="cloud-operation-status">
+                  {tr(status)}
+                </p>
+              )}
               {!user ? (
-                <>
-                  <p>
-                    {tr(
-                      "本地数据继续保存在此浏览器。登录后不会自动同步，手动勾选后才同步整个工作区及附件。",
-                    )}
-                  </p>
-                  <div className="cloud-actions">
-                    <button
-                      className="cloud-login"
-                      disabled={!available || checking || !online}
-                      onClick={() => {
-                        if (!server.origin) {
-                          location.href = "/api/auth/login";
-                          return;
-                        }
-                        const popup = window.open(
-                          server.origin + "/api/auth/login",
-                          "yua-login-" + server.id,
-                          "popup,width=600,height=720",
-                        );
-                        if (!popup) {
-                          setStatus("请允许登录弹窗");
-                          return;
-                        }
-                        const receive = (event: MessageEvent) => {
-                          if (
-                            event.origin !== server.origin ||
-                            event.source !== popup ||
-                            event.data?.type !== "yua-login" ||
-                            !/^[a-f0-9]{64}$/.test(event.data.token)
-                          )
-                            return;
-                          localStorage.setItem(authKey, event.data.token);
-                          window.removeEventListener("message", receive);
-                          void api("/session")
-                            .then((d) => {
-                              setUser(d.user);
-                              setAvailable(true);
-                              setStatus(
-                                selection.current
-                                  ? "自动同步已开启"
-                                  : "已登录，请手动勾选开启自动同步",
-                              );
-                            })
-                            .catch(error);
-                        };
-                        window.addEventListener("message", receive);
-                        const timer = setInterval(() => {
-                          if (popup.closed) {
-                            clearInterval(timer);
-                            window.removeEventListener("message", receive);
-                          }
-                        }, 1000);
-                      }}
+                <div className="cloud-auth-actions">
+                  <button
+                    className="cloud-login"
+                    disabled={!available || checking || !online}
+                    onClick={login}
+                    aria-label="Github"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="21"
+                      height="21"
+                      aria-hidden="true"
+                      fill="currentColor"
                     >
-                      {tr("使用 GitHub 登录")}
-                    </button>
-                    <button
-                      disabled={checking}
-                      onClick={() => setRefreshVersion((v) => v + 1)}
-                    >
-                      {checking ? tr("正在检查连接…") : tr("刷新连接状态")}
-                    </button>
-                  </div>
-                </>
+                      <path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.4 11.4 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3Z" />
+                    </svg>
+                    <span>Github</span>
+                  </button>
+                  <button
+                    className="cloud-icon-button"
+                    disabled={checking}
+                    aria-label={tr("刷新连接状态")}
+                    title={tr("刷新连接状态")}
+                    onClick={() => {
+                      setStatus("");
+                      setRefreshVersion((v) => v + 1);
+                    }}
+                  >
+                    <RefreshCw size={18} />
+                  </button>
+                </div>
               ) : (
                 <>
-                  <p>
-                    {tr("账号：")}
-                    {user.name} ·{" "}
-                    {selected ? tr("自动同步已开启") : tr("自动同步未开启")}
-                  </p>
-                  <div className="cloud-actions">
-                    <label className="cloud-sync-option">
-                      <input
-                        type="checkbox"
-                        checked={selected}
-                        disabled={busy || !ready}
-                        onChange={(e) => {
-                          onSelected(e.target.checked);
-                          if (!e.target.checked) setStatus("自动同步已暂停");
-                        }}
-                      />
-                      {tr("自动同步")}
-                    </label>
+                  <div className="cloud-account">
+                    <span>{user.name}</span>
                     <button
+                      className="cloud-icon-button"
                       disabled={busy}
-                      onClick={() =>
-                        void lock(async () => {
-                          await api("/auth/logout", {
-                            method: "POST",
-                            body: "{}",
-                          });
-                          onSelected(false);
-                          setUser(null);
-                          localStorage.removeItem(authKey);
-                          state.current.base = null;
-                          localStorage.removeItem(META);
-                          setStatus("已退出，画布保留在本地");
-                        })
-                      }
+                      ref={logoutButton}
+                      aria-label={tr("退出登录")}
+                      title={tr("退出登录")}
+                      onClick={() => setConfirmLogout(true)}
                     >
-                      {tr("退出登录")}
+                      <LogOut size={18} />
                     </button>
                   </div>
-                  <div className="cloud-actions">
+                  <div className="cloud-auto-row">
+                    <span>{tr("自动同步")}</span>
+                    <button
+                      role="switch"
+                      className="cloud-switch"
+                      aria-label={tr("自动同步")}
+                      aria-checked={selected}
+                      disabled={busy || !ready}
+                      onClick={() => {
+                        onSelected(!selected);
+                        if (selected) setStatus("自动同步已暂停");
+                      }}
+                    >
+                      <span aria-hidden="true" />
+                    </button>
+                  </div>
+                  <div className="cloud-actions cloud-transfer-actions">
                     <button
                       disabled={busy || !ready || !online || !available}
                       onClick={() => void transfer("pull")}
@@ -431,17 +474,13 @@ export function CloudPanel({
                       {tr("手动拉取")}
                     </button>
                     <button
+                      className="cloud-primary"
                       disabled={busy || !ready || !online || !available}
                       onClick={() => void transfer("upload")}
                     >
                       {tr("手动上传")}
                     </button>
                   </div>
-                  <p>
-                    {tr(
-                      "手动操作不启用自动同步。拉取将采用云端内容，并在本机备份原内容；上传将以本地内容创建云端新版本。",
-                    )}
-                  </p>
                   {conflict && (
                     <div className="cloud-conflict">
                       <p>
@@ -496,24 +535,17 @@ export function CloudPanel({
                     </div>
                   )}
                   <hr />
-                  <p>
-                    {tr(
-                      "分享整个工作区的只读快照。持有链接的人可以查看并下载附件。",
-                    )}
-                  </p>
-                  <label>
-                    {tr("链接有效期")}{" "}
-                    <select
-                      aria-label={tr("分享有效期")}
-                      value={days}
-                      onChange={(e) => setDays(e.target.value)}
-                    >
-                      <option value="1">{tr("1 天")}</option>
-                      <option value="7">{tr("7 天")}</option>
-                      <option value="30">{tr("30 天")}</option>
-                      <option value="">{tr("永久")}</option>
-                    </select>
-                  </label>
+                  <SelectField
+                    label={tr("分享有效期")}
+                    value={days}
+                    onChange={setDays}
+                    options={[
+                      { value: "1", label: tr("1 天") },
+                      { value: "7", label: tr("7 天") },
+                      { value: "30", label: tr("30 天") },
+                      { value: "", label: tr("永久") },
+                    ]}
+                  />
                   <button
                     disabled={busy || conflict || !ready || !selected}
                     onClick={() =>
@@ -599,19 +631,52 @@ export function CloudPanel({
                   </div>
                 </>
               )}
-              <button
-                onClick={() =>
-                  void readRecovery()
-                    .then((b) =>
-                      b
-                        ? download(b, "同步前恢复副本.json")
-                        : setStatus("暂无恢复副本"),
-                    )
-                    .catch(error)
+            </section>
+          </div>,
+          document.body,
+        )}
+      {open &&
+        confirmLogout &&
+        createPortal(
+          <div className="modal-backdrop cloud-confirm-backdrop">
+            <section
+              className="modal compact cloud-panel"
+              role="alertdialog"
+              aria-modal="true"
+              aria-label={tr("确认退出登录？")}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  cancelLogout();
                 }
-              >
-                {tr("下载上次同步前的本地副本")}
-              </button>
+                if (e.key === "Tab") {
+                  const buttons = Array.from(
+                    e.currentTarget.querySelectorAll<HTMLButtonElement>(
+                      "button",
+                    ),
+                  );
+                  const next =
+                    (buttons.indexOf(
+                      document.activeElement as HTMLButtonElement,
+                    ) +
+                      (e.shiftKey ? -1 : 1) +
+                      buttons.length) %
+                    buttons.length;
+                  e.preventDefault();
+                  buttons[next]?.focus();
+                }
+              }}
+            >
+              <h2>{tr("确认退出登录？")}</h2>
+              <div className="cloud-actions">
+                <button autoFocus onClick={cancelLogout}>
+                  {tr("取消")}
+                </button>
+                <button className="cloud-primary" onClick={() => void logout()}>
+                  {tr("退出登录")}
+                </button>
+              </div>
             </section>
           </div>,
           document.body,

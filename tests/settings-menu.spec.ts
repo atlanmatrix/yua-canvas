@@ -87,7 +87,7 @@ test("settings imports and exports the workspace, closes for the cloud dialog, a
   await expect(page.locator(".settings-popover")).not.toBeVisible();
   await openSettings(page);
   await page.getByRole("button", { name: "云同步与分享", exact: true }).click();
-  await page.getByRole("button", { name: "管理服务器：当前站点" }).click();
+  await page.getByRole("menuitem", { name: "当前站点", exact: true }).click();
   await expect(
     page.getByRole("dialog", { name: "云同步与分享", exact: true }),
   ).toBeVisible();
@@ -146,8 +146,8 @@ test.describe("mobile cloud menu", () => {
     const menu = page.getByRole("menu", { name: "同步服务器", exact: true });
     await page.waitForTimeout(400);
     await expect(menu).toBeVisible();
-    const local = menu.getByRole("menuitemcheckbox", {
-      name: "当前站点",
+    const local = menu.getByRole("switch", {
+      name: "自动同步：当前站点",
       exact: true,
     });
     await local.tap();
@@ -156,7 +156,7 @@ test.describe("mobile cloud menu", () => {
     await expect(local).toHaveAttribute("aria-checked", "false");
     await page.waitForTimeout(400);
     await expect(menu).toBeVisible();
-    await menu.getByRole("button", { name: "管理服务器：当前站点" }).tap();
+    await menu.getByRole("menuitem", { name: "当前站点", exact: true }).tap();
     await expect(
       page.getByRole("dialog", { name: "云同步与分享", exact: true }),
     ).toBeVisible();

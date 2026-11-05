@@ -432,6 +432,10 @@ export const english: Record<string, string> = {
   关闭云同步: "Close cloud sync",
   "账号：": "Account: ",
   "使用 GitHub 登录": "Sign in with GitHub",
+  正在连接: "Connecting",
+  连接成功: "Connected",
+  三次连接失败: "Connection failed after three attempts",
+  "确认退出登录？": "Sign out?",
   刷新连接状态: "Refresh connection status",
   "网络不可用，请联网后刷新连接状态":
     "Network unavailable. Reconnect and refresh the connection status.",

@@ -34,10 +34,13 @@ test("unavailable cloud leaves local editing usable", async ({ page }) => {
   await page.goto("/");
   await openSettings(page);
   await page.getByRole("button", { name: "云同步与分享" }).click();
-  await page.getByRole("button", { name: "管理服务器：当前站点" }).click();
+  await page.getByRole("menuitem", { name: "当前站点", exact: true }).click();
   await expect(
     page.getByRole("dialog", { name: "云同步与分享" }),
-  ).toContainText("当前站点未启用云服务");
+  ).toContainText("当前站点");
+  await expect(
+    page.getByRole("img", { name: "三次连接失败", exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "关闭云同步" }).click();
   await expect(
     page.getByRole("button", { name: "添加任务", exact: true }),
@@ -91,8 +94,8 @@ test("connecting with different local and cloud content pauses, preserves recove
   await expect(page.getByText("本机未上传内容")).toBeVisible();
   await openSettings(page);
   await page.getByRole("button", { name: "云同步与分享" }).click();
-  await page.getByRole("button", { name: "管理服务器：当前站点" }).click();
-  await page.getByRole("checkbox", { name: "自动同步", exact: true }).check();
+  await page.getByRole("menuitem", { name: "当前站点", exact: true }).click();
+  await page.getByRole("switch", { name: "自动同步", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("本地和云端均有内容");
   expect(writes).toBe(0);
   await page.getByRole("button", { name: "备份本地并采用云端" }).click();
@@ -132,20 +135,18 @@ test("server submenu supports adding, independent multi-selection and selecting 
     const dialog = page.getByRole("dialog", { name: "新增服务器" });
     await dialog.getByLabel("服务器名称").fill(name);
     await dialog.getByLabel("服务器地址").fill(origin);
-    await dialog
-      .getByRole("button", { name: "添加服务器", exact: true })
-      .click();
+    await dialog.getByRole("button", { name: "确认", exact: true }).click();
     await page.getByRole("button", { name: "关闭云同步" }).click();
   }
   await add("服务器一", "https://one.example");
   await add("服务器二", "https://two.example");
   await menu();
-  const one = page.getByRole("menuitemcheckbox", {
-    name: "服务器一",
+  const one = page.getByRole("switch", {
+    name: "自动同步：服务器一",
     exact: true,
   });
-  const two = page.getByRole("menuitemcheckbox", {
-    name: "服务器二",
+  const two = page.getByRole("switch", {
+    name: "自动同步：服务器二",
     exact: true,
   });
   await expect(one).toHaveAttribute("aria-checked", "false");
@@ -225,10 +226,10 @@ test("two selected servers sync independently and deselection stops background r
   await openSettings(page);
   await page.getByRole("button", { name: "云同步与分享" }).click();
   await page
-    .getByRole("menuitemcheckbox", { name: "One", exact: true })
+    .getByRole("switch", { name: "自动同步：One", exact: true })
     .click();
   await page
-    .getByRole("menuitemcheckbox", { name: "Two", exact: true })
+    .getByRole("switch", { name: "自动同步：Two", exact: true })
     .click();
   const count = [...reads.values()].reduce((a, b) => a + b, 0);
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
@@ -336,8 +337,8 @@ test("offline sign-in stays visible, refresh recovers, and OAuth waits for manua
   await page.goto("/");
   await openSettings(page);
   await page.getByRole("button", { name: "云同步与分享" }).click();
-  await page.getByRole("button", { name: "管理服务器：Remote" }).click();
-  const login = page.getByRole("button", { name: "使用 GitHub 登录" });
+  await page.getByRole("menuitem", { name: "Remote", exact: true }).click();
+  const login = page.getByRole("button", { name: "Github" });
   const refresh = page.getByRole("button", { name: "刷新连接状态" });
   await expect(login).toBeVisible();
   await expect(login).toBeDisabled();
@@ -350,9 +351,9 @@ test("offline sign-in stays visible, refresh recovers, and OAuth waits for manua
   await page.context().setOffline(false);
   await expect(login).toBeEnabled();
   await login.click();
-  const sync = page.getByRole("checkbox", { name: "自动同步", exact: true });
+  const sync = page.getByRole("switch", { name: "自动同步", exact: true });
   await expect(sync).not.toBeChecked();
-  await expect(page.getByRole("status")).toContainText("已登录，请手动勾选");
+  await expect(page.locator(".cloud-account")).toContainText("tester");
   await page.evaluate(() => {
     window.dispatchEvent(new Event("focus"));
     window.dispatchEvent(new Event("online"));
@@ -364,7 +365,7 @@ test("offline sign-in stays visible, refresh recovers, and OAuth waits for manua
       () => JSON.parse(localStorage.getItem("yua-cloud-servers")!)[0].selected,
     ),
   ).toBe(false);
-  await sync.check();
+  await sync.click();
   await expect.poll(() => canvasRequests).toBeGreaterThan(0);
   await expect(page.getByRole("status")).toContainText("已与云端同步");
 });
@@ -393,7 +394,7 @@ test("legacy sync baseline does not implicitly opt in the default server", async
   await openSettings(page);
   await page.getByRole("button", { name: "云同步与分享" }).click();
   await expect(
-    page.getByRole("menuitemcheckbox", { name: "当前站点", exact: true }),
+    page.getByRole("switch", { name: "自动同步：当前站点", exact: true }),
   ).toHaveAttribute("aria-checked", "false");
   expect(requests).toBe(0);
 });
@@ -426,9 +427,9 @@ async function openManualCloud(page: import("@playwright/test").Page) {
   await expect(page.getByText("手动同步前的本地内容")).toBeVisible();
   await openSettings(page);
   await page.getByRole("button", { name: "云同步与分享" }).click();
-  await page.getByRole("button", { name: "管理服务器：当前站点" }).click();
+  await page.getByRole("menuitem", { name: "当前站点", exact: true }).click();
   await expect(
-    page.getByRole("checkbox", { name: "自动同步", exact: true }),
+    page.getByRole("switch", { name: "自动同步", exact: true }),
   ).not.toBeChecked();
 }
 
@@ -453,7 +454,7 @@ test("manual pull works with automatic sync off, preserves a recovery copy, and 
     "已从云端拉取，本地原内容已备份",
   );
   await expect(
-    page.getByRole("checkbox", { name: "自动同步", exact: true }),
+    page.getByRole("switch", { name: "自动同步", exact: true }),
   ).not.toBeChecked();
   const saved = await page.evaluate(async () => {
     // @ts-expect-error Vite serves source modules to browser tests.
@@ -513,7 +514,7 @@ test("manual upload confirms replacement, handles concurrent cloud edits, and ne
   expect(writes[1].baseRevision).toBe(8);
   expect(writes[1].snapshot.cards[0].text).toBe("手动同步前的本地内容");
   await expect(
-    page.getByRole("checkbox", { name: "自动同步", exact: true }),
+    page.getByRole("switch", { name: "自动同步", exact: true }),
   ).not.toBeChecked();
   const reads = canvasReads;
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
@@ -578,7 +579,7 @@ test("manual pull rejects a stale response after local editing during the reques
   await expect(page.getByTestId("card")).toHaveCount(2);
   await openSettings(page);
   await page.getByRole("button", { name: "云同步与分享" }).click();
-  await page.getByRole("button", { name: "管理服务器：当前站点" }).click();
+  await page.getByRole("menuitem", { name: "当前站点", exact: true }).click();
   release();
   await expect(page.getByRole("status")).toContainText(
     "读取期间发生编辑，请重试",

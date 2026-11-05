@@ -184,6 +184,7 @@ import "./controls.css";
 import "./resize.css";
 import "./glass.css";
 import "./icon-motion.css";
+import "./cloud.css";
 import { installIconMotion } from "./iconMotion";
 import { registerPwa } from "./pwa";
 void registerPwa();
