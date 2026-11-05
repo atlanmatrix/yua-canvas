@@ -7,6 +7,8 @@
     "build": "tsc --noEmit && vite build",
     "build:dsh": "node scripts/build-dsh.mjs",
     "pack:dsh": "npm run build:dsh && node scripts/pack-dsh.mjs",
+    "publish:dsh": "npm run build:dsh && node scripts/publish-dsh.mjs",
+    "test:dsh:publish": "node --test tests/dsh-publish.mjs",
     "test:dsh": "node --test tests/dsh-plugin.mjs",
     "test:dsh:host": "node tests/dsh-host.mjs",
     "preview": "vite preview --host 0.0.0.0",

@@ -10,6 +10,8 @@
 
 Canvas 可作为 DeepSeek Harness（dsh）的 Web UI 插件安装，在左侧导航中打开。完整安装和数据迁移说明见 [dsh/README.md](dsh/README.md)。
 
+在 DSH App 的插件管理页选择 Git 地址安装，粘贴 `https://github.com/atlanmatrix/yua-canvas.git#dsh` 即可；该分支提供完整插件资源，无需本机构建。main 更新后由 [发布工作流](.github/workflows/publish-dsh.yml) 自动刷新插件分支。
+
 ```sh
 npm run build:dsh
 dsh plugin --profile web add /absolute/path/to/yua-canvas/dsh

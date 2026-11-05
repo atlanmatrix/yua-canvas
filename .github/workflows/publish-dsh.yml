@@ -1,0 +1,40 @@
+name: Publish DSH Git plugin
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "dsh/**"
+      - "scripts/**"
+      - "package*.json"
+      - "vite.config.ts"
+      - "tsconfig.json"
+      - ".github/workflows/publish-dsh.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-dsh-git
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build:dsh
+      - name: Set publication identity
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+      - name: Publish the installable plugin branch
+        run: node scripts/publish-dsh.mjs

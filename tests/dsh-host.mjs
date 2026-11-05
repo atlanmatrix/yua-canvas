@@ -23,7 +23,9 @@ const manifest = JSON.parse(
   await readFile(new URL("../dsh/package.json", import.meta.url)),
 );
 const archive = resolve(`dist/${manifest.name}-${manifest.version}.tgz`);
-assert.ok(existsSync(archive), "Run npm run pack:dsh first");
+const spec = process.env.DSH_TEST_SPEC || archive;
+if (!process.env.DSH_TEST_SPEC)
+  assert.ok(existsSync(archive), "Run npm run pack:dsh first");
 let host, browser;
 const exited = (child) =>
   new Promise((resolve, reject) => {
@@ -31,11 +33,10 @@ const exited = (child) =>
     child.once("exit", (code, signal) => resolve({ code, signal }));
   });
 try {
-  const installing = spawn(
-    bin,
-    ["plugin", "--profile", "web", "add", archive],
-    { env, stdio: ["ignore", "pipe", "pipe"] },
-  );
+  const installing = spawn(bin, ["plugin", "--profile", "web", "add", spec], {
+    env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
   let installLog = "";
   installing.stdout.on("data", (data) => {
     installLog += data;
