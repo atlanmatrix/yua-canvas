@@ -5,6 +5,10 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
+    "build:dsh": "node scripts/build-dsh.mjs",
+    "pack:dsh": "npm run build:dsh && node scripts/pack-dsh.mjs",
+    "test:dsh": "node --test tests/dsh-plugin.mjs",
+    "test:dsh:host": "node tests/dsh-host.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "test": "playwright test",
     "check:worker": "tsc -p worker/tsconfig.json",

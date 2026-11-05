@@ -19,7 +19,7 @@ const commit = (
     encoding: "utf8",
   }).trim()
 ).slice(0, 7);
-export default defineConfig({
-  plugins: [react(), pdfAssets(), canvasPwa()],
+export default defineConfig(({ mode }) => ({
+  plugins: [react(), pdfAssets(), ...(mode === "dsh" ? [] : [canvasPwa()])],
   define: { __BUILD_VERSION__: JSON.stringify(`${buildDate}.${commit}`) },
-});
+}));

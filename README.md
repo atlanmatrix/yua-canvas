@@ -6,6 +6,18 @@
 
 画布内的触摸板四向滑动会拦截浏览器的前进、后退、下拉刷新和页面回弹。组件内可滚动的内容优先使用原生滚动，到达边界后不会带动画布或触发浏览器手势；浏览器按钮和快捷键仍可正常导航。
 
+## DeepSeek Harness 插件
+
+Canvas 可作为 DeepSeek Harness（dsh）的 Web UI 插件安装，在左侧导航中打开。完整安装和数据迁移说明见 [dsh/README.md](dsh/README.md)。
+
+```sh
+npm run build:dsh
+dsh plugin --profile web add /absolute/path/to/yua-canvas/dsh
+dsh web
+```
+
+`npm run pack:dsh` 生成可安装的 `dist/dsh-yua-canvas-1.0.0.tgz`。插件保留本地 IndexedDB 与 JSON/ZIP 备份；原网站数据需导出后导入。`npm run test:dsh` 验证插件打包、路由、导航及嵌入画布。
+
 ## 开发与验证
 
 需要 Node.js 22.12+，当前验证环境为 Node.js 24。
@@ -102,7 +114,8 @@ npm run preview -- --base /yua-canvas/ --port 4173 --strictPort
 
 - `yua-canvas-deploy.zip`：已构建的静态站点，包含 PWA、PDF 字体、解码器和 Worker 等资源。解压后的 `index.html` 位于包根目录，将全部内容放入静态托管目录即可；资源使用相对路径，支持根目录或子目录部署，通过 HTTP(S) 访问。
 - `yua-canvas-source.zip`：该 tag 对应的完整已跟踪源码，包含锁文件、构建脚本和可选 Cloudflare 后端配置；云端数据库、存储和登录的配置见 [worker/README.md](worker/README.md)。
-- `SHA256SUMS`：两个 ZIP 包的 SHA-256 校验值。
+- `dsh-yua-canvas-*.tgz`：可安装的 DeepSeek Harness Web 插件，包含画布及 PDF、图表等资源，安装方法见 [dsh/README.md](dsh/README.md)。
+- `SHA256SUMS`：以上安装包的 SHA-256 校验值。
 
 例如 `git tag v1.0.1` 后执行 `git push origin v1.0.1`。工作流使用内置 `GITHUB_TOKEN`；同一 tag 的工作流重新运行时更新附件并保留已有 Release 描述。打包成功后才会创建 Release，已有的 Pages 部署流程保持原有触发方式。
 

@@ -1,5 +1,6 @@
 node_modules/
 dist/
+dsh/app/
 test-results/
 playwright-report/
 *.log

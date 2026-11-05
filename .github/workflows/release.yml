@@ -35,12 +35,17 @@ jobs:
           zip -qr "$RUNNER_TEMP/release/yua-canvas-deploy.zip" .
       - name: Package the tagged source
         run: git archive --format=zip --prefix=yua-canvas-source/ --output="$RUNNER_TEMP/release/yua-canvas-source.zip" HEAD
+      - name: Build and package the DeepSeek Harness plugin
+        run: |
+          npm run pack:dsh
+          cp dist/dsh-yua-canvas-*.tgz "$RUNNER_TEMP/release/"
       - name: Verify archives and generate checksums
         working-directory: ${{ runner.temp }}/release
         run: |
           unzip -tq yua-canvas-deploy.zip
           unzip -tq yua-canvas-source.zip
-          sha256sum yua-canvas-deploy.zip yua-canvas-source.zip > SHA256SUMS
+          tar -tzf dsh-yua-canvas-*.tgz > /dev/null
+          sha256sum yua-canvas-deploy.zip yua-canvas-source.zip dsh-yua-canvas-*.tgz > SHA256SUMS
       - name: Transfer release assets
         uses: actions/upload-artifact@v4
         with:
@@ -73,7 +78,8 @@ jobs:
 
           - **yua-canvas-deploy.zip**: Ready-to-deploy static site, including PWA and PDF resources. Extract its contents into your web server's site directory. Relative asset paths support root and subdirectory hosting.
           - **yua-canvas-source.zip**: Source code at this tag, including the optional Cloudflare backend and deployment instructions.
-          - **SHA256SUMS**: SHA-256 checksums for both ZIP files.
+          - **dsh-yua-canvas-*.tgz**: Installable Canvas plugin for DeepSeek Harness Web. Install with `dsh plugin --profile web add /path/to/the.tgz`, then run `dsh web`.
+          - **SHA256SUMS**: SHA-256 checksums for all packages.
 
           Serve the deployable files over HTTP(S). See the source README and worker/README.md for build and optional cloud setup instructions.
           NOTES
