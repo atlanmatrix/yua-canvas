@@ -251,14 +251,16 @@ for (const theme of ["light", "dark"]) {
       return {
         bg: panel.backgroundColor,
         text: ratio(input.color, input.backgroundColor),
-        border: ratio(input.borderTopColor, panel.backgroundColor),
+        borderWidth: input.borderTopWidth,
+        height: el.querySelector("input")!.getBoundingClientRect().height,
       };
     });
     expect(palette.bg).toBe(
       theme === "light" ? "rgb(243, 244, 246)" : "rgb(32, 33, 36)",
     );
     expect(palette.text).toBeGreaterThanOrEqual(4.5);
-    expect(palette.border).toBeGreaterThanOrEqual(3);
+    expect(palette.borderWidth).toBe("0px");
+    expect(palette.height).toBeLessThanOrEqual(36);
     await page.screenshot({ path: `/tmp/yua-cloud-form-${theme}.png` });
   });
 }
@@ -291,6 +293,7 @@ test.describe("mobile cloud UI", () => {
       exact: true,
     });
     await panel.getByRole("combobox", { name: "分享有效期" }).tap();
+    await page.screenshot({ path: "/tmp/yua-cloud-mobile-options.png" });
     await panel.getByRole("option", { name: "30 天", exact: true }).tap();
     await expect(panel.getByRole("combobox")).toHaveText("30 天");
     const bounds = (await panel.boundingBox())!;
