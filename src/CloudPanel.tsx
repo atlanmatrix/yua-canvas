@@ -114,18 +114,20 @@ export function CloudPanel({
       setBusy(false);
     }
   }
-  async function accept(remote: any, owner: string) {
-    if (!selection.current) return;
+  async function accept(remote: any, owner: string, manual = false) {
+    const signal = controller.current.signal;
+    const allowed = () => !signal.aborted && (manual || selection.current);
+    if (!allowed()) return false;
     const before = current.current,
       next = await unpackCloud(remote.snapshot);
     const packed = await packCloud(next);
-    if (!selection.current || current.current !== before)
+    if (!allowed() || current.current !== before)
       throw Error("读取期间发生编辑，请重试");
     await saveRecovery(before);
-    if (!selection.current || current.current !== before)
+    if (!allowed() || current.current !== before)
       throw Error("读取期间发生编辑，请重试");
     await saveBoard(next);
-    if (!selection.current || current.current !== before) {
+    if (!allowed() || current.current !== before) {
       await saveBoard(current.current);
       throw Error("读取期间发生编辑，请重试");
     }
@@ -135,20 +137,24 @@ export function CloudPanel({
       fingerprint: packed.fingerprint,
     });
     apply.current(next);
-    setStatus("已与云端同步");
+    setStatus(manual ? "已从云端拉取，本地原内容已备份" : "已与云端同步");
+    return true;
   }
-  async function push(owner: string, revision: number) {
-    if (!selection.current) return;
+  async function push(owner: string, revision: number, manual = false) {
+    const signal = controller.current.signal;
+    const allowed = () => !signal.aborted && (manual || selection.current);
+    if (!allowed()) return false;
     const source = current.current;
     setStatus("正在同步…");
     const result = await uploadCloud(source, revision);
-    if (!selection.current) return;
+    if (!allowed()) return false;
     remember({
       owner,
       revision: result.revision,
       fingerprint: result.fingerprint,
     });
-    setStatus("已与云端同步");
+    setStatus(manual ? "已上传至云端" : "已与云端同步");
+    return true;
   }
   async function reconcile(owner: string, initial = false) {
     if (!selection.current || state.current.conflict) return;
@@ -184,6 +190,34 @@ export function CloudPanel({
     } else if (packed.fingerprint !== valid.fingerprint)
       await push(owner, valid.revision);
     else if (initial) setStatus("已与云端同步");
+  }
+  function clearConflict() {
+    state.current.conflict = false;
+    setConflict(false);
+  }
+  async function transfer(direction: "pull" | "upload") {
+    if (!user) return;
+    await lock(async () => {
+      const before = current.current;
+      const remote = await api("/canvas");
+      if (direction === "pull") {
+        if (!remote.snapshot) {
+          setStatus("云端暂无画布，本地内容未改变");
+          return;
+        }
+        if (current.current !== before) throw Error("读取期间发生编辑，请重试");
+        if (await accept(remote, user.owner_id, true)) clearConflict();
+      } else {
+        if (
+          remote.snapshot &&
+          !confirm(
+            tr("将以当前本地内容创建云端新版本，其他设备需要重新同步。继续？"),
+          )
+        )
+          return;
+        if (await push(user.owner_id, remote.revision, true)) clearConflict();
+      }
+    });
   }
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -389,6 +423,25 @@ export function CloudPanel({
                       {tr("退出登录")}
                     </button>
                   </div>
+                  <div className="cloud-actions">
+                    <button
+                      disabled={busy || !ready || !online || !available}
+                      onClick={() => void transfer("pull")}
+                    >
+                      {tr("手动拉取")}
+                    </button>
+                    <button
+                      disabled={busy || !ready || !online || !available}
+                      onClick={() => void transfer("upload")}
+                    >
+                      {tr("手动上传")}
+                    </button>
+                  </div>
+                  <p>
+                    {tr(
+                      "手动操作不启用自动同步。拉取将采用云端内容，并在本机备份原内容；上传将以本地内容创建云端新版本。",
+                    )}
+                  </p>
                   {conflict && (
                     <div className="cloud-conflict">
                       <p>
@@ -410,9 +463,8 @@ export function CloudPanel({
                           onClick={() =>
                             void lock(async () => {
                               const remote = await api("/canvas");
-                              await accept(remote, user.owner_id);
-                              state.current.conflict = false;
-                              setConflict(false);
+                              if (await accept(remote, user.owner_id, true))
+                                clearConflict();
                             })
                           }
                         >
@@ -431,9 +483,10 @@ export function CloudPanel({
                               return;
                             void lock(async () => {
                               const remote = await api("/canvas");
-                              await push(user.owner_id, remote.revision);
-                              state.current.conflict = false;
-                              setConflict(false);
+                              if (
+                                await push(user.owner_id, remote.revision, true)
+                              )
+                                clearConflict();
                             });
                           }}
                         >

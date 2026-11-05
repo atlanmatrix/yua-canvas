@@ -119,3 +119,54 @@ test("subcanvas navigation remains usable beside settings in both themes", async
   await page.getByRole("button", { name: "返回父画布", exact: true }).click();
   await expect(page.locator(".card-canvas")).toHaveCount(1);
 });
+
+test.describe("mobile cloud menu", () => {
+  test.use({
+    hasTouch: true,
+    isMobile: true,
+    viewport: { width: 390, height: 844 },
+  });
+  test("a finger tap keeps the cloud submenu open and its controls usable", async ({
+    page,
+  }) => {
+    await page.route("**/api/session", (r) =>
+      r.fulfill({ json: { user: null } }),
+    );
+    await page.goto("/");
+    await page.getByRole("button", { name: "设置", exact: true }).tap();
+    const trigger = page.getByRole("button", {
+      name: "云同步与分享",
+      exact: true,
+    });
+    await trigger.tap();
+    // Some mobile browsers dispatch pointerleave after the compatibility click.
+    await trigger
+      .locator("..")
+      .dispatchEvent("pointerout", { pointerType: "touch" });
+    const menu = page.getByRole("menu", { name: "同步服务器", exact: true });
+    await page.waitForTimeout(400);
+    await expect(menu).toBeVisible();
+    const local = menu.getByRole("menuitemcheckbox", {
+      name: "当前站点",
+      exact: true,
+    });
+    await local.tap();
+    await expect(local).toHaveAttribute("aria-checked", "true");
+    await local.tap();
+    await expect(local).toHaveAttribute("aria-checked", "false");
+    await page.waitForTimeout(400);
+    await expect(menu).toBeVisible();
+    await menu.getByRole("button", { name: "管理服务器：当前站点" }).tap();
+    await expect(
+      page.getByRole("dialog", { name: "云同步与分享", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "关闭云同步" }).tap();
+    await page.getByRole("button", { name: "设置", exact: true }).tap();
+    await trigger.tap();
+    await page.waitForTimeout(400);
+    await menu.getByRole("menuitem", { name: "新增服务器" }).tap();
+    await expect(
+      page.getByRole("dialog", { name: "新增服务器" }),
+    ).toBeVisible();
+  });
+});

@@ -272,17 +272,20 @@ export function ContextSubmenu({
   return (
     <div
       className="context-submenu-host"
-      onPointerEnter={() => {
+      onPointerEnter={(e) => {
         cancelClose();
+        if (e.pointerType === "touch") return;
         if (!disabled && controller?.mode.current !== "keyboard") setOpen(true);
       }}
-      onPointerMove={() => {
+      onPointerMove={(e) => {
+        if (e.pointerType === "touch") return;
         if (!disabled && !open && controller?.mode.current !== "keyboard") {
           cancelClose();
           setOpen(true);
         }
       }}
-      onPointerLeave={() => {
+      onPointerLeave={(e) => {
+        if (e.pointerType === "touch") return;
         cancelClose();
         closeTimer.current = setTimeout(() => setOpen(false), 150);
       }}

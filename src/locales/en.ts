@@ -437,6 +437,15 @@ export const english: Record<string, string> = {
     "Network unavailable. Reconnect and refresh the connection status.",
   "正在检查连接…": "Checking connection…",
   自动同步: "Automatic sync",
+  手动拉取: "Pull from cloud",
+  手动上传: "Upload to cloud",
+  "已从云端拉取，本地原内容已备份":
+    "Pulled from cloud. Previous local content backed up.",
+  已上传至云端: "Uploaded to cloud",
+  "云端暂无画布，本地内容未改变":
+    "No cloud canvas yet. Local content is unchanged.",
+  "手动操作不启用自动同步。拉取将采用云端内容，并在本机备份原内容；上传将以本地内容创建云端新版本。":
+    "Manual actions do not enable automatic sync. Pull replaces local content and keeps a local recovery copy. Upload creates a cloud version from local content.",
   "已登录，请手动勾选开启自动同步":
     "Signed in. Check automatic sync to enable it.",
   "本地数据继续保存在此浏览器。登录后不会自动同步，手动勾选后才同步整个工作区及附件。":

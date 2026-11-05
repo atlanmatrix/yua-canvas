@@ -96,7 +96,9 @@ test("connecting with different local and cloud content pauses, preserves recove
   await expect(page.getByRole("status")).toContainText("本地和云端均有内容");
   expect(writes).toBe(0);
   await page.getByRole("button", { name: "备份本地并采用云端" }).click();
-  await expect(page.getByRole("status")).toContainText("已与云端同步");
+  await expect(page.getByRole("status")).toContainText(
+    "已从云端拉取，本地原内容已备份",
+  );
   await page.getByRole("button", { name: "关闭云同步" }).click();
   await expect(page.getByText("来自分享的内容")).toBeVisible();
   const saved = await page.evaluate(async () => {
@@ -394,4 +396,195 @@ test("legacy sync baseline does not implicitly opt in the default server", async
     page.getByRole("menuitemcheckbox", { name: "当前站点", exact: true }),
   ).toHaveAttribute("aria-checked", "false");
   expect(requests).toBe(0);
+});
+
+async function openManualCloud(page: import("@playwright/test").Page) {
+  await page.goto("/");
+  await expect(
+    page.getByRole("button", { name: "添加任务", exact: true }),
+  ).toBeEnabled();
+  await page.evaluate(async () => {
+    // @ts-expect-error Vite serves source modules to browser tests.
+    const { saveBoard } = await import("/src/storage.ts");
+    await saveBoard({
+      version: 1,
+      cards: [
+        {
+          id: "local",
+          kind: "text",
+          title: "",
+          text: "手动同步前的本地内容",
+          x: 0,
+          y: 0,
+          color: "#ffffff",
+        },
+      ],
+      groups: [],
+    });
+  });
+  await page.reload();
+  await expect(page.getByText("手动同步前的本地内容")).toBeVisible();
+  await openSettings(page);
+  await page.getByRole("button", { name: "云同步与分享" }).click();
+  await page.getByRole("button", { name: "管理服务器：当前站点" }).click();
+  await expect(
+    page.getByRole("checkbox", { name: "自动同步", exact: true }),
+  ).not.toBeChecked();
+}
+
+test("manual pull works with automatic sync off, preserves a recovery copy, and never uploads", async ({
+  page,
+}) => {
+  let canvasReads = 0,
+    writes = 0;
+  await page.route("**/api/session", (r) =>
+    r.fulfill({ json: { user: { owner_id: "owner", name: "tester" } } }),
+  );
+  await page.route("**/api/shares", (r) => r.fulfill({ json: { shares: [] } }));
+  await page.route("**/api/canvas", (r) => {
+    canvasReads++;
+    if (r.request().method() === "PUT") writes++;
+    return r.fulfill({ json: { revision: 7, snapshot } });
+  });
+  await openManualCloud(page);
+  expect(canvasReads).toBe(0);
+  await page.getByRole("button", { name: "手动拉取", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "已从云端拉取，本地原内容已备份",
+  );
+  await expect(
+    page.getByRole("checkbox", { name: "自动同步", exact: true }),
+  ).not.toBeChecked();
+  const saved = await page.evaluate(async () => {
+    // @ts-expect-error Vite serves source modules to browser tests.
+    const { readRecovery } = await import("/src/storage.ts");
+    return (await readRecovery()).cards[0].text;
+  });
+  expect(saved).toBe("手动同步前的本地内容");
+  expect(writes).toBe(0);
+  await page.getByRole("button", { name: "关闭云同步" }).click();
+  await expect(page.getByText("来自分享的内容")).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.waitForTimeout(1700);
+  expect(canvasReads).toBe(1);
+  await page.reload();
+  await expect(page.getByText("来自分享的内容")).toBeVisible();
+});
+
+test("manual upload confirms replacement, handles concurrent cloud edits, and never starts automatic sync", async ({
+  page,
+}) => {
+  const writes: any[] = [];
+  let revision = 7,
+    canvasReads = 0;
+  await page.route("**/api/session", (r) =>
+    r.fulfill({ json: { user: { owner_id: "owner", name: "tester" } } }),
+  );
+  await page.route("**/api/shares", (r) => r.fulfill({ json: { shares: [] } }));
+  await page.route("**/api/canvas", (r) => {
+    if (r.request().method() === "PUT") {
+      writes.push(r.request().postDataJSON());
+      if (revision === 7)
+        return r.fulfill({ status: 409, json: { message: "云端版本已更新" } });
+      return r.fulfill({ json: { revision: revision + 1 } });
+    }
+    canvasReads++;
+    return r.fulfill({ json: { revision, snapshot } });
+  });
+  await openManualCloud(page);
+  page.once("dialog", (d) => d.dismiss());
+  await page.getByRole("button", { name: "手动上传", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "手动上传", exact: true }),
+  ).toBeEnabled();
+  expect(writes).toHaveLength(0);
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "手动上传", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("云端版本已更新");
+  expect(writes[0].baseRevision).toBe(7);
+  expect(
+    await page.evaluate(() => localStorage.getItem("yua-cloud-baseline")),
+  ).toBeNull();
+  revision = 8;
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "手动上传", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("已上传至云端");
+  expect(writes).toHaveLength(2);
+  expect(writes[1].baseRevision).toBe(8);
+  expect(writes[1].snapshot.cards[0].text).toBe("手动同步前的本地内容");
+  await expect(
+    page.getByRole("checkbox", { name: "自动同步", exact: true }),
+  ).not.toBeChecked();
+  const reads = canvasReads;
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.waitForTimeout(1700);
+  expect(canvasReads).toBe(reads);
+  expect(writes).toHaveLength(2);
+  await page.getByRole("button", { name: "关闭云同步" }).click();
+  await expect(page.getByText("手动同步前的本地内容")).toBeVisible();
+});
+
+test("manual pull leaves local content untouched when the cloud is empty or fails", async ({
+  page,
+}) => {
+  let fails = false;
+  await page.route("**/api/session", (r) =>
+    r.fulfill({ json: { user: { owner_id: "owner", name: "tester" } } }),
+  );
+  await page.route("**/api/shares", (r) => r.fulfill({ json: { shares: [] } }));
+  await page.route("**/api/canvas", (r) =>
+    fails
+      ? r.fulfill({ status: 503, json: { message: "云端暂不可用" } })
+      : r.fulfill({ json: { revision: 0, snapshot: null } }),
+  );
+  await openManualCloud(page);
+  await page.getByRole("button", { name: "手动拉取", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "云端暂无画布，本地内容未改变",
+  );
+  fails = true;
+  await page.getByRole("button", { name: "手动拉取", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("云端暂不可用");
+  await page.getByRole("button", { name: "关闭云同步" }).click();
+  await expect(page.getByText("手动同步前的本地内容")).toBeVisible();
+});
+
+test("manual pull rejects a stale response after local editing during the request", async ({
+  page,
+}) => {
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let requested = false;
+  await page.route("**/api/session", (r) =>
+    r.fulfill({ json: { user: { owner_id: "owner", name: "tester" } } }),
+  );
+  await page.route("**/api/shares", (r) => r.fulfill({ json: { shares: [] } }));
+  await page.route("**/api/canvas", async (r) => {
+    requested = true;
+    await pending;
+    await r.fulfill({ json: { revision: 7, snapshot } });
+  });
+  await openManualCloud(page);
+  await page.getByRole("button", { name: "手动拉取", exact: true }).click();
+  await expect.poll(() => requested).toBe(true);
+  await page.getByRole("button", { name: "关闭云同步" }).click();
+  await page.getByRole("button", { name: "添加任务", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "任务内容 1", exact: true })
+    .fill("拉取期间新增的本地任务");
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await expect(page.getByTestId("card")).toHaveCount(2);
+  await openSettings(page);
+  await page.getByRole("button", { name: "云同步与分享" }).click();
+  await page.getByRole("button", { name: "管理服务器：当前站点" }).click();
+  release();
+  await expect(page.getByRole("status")).toContainText(
+    "读取期间发生编辑，请重试",
+  );
+  await page.getByRole("button", { name: "关闭云同步" }).click();
+  await expect(page.getByTestId("card")).toHaveCount(2);
+  await expect(page.getByText("手动同步前的本地内容")).toBeVisible();
+  await expect(page.getByText("来自分享的内容")).toHaveCount(0);
 });
