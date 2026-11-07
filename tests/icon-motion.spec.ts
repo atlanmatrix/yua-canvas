@@ -752,14 +752,12 @@ test("bottom icon geometry shows a solid 3D cube, an orbiting sun, an empty-to-c
     }, time);
   };
   const cube = await inspect("添加 miniature", 200);
+  expect(cube.every((p) => p.transform === "none" && p.dash === "none")).toBe(
+    true,
+  );
   expect(
-    cube.every(
-      (p) =>
-        p.transform.startsWith("matrix3d(") &&
-        p.opacity === 1 &&
-        p.dash === "none",
-    ),
-  ).toBe(true);
+    cube.filter((p) => p.part === "cube-edge" && p.opacity === 1),
+  ).toHaveLength(9);
   const sun = await inspect("上传图片", 260);
   expect(sun.find((p) => p.part === "sun-orbit")!.opacity).toBeLessThan(0.2);
   expect(
@@ -807,6 +805,111 @@ test("bottom icon geometry shows a solid 3D cube, an orbiting sun, an empty-to-c
       return Math.hypot(start.x + matrix.e - tip.x, start.y + matrix.f - tip.y);
     });
   expect(alignment).toBeLessThan(0.2);
+});
+
+test("miniature rotates a solid cube with shared projected vertices and changing visible faces, including interrupted reversal", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const control = page.getByRole("button", {
+    name: "添加 miniature",
+    exact: true,
+  });
+  const bounds = await control.boundingBox();
+  await control.hover();
+  const result = await control.locator("svg").evaluate((svg) => {
+    const sample = (time: number) => {
+      for (const animation of svg.getAnimations({ subtree: true })) {
+        animation.pause();
+        animation.currentTime = time;
+      }
+      return [...svg.querySelectorAll<SVGPathElement>("[data-cube-edge]")].map(
+        (node) => {
+          const style = getComputedStyle(node);
+          return {
+            edge: node.dataset.cubeEdge,
+            opacity: Number(style.opacity),
+            transform: style.transform,
+            points: (style.d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number),
+          };
+        },
+      );
+    };
+    const early = sample(80),
+      middle = sample(300);
+    const widths = [60, 120, 180, 240, 300, 360, 420, 480, 540].map((time) => {
+      const x = sample(time)
+        .filter((n) => n.opacity > 0.99)
+        .flatMap((n) => [n.points[0], n.points[2]]);
+      return Math.max(...x) - Math.min(...x);
+    });
+    const before = sample(220);
+    svg.closest("button")!.dispatchEvent(
+      new PointerEvent("pointerout", {
+        bubbles: true,
+        pointerType: "mouse",
+        relatedTarget: document.body,
+      }),
+    );
+    const reversed = sample(0),
+      returning = sample(220);
+    for (const animation of svg.getAnimations({ subtree: true }))
+      animation.play();
+    return {
+      early,
+      middle,
+      widths,
+      before,
+      reversed,
+      returning,
+      transform: getComputedStyle(svg).transform,
+    };
+  });
+  expect(result.transform).toBe("none");
+  expect(result.early).toHaveLength(12);
+  const visible = (pose: typeof result.early) =>
+    pose.filter((n) => n.opacity > 0.99);
+  expect(visible(result.early)).toHaveLength(9);
+  expect(visible(result.middle)).toHaveLength(9);
+  expect(visible(result.early).map((n) => n.edge)).not.toEqual(
+    visible(result.middle).map((n) => n.edge),
+  );
+  for (const pose of [result.early, result.middle]) {
+    expect(pose.every((n) => n.transform === "none")).toBe(true);
+    const vertices = visible(pose).flatMap((n) => [
+      n.points.slice(0, 2).join(","),
+      n.points.slice(2).join(","),
+    ]);
+    expect(new Set(vertices).size).toBe(7);
+  }
+  // A cube stays volumetric throughout a turn; a rotating flat icon collapses.
+  expect(Math.min(...result.widths)).toBeGreaterThan(12);
+  result.before.forEach((edge, index) => {
+    edge.points.forEach((value, coordinate) =>
+      expect(result.reversed[index].points[coordinate]).toBeCloseTo(value, 3),
+    );
+    expect(result.reversed[index].opacity).toBeCloseTo(edge.opacity, 3);
+  });
+  expect(result.returning.map((n) => n.points)).not.toEqual(
+    result.reversed.map((n) => n.points),
+  );
+  expect(await control.boundingBox()).toEqual(bounds);
+  await expect.poll(() => count(control)).toBe(0);
+  await expect(control.locator('[data-cube-edge="0"]')).toHaveCSS(
+    "opacity",
+    "0",
+  );
+  await control.hover();
+  await control.dispatchEvent("pointerover", {
+    pointerType: "mouse",
+    relatedTarget: null,
+  });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect
+    .poll(() =>
+      control.evaluate((n) => n.getAnimations({ subtree: true }).length),
+    )
+    .toBe(0);
 });
 
 test("subcanvas dividers expand through the top left while the parent arrow wraps horizontally", async ({

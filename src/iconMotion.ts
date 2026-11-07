@@ -1,5 +1,6 @@
 import { iconMotionRecipe, type MotionPhase } from "./iconMotionRecipes";
 import { resetGearMotions, stopGearMotion, turnGear } from "./gearMotion";
+import { stopCubeMotion, turnCube } from "./cubeMotion";
 import {
   iconMotionPaused,
   onIconMotionPause,
@@ -118,6 +119,7 @@ function usable(svg: SVGSVGElement, allowBusy = false, explicit = false) {
   );
 }
 export function stopIconMotion(svg: SVGSVGElement) {
+  stopCubeMotion(svg);
   stopGearMotion(svg);
   const run = active.get(svg);
   active.delete(svg);
@@ -141,6 +143,19 @@ export function playIconMotion(svg: SVGSVGElement, phase: MotionPhase) {
   const explicit =
     (phase === "press" || phase === "click") && !!svg.closest(interactive);
   if (!usable(svg, phase === "busy", explicit)) return;
+  if (
+    svg.dataset.uiIcon === "Box" &&
+    svg.closest(".bottom-tools") &&
+    phase !== "busy" &&
+    phase !== "entry"
+  ) {
+    const animations = turnCube(svg, phase);
+    const run = { phase, animations: new Set<Animation>() };
+    active.set(svg, run);
+    svg.dataset.iconPhase = phase;
+    animations.forEach((animation) => track(svg, run, animation));
+    return;
+  }
   if (
     svg.dataset.uiIcon === "Settings" &&
     phase !== "busy" &&
@@ -487,7 +502,11 @@ export function installIconMotion() {
     const control = owner(event.target);
     if (control && !control.matches(":hover"))
       icons(control).forEach((svg) => {
-        if (svg.dataset.uiIcon === "Settings") playIconMotion(svg, "leave");
+        if (
+          svg.dataset.uiIcon === "Settings" ||
+          (svg.dataset.uiIcon === "Box" && svg.closest(".bottom-tools"))
+        )
+          playIconMotion(svg, "leave");
         else if (active.get(svg)?.phase === "hover") settleIconMotion(svg);
       });
   };

@@ -209,24 +209,6 @@ export function iconMotionRecipe(
   }
   if (svg.closest(".bottom-tools") && phase !== "press" && phase !== "busy") {
     const reverse = phase === "leave";
-    if (name === "Box") {
-      result.push({
-        nodes: shapes,
-        name: "cube-3d",
-        duration: 600,
-        frames: [
-          { transform: "perspective(80px) rotateX(0deg) rotateY(0deg)" },
-          {
-            transform: `perspective(80px) rotateX(${reverse ? 18 : -18}deg) rotateY(${reverse ? -180 : 180}deg)`,
-            offset: 0.55,
-          },
-          {
-            transform: `perspective(80px) rotateX(0deg) rotateY(${reverse ? -360 : 360}deg)`,
-          },
-        ],
-      });
-      return result;
-    }
     if (name === "ImagePlus") {
       const frames = [
         { transform: "translate(0px, 0px)", opacity: 1 },

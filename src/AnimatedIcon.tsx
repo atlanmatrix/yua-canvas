@@ -70,6 +70,16 @@ export function animatedIcon(name: string, Base: LucideIcon) {
           data-icon-busy={motionBusy || undefined}
         >
           {children}
+          {name === "Box" &&
+            Array.from({ length: 12 }, (_, edge) => (
+              <path
+                key={`cube-${edge}`}
+                data-icon-detail="cube-edge"
+                data-cube-edge={edge}
+                d="M12 12L12 12"
+                opacity="0"
+              />
+            ))}
           {name === "ListTodo" && (
             <rect
               data-icon-detail="todo-square"
