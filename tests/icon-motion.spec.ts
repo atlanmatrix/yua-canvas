@@ -603,3 +603,312 @@ test("finishing a loading state eases back to its resting icon", async ({
     ),
   ).toBe(true);
 });
+
+test("gear holds a counterclockwise half turn and preserves inertia in both interrupted directions", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const settings = page.getByRole("button", { name: "设置", exact: true });
+  await settings.hover();
+  const result = await settings.evaluate((button) => {
+    const svg = button.querySelector("svg")!,
+      path = svg.querySelector("path")!;
+    const angle = () => {
+      const m = new DOMMatrix(getComputedStyle(path).transform);
+      return (Math.atan2(m.b, m.a) * 180) / Math.PI;
+    };
+    const seek = (time: number) => {
+      const animation = path.getAnimations()[0];
+      animation.pause();
+      animation.currentTime = time;
+      return angle();
+    };
+    const event = (type: string) =>
+      button.dispatchEvent(
+        new PointerEvent(type, {
+          bubbles: true,
+          pointerType: "mouse",
+          relatedTarget: document.body,
+        }),
+      );
+    const duration = path.getAnimations()[0].effect!.getTiming().duration;
+    const quarter = seek(150),
+      middle = seek(300),
+      end = seek(600);
+    seek(300);
+    event("pointerout");
+    const reversed = seek(0),
+      coastOut = seek(30),
+      returning = seek(300);
+    event("pointerover");
+    const reentered = seek(0),
+      coastIn = seek(30),
+      held = seek(600);
+    event("pointerout");
+    const left = seek(600);
+    return {
+      duration,
+      quarter,
+      middle,
+      end,
+      reversed,
+      coastOut,
+      returning,
+      reentered,
+      coastIn,
+      held,
+      left,
+    };
+  });
+  expect(result.duration).toBe(600);
+  expect(result.quarter).toBeGreaterThan(-40);
+  expect(result.quarter).toBeLessThan(-15);
+  expect(result.middle).toBeCloseTo(-90, 0);
+  expect(Math.abs(result.end)).toBeCloseTo(180, 0);
+  expect(result.reversed).toBeCloseTo(result.middle, 3);
+  expect(result.coastOut).toBeLessThan(result.reversed);
+  expect(result.reentered).toBeCloseTo(result.returning, 3);
+  expect(result.coastIn).toBeGreaterThan(result.reentered);
+  expect(Math.abs(result.held)).toBeCloseTo(180, 0);
+  expect(result.left).toBeCloseTo(0, 3);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect
+    .poll(() =>
+      settings.locator("path").evaluate((n) => n.getAnimations().length),
+    )
+    .toBe(0);
+});
+
+test("upload arrows anticipate, fully clear the clip, wrap from below and reverse on leave without moving their frames", async ({
+  page,
+}) => {
+  await page.goto("/");
+  for (const name of ["上传文件", "导入目录"]) {
+    const control = page.getByRole("button", { name, exact: true });
+    const bounds = await control.boundingBox();
+    await control.hover();
+    const sample = await control.evaluate((button) => {
+      const svg = button.querySelector("svg")!;
+      const node = svg.querySelector<SVGGeometryElement>(
+        '[data-motion-part="travel-arrow"]',
+      )!;
+      const read = (time: number) => {
+        for (const animation of svg.getAnimations({ subtree: true })) {
+          animation.pause();
+          animation.currentTime = time;
+        }
+        return new DOMMatrix(getComputedStyle(node).transform).f;
+      };
+      const forward = [read(96), read(294), read(300), read(600)];
+      button.dispatchEvent(
+        new PointerEvent("pointerout", {
+          bubbles: true,
+          pointerType: "mouse",
+          relatedTarget: document.body,
+        }),
+      );
+      return {
+        forward,
+        backward: [read(96), read(294), read(300), read(600)],
+        clip: getComputedStyle(svg).overflow,
+        fixed: [...svg.children]
+          .filter((n) => !n.hasAttribute("data-motion-part"))
+          .every((n) => getComputedStyle(n).transform === "none"),
+      };
+    });
+    expect(sample.clip).toBe("hidden");
+    expect(sample.fixed).toBe(true);
+    expect(sample.forward[0]).toBeGreaterThan(1);
+    expect(sample.forward[1]).toBeLessThan(-24);
+    expect(sample.forward[2]).toBeGreaterThan(24);
+    expect(sample.forward[3]).toBeCloseTo(0);
+    expect(sample.backward[0]).toBeLessThan(-1);
+    expect(sample.backward[1]).toBeGreaterThan(24);
+    expect(sample.backward[2]).toBeLessThan(-24);
+    expect(sample.backward[3]).toBeCloseTo(0);
+    expect(await control.boundingBox()).toEqual(bounds);
+  }
+});
+
+test("bottom icon geometry shows a solid 3D cube, an orbiting sun, an empty-to-checked task and an S ink stroke", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const inspect = async (name: string, time: number) => {
+    const control = page.getByRole("button", { name, exact: true });
+    await control.hover();
+    return control.locator("svg").evaluate((svg, time) => {
+      for (const animation of svg.getAnimations({ subtree: true })) {
+        animation.pause();
+        animation.currentTime = time;
+      }
+      return [...svg.children].map((n) => ({
+        part: n.getAttribute("data-motion-part"),
+        detail: n.getAttribute("data-icon-detail"),
+        transform: getComputedStyle(n).transform,
+        opacity: Number(getComputedStyle(n).opacity),
+        dash: getComputedStyle(n).strokeDasharray,
+      }));
+    }, time);
+  };
+  const cube = await inspect("添加 miniature", 200);
+  expect(
+    cube.every(
+      (p) =>
+        p.transform.startsWith("matrix3d(") &&
+        p.opacity === 1 &&
+        p.dash === "none",
+    ),
+  ).toBe(true);
+  const sun = await inspect("上传图片", 260);
+  expect(sun.find((p) => p.part === "sun-orbit")!.opacity).toBeLessThan(0.2);
+  expect(
+    sun
+      .filter((p) => p.part !== "sun-orbit")
+      .every((p) => p.transform === "none"),
+  ).toBe(true);
+  const blank = await inspect("添加任务", 0);
+  expect(blank.find((p) => p.part === "todo-check")!.opacity).toBe(0);
+  expect(blank.find((p) => p.detail === "todo-square")!.opacity).toBe(1);
+  const checked = await page
+    .getByRole("button", { name: "添加任务", exact: true })
+    .evaluate((button) => {
+      const svg = button.querySelector("svg")!;
+      for (const animation of svg.getAnimations({ subtree: true }))
+        animation.currentTime = 600;
+      return {
+        tick: getComputedStyle(
+          svg.querySelector('[data-motion-part="todo-check"]')!,
+        ).opacity,
+        square: getComputedStyle(
+          svg.querySelector('[data-icon-detail="todo-square"]')!,
+        ).opacity,
+      };
+    });
+  expect(checked).toEqual({ tick: "1", square: "0" });
+  const pen = await inspect("画笔", 400);
+  expect(pen.find((p) => p.detail === "pen-ink")!.opacity).toBe(1);
+  expect(
+    pen.some((p) => p.part === "pen-sweep" && p.transform !== "none"),
+  ).toBe(true);
+  const alignment = await page
+    .getByRole("button", { name: "画笔", exact: true })
+    .evaluate((button) => {
+      const ink = button.querySelector<SVGGeometryElement>(
+        '[data-icon-detail="pen-ink"]',
+      )!;
+      const nib = button.querySelector('[data-motion-part="pen-sweep"]')!;
+      const matrix = new DOMMatrix(getComputedStyle(nib).transform);
+      const start = ink.getPointAtLength(0);
+      const tip = ink.getPointAtLength(
+        ink.getTotalLength() *
+          (1 - parseFloat(getComputedStyle(ink).strokeDashoffset)),
+      );
+      return Math.hypot(start.x + matrix.e - tip.x, start.y + matrix.f - tip.y);
+    });
+  expect(alignment).toBeLessThan(0.2);
+});
+
+test("subcanvas dividers expand through the top left while the parent arrow wraps horizontally", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const create = page.getByRole("button", { name: "创建子画布", exact: true });
+  await create.hover();
+  const divider = await create.locator("svg").evaluate((svg) => {
+    const paths = [...svg.querySelectorAll("path")];
+    const sample = (time: number) => {
+      for (const animation of svg.getAnimations({ subtree: true })) {
+        animation.pause();
+        animation.currentTime = time;
+      }
+      return paths.map((n) => ({
+        x: new DOMMatrix(getComputedStyle(n).transform).e,
+        opacity: getComputedStyle(n).opacity,
+      }));
+    };
+    return {
+      out: sample(294),
+      incoming: sample(300),
+      frame: getComputedStyle(svg.querySelector("rect")!).transform,
+    };
+  });
+  expect(divider.out.every((p) => p.x < -15 && p.opacity === "0")).toBe(true);
+  expect(divider.incoming.every((p) => p.x > 12 && p.opacity === "0")).toBe(
+    true,
+  );
+  expect(divider.frame).toBe("none");
+  await create.click();
+  await page
+    .getByRole("button", { name: "进入子画布 子画布", exact: true })
+    .click();
+  const back = page.getByRole("button", { name: "返回父画布", exact: true });
+  await back.hover();
+  const travel = await back.locator("svg").evaluate((svg) => {
+    const path = svg.querySelector("path")!;
+    const sample = (time: number) => {
+      for (const animation of svg.getAnimations({ subtree: true })) {
+        animation.pause();
+        animation.currentTime = time;
+      }
+      return new DOMMatrix(getComputedStyle(path).transform).e;
+    };
+    const out = [sample(96), sample(294), sample(300), sample(600)];
+    svg.closest("button")!.dispatchEvent(
+      new PointerEvent("pointerout", {
+        bubbles: true,
+        pointerType: "mouse",
+        relatedTarget: document.body,
+      }),
+    );
+    return { out, back: [sample(96), sample(294), sample(300), sample(600)] };
+  });
+  expect(travel.out[0]).toBeGreaterThan(1);
+  expect(travel.out[1]).toBeLessThan(-24);
+  expect(travel.out[2]).toBeGreaterThan(24);
+  expect(travel.out[3]).toBeCloseTo(0);
+  expect(travel.back[0]).toBeLessThan(-1);
+  expect(travel.back[1]).toBeGreaterThan(24);
+  expect(travel.back[2]).toBeLessThan(-24);
+  expect(travel.back[3]).toBeCloseTo(0);
+  await back.click();
+  await expect(page.locator(".card-canvas")).toHaveCount(1);
+});
+
+test("drawing dock reverses mid-transition, keeps hidden controls unfocusable, and uses the toolbar ink in both themes", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const brush = page.getByRole("button", { name: "画笔", exact: true });
+  await brush.click();
+  await expect(page.locator(".bottom-tools")).toHaveAttribute(
+    "data-drawing",
+    "true",
+  );
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".bottom-tools")).toHaveAttribute(
+    "data-drawing",
+    "false",
+  );
+  await expect(page.locator(".paint-controls")).toHaveAttribute("inert", "");
+  await brush.click();
+  await expect(page.locator(".paint-dock")).toHaveCSS("width", "292px");
+  const exit = page.getByRole("button", { name: "退出绘画", exact: true });
+  await exit.hover();
+  await page.mouse.move(10, 100);
+  for (const theme of ["light", "dark"]) {
+    await page
+      .locator("html")
+      .evaluate((n, theme) => n.setAttribute("data-theme", theme), theme);
+    const ink = await brush.evaluate((n) => getComputedStyle(n).color);
+    await expect(exit).toHaveCSS("color", ink);
+    await expect(
+      page.getByRole("button", { name: "隐藏绘画", exact: true }),
+    ).toHaveCSS("color", ink);
+  }
+  await exit.click();
+  await expect(brush).toBeFocused();
+  await expect(
+    page.getByRole("button", { name: "添加任务", exact: true }),
+  ).toBeVisible();
+});

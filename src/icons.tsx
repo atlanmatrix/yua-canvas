@@ -46,7 +46,7 @@ import {
   MoreHorizontal as BaseMoreHorizontal,
   Network as BaseNetwork,
   Package as BasePackage,
-  Paintbrush as BasePaintbrush,
+  Pen as BasePaintbrush,
   Palette as BasePalette,
   PanelsLeftBottom as BasePanelsLeftBottom,
   PanelsTopLeft as BasePanelsTopLeft,

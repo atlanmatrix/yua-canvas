@@ -30,7 +30,7 @@
     .app-terminal-actions button,
     .toolbar,
     .zoom-controls,
-    .paint-controls,
+    .paint-dock,
     .text-format-toolbar,
     .context-menu,
     .settings-popover,
@@ -146,7 +146,7 @@
   body
   :is(
     .toolbar,
-    .paint-controls,
+    .paint-dock,
     .zoom-controls,
     .text-format-toolbar,
     .canvas-navigation,

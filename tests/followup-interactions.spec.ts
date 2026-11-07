@@ -50,7 +50,7 @@ async function draw(p: Page, x = 230, y = 240) {
   await p.mouse.move(box!.x + x + 70, box!.y + y + 30, { steps: 8 });
   await p.mouse.up();
 }
-test("drawing has a detached 12px entrance, a centered toolbar, scoped undo, clear, hide, exit and persistence", async ({
+test("drawing expands the bottom dock, folds creation tools into an exit menu, and retains undo, clear, hide and persistence", async ({
   page,
 }) => {
   await seed(page);
@@ -65,9 +65,15 @@ test("drawing has a detached 12px entrance, a centered toolbar, scoped undo, cle
   await brush.click();
   const top = page.getByRole("toolbar", { name: "绘画工具栏" });
   await expect(top).toBeVisible();
+  await expect(page.locator(".paint-dock")).toHaveCSS("width", "292px");
   const bounds = await top.boundingBox();
-  expect(bounds!.x + bounds!.width / 2).toBeCloseTo(640, 0);
-  expect(bounds!.y).toBeLessThan(50);
+  const dock = await page.locator(".bottom-tools").boundingBox();
+  expect(dock!.x + dock!.width / 2).toBeCloseTo(640, 0);
+  expect(bounds!.y).toBeGreaterThan(600);
+  expect(bounds!.y).toBeCloseTo(dock!.y, 0);
+  await expect(
+    page.getByRole("button", { name: "添加任务", exact: true }),
+  ).toHaveCount(0);
   await expect(top.getByRole("button", { name: "撤销绘画" })).toBeDisabled();
   await top.getByLabel("画笔颜色").fill("#2563eb");
   await top.getByLabel("画笔粗细").fill("8");
@@ -85,7 +91,7 @@ test("drawing has a detached 12px entrance, a centered toolbar, scoped undo, cle
   await top.getByRole("button", { name: "隐藏绘画" }).click();
   await expect(paths).toHaveCount(0);
   expect((await data(page)).strokes).toHaveLength(1);
-  await top.getByRole("button", { name: "退出绘画" }).click();
+  await page.getByRole("button", { name: "退出绘画", exact: true }).click();
   await expect(top).toHaveCount(0);
   await expect(brush).toHaveAttribute("aria-pressed", "false");
   await saved(page);
@@ -102,7 +108,9 @@ test("drawing has a detached 12px entrance, a centered toolbar, scoped undo, cle
   const mobile = await top.boundingBox();
   expect(mobile!.x).toBeGreaterThanOrEqual(0);
   expect(mobile!.x + mobile!.width).toBeLessThanOrEqual(390);
-  await expect(top.getByRole("button", { name: "退出绘画" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "退出绘画", exact: true }),
+  ).toBeVisible();
 });
 for (const zoom of [1, 0.6])
   test(`TODO double-click places caret at the clicked character at zoom ${zoom}`, async ({

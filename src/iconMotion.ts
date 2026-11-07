@@ -1,4 +1,5 @@
 import { iconMotionRecipe, type MotionPhase } from "./iconMotionRecipes";
+import { resetGearMotions, stopGearMotion, turnGear } from "./gearMotion";
 import {
   iconMotionPaused,
   onIconMotionPause,
@@ -117,6 +118,7 @@ function usable(svg: SVGSVGElement, allowBusy = false, explicit = false) {
   );
 }
 export function stopIconMotion(svg: SVGSVGElement) {
+  stopGearMotion(svg);
   const run = active.get(svg);
   active.delete(svg);
   run?.animations.forEach((animation) => animation.cancel());
@@ -139,6 +141,21 @@ export function playIconMotion(svg: SVGSVGElement, phase: MotionPhase) {
   const explicit =
     (phase === "press" || phase === "click") && !!svg.closest(interactive);
   if (!usable(svg, phase === "busy", explicit)) return;
+  if (
+    svg.dataset.uiIcon === "Settings" &&
+    phase !== "busy" &&
+    phase !== "entry"
+  ) {
+    // turnGear samples the old angle/velocity before cancelling its animation.
+    const animation = turnGear(svg, phase);
+    if (animation) {
+      const run = { phase, animations: new Set<Animation>() };
+      active.set(svg, run);
+      svg.dataset.iconPhase = phase;
+      track(svg, run, animation);
+    }
+    return;
+  }
   const last = recent.get(svg),
     now = performance.now();
   if (phase === "click" && last?.phase === phase && now - last.time < 70)
@@ -186,7 +203,10 @@ export function playIconMotion(svg: SVGSVGElement, phase: MotionPhase) {
         transformBox: "view-box",
         transformOrigin: part.origin || "12px 12px",
         easing:
-          phase === "busy" && svg.dataset.uiIcon !== "Bot" ? "linear" : smooth,
+          frame.easing ??
+          (phase === "busy" && svg.dataset.uiIcon !== "Bot"
+            ? "linear"
+            : smooth),
       }));
       const pose = poses.get(node);
       if (pose && !bridgeBusy)
@@ -199,7 +219,8 @@ export function playIconMotion(svg: SVGSVGElement, phase: MotionPhase) {
         }
       const animation = node.animate(frames, {
         duration:
-          phase === "busy"
+          part.duration ??
+          (phase === "busy"
             ? svg.dataset.uiIcon === "Bot"
               ? 2200
               : 1400
@@ -207,7 +228,7 @@ export function playIconMotion(svg: SVGSVGElement, phase: MotionPhase) {
               ? 160
               : phase === "hover"
                 ? 440
-                : 640,
+                : 640),
         delay: (part.delay || 0) + (bridgeBusy ? 260 : 0),
         easing: "linear",
         iterations: phase === "busy" ? Infinity : 1,
@@ -286,6 +307,7 @@ export function installIconMotion() {
   let resumeTimer: ReturnType<typeof setTimeout> | undefined;
   const cancel = () => {
     [...active.keys()].forEach(stopIconMotion);
+    resetGearMotions();
   };
   const resume = () => {
     clearTimeout(resumeTimer);
@@ -321,7 +343,22 @@ export function installIconMotion() {
     const current = owner(event.target);
     if (current && current !== owner(event.relatedTarget)) {
       icons(current).forEach((svg) => {
-        if (active.get(svg)?.phase === "hover") settleIconMotion(svg);
+        if (
+          svg.dataset.uiIcon === "Settings" ||
+          (svg.dataset.uiIcon === "ArrowLeft" &&
+            svg.closest(".canvas-navigation")) ||
+          (svg.closest(".bottom-tools") &&
+            [
+              "FileUp",
+              "FolderUp",
+              "Box",
+              "ImagePlus",
+              "ListTodo",
+              "PanelsTopLeft",
+            ].includes(svg.dataset.uiIcon || ""))
+        )
+          playIconMotion(svg, "leave");
+        else if (active.get(svg)?.phase === "hover") settleIconMotion(svg);
       });
       if (hover === current) {
         hover = null;
@@ -446,6 +483,15 @@ export function installIconMotion() {
   listen("pointerup", up);
   listen("click", click);
   listen("focusin", focus);
+  const blur = (event: FocusEvent) => {
+    const control = owner(event.target);
+    if (control && !control.matches(":hover"))
+      icons(control).forEach((svg) => {
+        if (svg.dataset.uiIcon === "Settings") playIconMotion(svg, "leave");
+        else if (active.get(svg)?.phase === "hover") settleIconMotion(svg);
+      });
+  };
+  listen("focusout", blur);
   listen("input", input);
   listen("wheel", wheel);
   listen("pointercancel", abort);
@@ -466,6 +512,7 @@ export function installIconMotion() {
     document.removeEventListener("pointerup", up, true);
     document.removeEventListener("click", click, true);
     document.removeEventListener("focusin", focus, true);
+    document.removeEventListener("focusout", blur, true);
     document.removeEventListener("input", input, true);
     document.removeEventListener("wheel", wheel, true);
     document.removeEventListener("pointercancel", abort, true);

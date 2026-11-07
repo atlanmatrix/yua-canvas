@@ -6,6 +6,35 @@ svg.ui-icon > :is(path, circle, rect, line, polyline, polygon, ellipse) {
   transform-box: view-box;
   transform-origin: 12px 12px;
 }
+.canvas-navigation svg[data-ui-icon="ArrowLeft"],
+.toolbar
+  svg:is(
+    [data-ui-icon="FileUp"],
+    [data-ui-icon="FolderUp"],
+    [data-ui-icon="PanelsTopLeft"],
+    [data-ui-icon="ImagePlus"]
+  ) {
+  overflow: hidden;
+}
+.bottom-tools [data-ui-icon="Paintbrush"] {
+  overflow: visible;
+}
+.toolbar [data-ui-icon="ListTodo"] path[d^="m3 17"] {
+  opacity: 0;
+}
+.toolbar [data-icon-detail="todo-square"] {
+  opacity: 1;
+}
+.toolbar
+  button:is(:hover, :focus-visible)
+  [data-ui-icon="ListTodo"]
+  path[d^="m3 17"] {
+  opacity: 1;
+}
+.toolbar button:is(:hover, :focus-visible) [data-icon-detail="todo-square"] {
+  opacity: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   svg.ui-icon,
   svg.ui-icon * {

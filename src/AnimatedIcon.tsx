@@ -70,6 +70,28 @@ export function animatedIcon(name: string, Base: LucideIcon) {
           data-icon-busy={motionBusy || undefined}
         >
           {children}
+          {name === "ListTodo" && (
+            <rect
+              data-icon-detail="todo-square"
+              x="3"
+              y="14"
+              width="6"
+              height="6"
+              rx=".6"
+              opacity="0"
+            />
+          )}
+          {name === "Paintbrush" && (
+            <path
+              data-icon-detail="pen-ink"
+              d="M2.5 21.5C17.5 21.5-6.5 7.5 8.5 7.5"
+              pathLength="1"
+              strokeDasharray="1"
+              strokeDashoffset="1"
+              fill="none"
+              opacity="0"
+            />
+          )}
           {name === "Cloud" && (
             <circle
               data-icon-detail="sync-wave"

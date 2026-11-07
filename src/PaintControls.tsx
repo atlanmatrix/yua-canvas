@@ -1,5 +1,5 @@
 import { t as tr } from "./i18n";
-import { Paintbrush, Undo2, Trash2, Eye, EyeOff, LogOut } from "./icons";
+import { Undo2, Trash2, Eye, EyeOff } from "./icons";
 export function PaintControls({
   color,
   width,
@@ -11,7 +11,7 @@ export function PaintControls({
   onUndo,
   onClear,
   onHidden,
-  onExit,
+  active,
 }: {
   color: string;
   width: number;
@@ -23,15 +23,16 @@ export function PaintControls({
   onUndo: () => void;
   onClear: () => void;
   onHidden: () => void;
-  onExit: () => void;
+  active: boolean;
 }) {
   return (
     <div
       className="paint-controls"
-      role="toolbar"
+      role={active ? "toolbar" : undefined}
+      inert={!active}
+      aria-hidden={!active}
       aria-label={tr("绘画工具栏")}
     >
-      <Paintbrush size={18} aria-hidden="true" />
       <div className="brush-controls" role="group" aria-label={tr("画笔设置")}>
         <input
           type="color"
@@ -73,13 +74,6 @@ export function PaintControls({
         onClick={onHidden}
       >
         {hidden ? <Eye size={18} /> : <EyeOff size={18} />}
-      </button>
-      <button
-        aria-label={tr("退出绘画")}
-        title={tr("退出绘画 (Esc)")}
-        onClick={onExit}
-      >
-        <LogOut size={18} />
       </button>
     </div>
   );

@@ -183,6 +183,7 @@ import "./theme.css";
 import "./controls.css";
 import "./resize.css";
 import "./glass.css";
+import "./bottom-tools.css";
 import "./icon-motion.css";
 import "./cloud.css";
 import { installIconMotion } from "./iconMotion";
@@ -3027,104 +3028,142 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             }));
           }}
         />
-        {tool === "draw" && (
-          <PaintControls
-            color={brushColor}
-            width={brushWidth}
-            hidden={!!board.strokesHidden}
-            canUndo={paint.canUndo}
-            hasStrokes={!!board.strokes?.length}
-            onColor={setBrushColor}
-            onWidth={setBrushWidth}
-            onUndo={paint.undo}
-            onClear={paint.clear}
-            onHidden={() =>
-              setBoard((b) => ({ ...b, strokesHidden: !b.strokesHidden }), {
-                preserveLayout: true,
-                recordHistory: false,
-              })
-            }
-            onExit={() => setTool("select")}
-          />
-        )}
-        <div className="bottom-tools">
-          <button
-            className="paint-tool-toggle floating-button"
-            aria-label={tr("画笔")}
-            title={tr("画笔 (P)")}
-            aria-pressed={tool === "draw"}
-            disabled={!ready}
-            onClick={() => {
-              if (editSession.current) finishEditing(editSession.current.id);
-              setTool(tool === "draw" ? "select" : "draw");
-              setMenu(null);
-            }}
-          >
-            <Paintbrush size={20} />
-          </button>
-          <div className="toolbar">
+        <div className="bottom-tools" data-drawing={tool === "draw"}>
+          <div className="paint-dock">
             <button
-              title={tr("添加任务 (T)")}
-              aria-label={tr("添加任务")}
+              className="paint-tool-toggle"
+              aria-label={tr("画笔")}
+              title={tr("画笔 (P)")}
+              aria-pressed={tool === "draw"}
+              aria-expanded={tool === "draw"}
+              aria-controls="bottom-paint-tools"
               disabled={!ready}
-              onPointerDown={(e) => startToolbarDrag(e, "todo")}
-              onClick={() => toolbarClick(() => addTodo())}
+              onClick={() => {
+                if (editSession.current) finishEditing(editSession.current.id);
+                setTool(tool === "draw" ? "select" : "draw");
+                setMenu(null);
+              }}
             >
-              <ListTodo size={20} />
+              <Paintbrush size={20} />
             </button>
-            <button
-              title={tr("上传图片 (I)")}
-              aria-label={tr("上传图片")}
-              disabled={!ready}
-              onPointerDown={(e) => startToolbarDrag(e, "image")}
-              onClick={() =>
-                toolbarClick(() => {
-                  pendingUpload.current = undefined;
-                  imageInput.current?.click();
-                })
-              }
+            <div className="paint-tools-reveal" id="bottom-paint-tools">
+              <PaintControls
+                active={tool === "draw"}
+                color={brushColor}
+                width={brushWidth}
+                hidden={!!board.strokesHidden}
+                canUndo={paint.canUndo}
+                hasStrokes={!!board.strokes?.length}
+                onColor={setBrushColor}
+                onWidth={setBrushWidth}
+                onUndo={paint.undo}
+                onClear={paint.clear}
+                onHidden={() =>
+                  setBoard((b) => ({ ...b, strokesHidden: !b.strokesHidden }), {
+                    preserveLayout: true,
+                    recordHistory: false,
+                  })
+                }
+              />
+            </div>
+          </div>
+          <div className="toolbar-slot">
+            <div
+              className="toolbar"
+              inert={tool === "draw"}
+              aria-hidden={tool === "draw"}
             >
-              <ImagePlus size={20} />
-            </button>
+              <button
+                title={tr("添加任务 (T)")}
+                aria-label={tr("添加任务")}
+                disabled={!ready}
+                onPointerDown={(e) => startToolbarDrag(e, "todo")}
+                onClick={() => toolbarClick(() => addTodo())}
+              >
+                <ListTodo size={20} />
+              </button>
+              <button
+                title={tr("上传图片 (I)")}
+                aria-label={tr("上传图片")}
+                disabled={!ready}
+                onPointerDown={(e) => startToolbarDrag(e, "image")}
+                onClick={() =>
+                  toolbarClick(() => {
+                    pendingUpload.current = undefined;
+                    imageInput.current?.click();
+                  })
+                }
+              >
+                <ImagePlus size={20} />
+              </button>
+              <button
+                title={tr("上传文件 (U)")}
+                aria-label={tr("上传文件")}
+                disabled={!ready}
+                onPointerDown={(e) => startToolbarDrag(e, "file")}
+                onClick={() =>
+                  toolbarClick(() => {
+                    pendingUpload.current = undefined;
+                    fileInput.current?.click();
+                  })
+                }
+              >
+                <FileUp size={20} />
+              </button>
+              <button
+                title={tr("导入目录")}
+                aria-label={tr("导入目录")}
+                disabled={!ready}
+                onClick={() => directoryInput.current?.click()}
+              >
+                <FolderUp size={20} />
+              </button>
+              <button
+                title={tr("创建子画布")}
+                aria-label={tr("创建子画布")}
+                disabled={!ready}
+                onPointerDown={(e) => startToolbarDrag(e, "canvas")}
+                onClick={() => toolbarClick(() => addCanvas())}
+              >
+                <PanelsTopLeft size={20} />
+              </button>
+              <button
+                title={tr("添加 miniature · 3D 场景")}
+                aria-label={tr("添加 miniature")}
+                disabled={!ready}
+                onPointerDown={(e) => startToolbarDrag(e, "miniature")}
+                onClick={() => toolbarClick(() => addMiniature())}
+              >
+                <Box size={20} />
+              </button>
+            </div>
             <button
-              title={tr("上传文件 (U)")}
-              aria-label={tr("上传文件")}
-              disabled={!ready}
-              onPointerDown={(e) => startToolbarDrag(e, "file")}
-              onClick={() =>
-                toolbarClick(() => {
-                  pendingUpload.current = undefined;
-                  fileInput.current?.click();
-                })
-              }
+              className="drawing-exit"
+              aria-label={tr("退出绘画")}
+              title={tr("退出绘画 (Esc)")}
+              inert={tool !== "draw"}
+              aria-hidden={tool !== "draw"}
+              onClick={() => {
+                setTool("select");
+                requestAnimationFrame(() =>
+                  document
+                    .querySelector<HTMLButtonElement>(".paint-tool-toggle")
+                    ?.focus(),
+                );
+              }}
             >
-              <FileUp size={20} />
-            </button>
-            <button
-              title={tr("导入目录")}
-              aria-label={tr("导入目录")}
-              disabled={!ready}
-              onClick={() => directoryInput.current?.click()}
-            >
-              <FolderUp size={20} />
-            </button>
-            <button
-              title={tr("创建子画布")}
-              aria-label={tr("创建子画布")}
-              disabled={!ready}
-              onPointerDown={(e) => startToolbarDrag(e, "canvas")}
-              onClick={() => toolbarClick(() => addCanvas())}
-            >
-              <PanelsTopLeft size={20} />
-            </button>
-            <button
-              title={tr("添加 miniature · 3D 场景")}
-              aria-label={tr("添加 miniature")}
-              disabled={!ready}
-              onPointerDown={(e) => startToolbarDrag(e, "miniature")}
-              onClick={() => toolbarClick(() => addMiniature())}
-            >
-              <Box size={20} />
+              <svg
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
             </button>
           </div>
         </div>

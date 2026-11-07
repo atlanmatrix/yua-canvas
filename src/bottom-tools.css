@@ -1,0 +1,190 @@
+/* Both sets stay mounted so reversing a transition never tears down a tool. */
+.bottom-tools {
+  --tool-size: 37px;
+  --dock-height: 51px;
+  --creation-width: 264px;
+  --paint-width: 292px;
+  --tool-ink: #7f8798;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100% - 24px);
+}
+.paint-dock {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  width: var(--dock-height);
+  height: var(--dock-height);
+  border-radius: 999px;
+  background: var(--glass-surface);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--control-shadow);
+  transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.bottom-tools .paint-tool-toggle {
+  position: static;
+  flex: 0 0 var(--dock-height);
+  width: var(--dock-height);
+  height: var(--dock-height);
+  border: 0;
+  border-radius: 999px;
+  color: var(--tool-ink);
+  background: transparent;
+  box-shadow: none;
+}
+.paint-tools-reveal {
+  min-width: 0;
+  overflow: hidden;
+}
+body .bottom-tools .paint-controls {
+  position: static;
+  transform: translateX(-12px);
+  max-width: none;
+  height: var(--dock-height);
+  width: calc(var(--paint-width) - var(--dock-height));
+  box-sizing: border-box;
+  padding: 7px 10px 7px 0;
+  gap: 5px;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  box-shadow: none;
+  opacity: 0;
+  transition:
+    opacity 180ms ease,
+    transform 350ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.bottom-tools .paint-controls > button {
+  width: 30px;
+  height: var(--tool-size);
+}
+.bottom-tools .paint-controls .brush-controls {
+  gap: 6px;
+}
+.bottom-tools .paint-controls input[type="range"] {
+  width: 64px;
+}
+.bottom-tools .paint-controls output {
+  width: 18px;
+}
+.toolbar-slot {
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--creation-width);
+  height: var(--dock-height);
+  transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.bottom-tools .toolbar {
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  transition: gap 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.bottom-tools .toolbar > button {
+  flex: 0 0 auto;
+  width: var(--tool-size);
+  opacity: 1;
+  transform: scale(1);
+  overflow: hidden;
+  transition:
+    width 600ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 200ms ease 180ms,
+    transform 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+body
+  .bottom-tools
+  :is(.toolbar > button, .paint-controls > button, .drawing-exit) {
+  color: var(--tool-ink);
+}
+body
+  .bottom-tools
+  :is(
+    .paint-tool-toggle,
+    .toolbar > button,
+    .paint-controls > button,
+    .drawing-exit
+  ):is(:enabled:hover, :focus-visible) {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+.drawing-exit {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: var(--tool-size);
+  height: var(--tool-size);
+  border-radius: 999px;
+  opacity: 0;
+  transform: scale(0.6);
+  pointer-events: none;
+  transition:
+    opacity 160ms ease,
+    transform 200ms ease;
+}
+.bottom-tools[data-drawing="true"] .paint-dock {
+  width: var(--paint-width);
+}
+body .bottom-tools[data-drawing="true"] .paint-controls {
+  opacity: 1;
+  transform: translateX(0);
+  transition-delay: 200ms;
+}
+.bottom-tools[data-drawing="true"] .toolbar-slot {
+  width: var(--dock-height);
+}
+.bottom-tools[data-drawing="true"] .toolbar {
+  gap: 0;
+}
+.bottom-tools[data-drawing="true"] .toolbar > button {
+  width: 0;
+  opacity: 0;
+  transform: scale(0.5);
+  transition-delay: 0ms;
+}
+.bottom-tools[data-drawing="true"] .drawing-exit {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+  transition-delay: 330ms;
+}
+@media (max-width: 700px) {
+  .bottom-tools {
+    --tool-size: 31px;
+    --dock-height: 44px;
+    --creation-width: 199px;
+    --paint-width: 254px;
+    gap: 12px;
+  }
+  .bottom-tools .paint-controls input[type="range"] {
+    width: 44px;
+  }
+  .bottom-tools .paint-controls > button {
+    width: 27px;
+  }
+  .bottom-tools .paint-controls .brush-controls {
+    gap: 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bottom-tools,
+  .bottom-tools * {
+    transition: none !important;
+  }
+}
+@media (max-width: 360px) {
+  .bottom-tools {
+    --paint-width: 242px;
+    gap: 8px;
+  }
+  .bottom-tools .paint-controls > button {
+    width: 24px;
+  }
+  .bottom-tools .paint-controls input[type="range"] {
+    width: 40px;
+  }
+  .bottom-tools .paint-controls .brush-controls {
+    gap: 2px;
+  }
+}

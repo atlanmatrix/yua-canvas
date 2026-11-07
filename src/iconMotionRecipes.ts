@@ -1,10 +1,12 @@
-export type MotionPhase = "hover" | "press" | "click" | "entry" | "busy";
+export type MotionPhase =
+  "hover" | "leave" | "press" | "click" | "entry" | "busy";
 export type MotionPart = {
   nodes: SVGGeometryElement[];
   frames: Keyframe[];
   name: string;
   origin?: string;
   delay?: number;
+  duration?: number;
 };
 type Elements = SVGGeometryElement[];
 const list = (value: Elements, test: (node: SVGGeometryElement) => boolean) =>
@@ -172,6 +174,204 @@ export function iconMotionRecipe(
         ...(phase === "busy" ? [{ transform: "scaleY(1)" }] : []),
       ],
     });
+  // These gestures are directional journeys, including a fully clipped wrap.
+  // Keep the wrap discrete: interpolation across the viewport would flash it.
+  const wrap = (nodes: Elements, axis: "X" | "Y", part: string) => {
+    const sign = phase === "leave" ? 1 : -1;
+    result.push({
+      nodes,
+      name: part,
+      duration: 600,
+      frames: [
+        { transform: `translate${axis}(0px)` },
+        { transform: `translate${axis}(${-sign * 2}px)`, offset: 0.16 },
+        {
+          transform: `translate${axis}(${sign * 28}px)`,
+          offset: 0.49,
+          easing: "steps(1, end)",
+        },
+        { transform: `translate${axis}(${-sign * 28}px)`, offset: 0.5 },
+        { transform: `translate${axis}(0px)` },
+      ],
+    });
+  };
+  if (
+    (phase === "hover" || phase === "leave" || phase === "click") &&
+    ((name === "ArrowLeft" && !!svg.closest(".canvas-navigation")) ||
+      (["FileUp", "FolderUp"].includes(name) && !!svg.closest(".toolbar")))
+  ) {
+    wrap(
+      name === "ArrowLeft" ? shapes : linear(shapes),
+      name === "ArrowLeft" ? "X" : "Y",
+      "travel-arrow",
+    );
+    return result;
+  }
+  if (svg.closest(".bottom-tools") && phase !== "press" && phase !== "busy") {
+    const reverse = phase === "leave";
+    if (name === "Box") {
+      result.push({
+        nodes: shapes,
+        name: "cube-3d",
+        duration: 600,
+        frames: [
+          { transform: "perspective(80px) rotateX(0deg) rotateY(0deg)" },
+          {
+            transform: `perspective(80px) rotateX(${reverse ? 18 : -18}deg) rotateY(${reverse ? -180 : 180}deg)`,
+            offset: 0.55,
+          },
+          {
+            transform: `perspective(80px) rotateX(0deg) rotateY(${reverse ? -360 : 360}deg)`,
+          },
+        ],
+      });
+      return result;
+    }
+    if (name === "ImagePlus") {
+      const frames = [
+        { transform: "translate(0px, 0px)", opacity: 1 },
+        {
+          transform: "translate(4px, 10px)",
+          opacity: 0,
+          offset: 0.48,
+          easing: "steps(1, end)",
+        },
+        { transform: "translate(-6px, 10px)", opacity: 0, offset: 0.5 },
+        { transform: "translate(-3px, 3px)", opacity: 1, offset: 0.76 },
+        { transform: "translate(0px, 0px)", opacity: 1 },
+      ];
+      result.push({
+        nodes: circles,
+        name: "sun-orbit",
+        duration: 600,
+        frames: reverse
+          ? frames.map((f, i) => ({
+              ...frames[frames.length - i - 1],
+              offset: f.offset,
+              easing: f.easing,
+            }))
+          : frames,
+      });
+      return result;
+    }
+    if (name === "PanelsTopLeft") {
+      const frames: Keyframe[] = [
+        { transform: "translate(0px, 0px) scale(1)", opacity: 1 },
+        {
+          transform: "translate(-18px, -18px) scale(1.7)",
+          opacity: 0,
+          offset: 0.49,
+          easing: "steps(1, end)",
+        },
+        {
+          transform: "translate(15px, 15px) scale(.2)",
+          opacity: 0,
+          offset: 0.5,
+        },
+        { transform: "translate(0px, 0px) scale(1)", opacity: 1 },
+      ];
+      result.push({
+        nodes: paths,
+        name: "canvas-expand",
+        duration: 600,
+        frames: reverse
+          ? frames.map((f, i) => ({
+              ...frames[frames.length - i - 1],
+              offset: f.offset,
+              easing: f.easing,
+            }))
+          : frames,
+      });
+      return result;
+    }
+    if (name === "ListTodo") {
+      const tick = list(paths, (node) => /^m3 17/i.test(d(node)));
+      for (const node of tick) {
+        const length = node.getTotalLength();
+        result.push({
+          nodes: [node],
+          name: "todo-check",
+          duration: 600,
+          frames: reverse
+            ? [
+                {
+                  strokeDasharray: `${length} ${length}`,
+                  strokeDashoffset: 0,
+                  opacity: 1,
+                },
+                {
+                  strokeDasharray: `${length} ${length}`,
+                  strokeDashoffset: length,
+                  opacity: 0,
+                },
+              ]
+            : [
+                {
+                  strokeDasharray: `${length} ${length}`,
+                  strokeDashoffset: length,
+                  opacity: 0,
+                },
+                {
+                  strokeDasharray: `${length} ${length}`,
+                  strokeDashoffset: length,
+                  opacity: 0,
+                  offset: 0.25,
+                },
+                {
+                  strokeDasharray: `${length} ${length}`,
+                  strokeDashoffset: 0,
+                  opacity: 1,
+                },
+              ],
+        });
+      }
+      result.push({
+        nodes: list(all, (node) => node.dataset.iconDetail === "todo-square"),
+        name: "todo-square",
+        duration: 600,
+        frames: reverse
+          ? [{ opacity: 0 }, { opacity: 1, offset: 0.75 }, { opacity: 1 }]
+          : [{ opacity: 1 }, { opacity: 1, offset: 0.25 }, { opacity: 0 }],
+      });
+      return result;
+    }
+    const ink = all.find((node) => node.dataset.iconDetail === "pen-ink");
+    if (name === "Paintbrush" && ink) {
+      // The nib follows the same cubic S curve as the ink, then lifts home.
+      const frames: Keyframe[] = [];
+      const inkFrames: Keyframe[] = [];
+      const length = ink.getTotalLength(),
+        start = ink.getPointAtLength(0);
+      for (let i = 0; i <= 24; i++) {
+        const t = i / 24,
+          progress = t * t * (3 - 2 * t);
+        const point = ink.getPointAtLength(length * progress);
+        frames.push({
+          transform: `translate(${point.x - start.x}px,${point.y - start.y}px)`,
+          offset: t * 0.7,
+          easing: "linear",
+        });
+        inkFrames.push({
+          strokeDashoffset: 1 - progress,
+          opacity: i ? 1 : 0,
+          offset: t * 0.7,
+          easing: "linear",
+        });
+      }
+      frames.push(
+        { transform: "translate(0px,0px)", offset: 0.86 },
+        { transform: "translate(0px,0px)" },
+      );
+      result.push({ nodes: shapes, name: "pen-sweep", duration: 900, frames });
+      result.push({
+        nodes: [ink],
+        name: "pen-ink",
+        duration: 900,
+        frames: [...inkFrames, { strokeDashoffset: 0, opacity: 0 }],
+      });
+      return result;
+    }
+  }
   if (phase === "press") {
     transform(shapes, "scale(.95)", "press");
     return result;
