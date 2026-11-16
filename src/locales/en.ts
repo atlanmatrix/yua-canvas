@@ -1,4 +1,10 @@
 export const english: Record<string, string> = {
+  取消加密: "Remove encryption",
+  组件未单独加密: "This component has no encryption of its own",
+  "请输入主密码。取消加密后，组件将恢复普通状态，后续保存、导出和同步会包含明文内容。":
+    "Enter the master password. Removing encryption restores a normal component; future saves, exports and syncs will contain plaintext.",
+  "此组件仍受上级加密画布保护；若需完全取消保护，请取消上级画布的加密。":
+    "This component remains protected by its encrypted parent canvas. Remove the parent canvas encryption to remove that protection completely.",
   已锁定组件: "Locked component",
   密码锁定: "Lock with password",
   密码解锁: "Unlock with password",

@@ -38,6 +38,190 @@ async function stored(page: Page) {
   });
 }
 
+test("remove encryption authenticates locked components and persists plaintext after reload and export", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await saved(page);
+  await note(page, "永久取消加密的文本");
+  await menu(page, "密码锁定");
+  await submit(page, true);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await menu(page, "取消加密");
+  await expect(
+    page.getByRole("dialog", { name: "取消加密", exact: true }),
+  ).toContainText("明文");
+  await submit(page, false, "wrong-password");
+  await expect(page.getByRole("alert")).toHaveText("密码错误或加密数据已损坏");
+  expect((await stored(page)).root.cards[0].locked).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".component-locked")).toBeVisible();
+  await menu(page, "取消加密");
+  await submit(page);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".note-body")).toHaveText("永久取消加密的文本");
+  const plain = await stored(page);
+  expect(plain.root.cards[0].lock).toBeUndefined();
+  expect(plain.root.cards[0].locked).toBeUndefined();
+  expect(plain.raw).toContain("永久取消加密的文本");
+  await page.reload();
+  await expect(page.locator(".note-body")).toHaveText("永久取消加密的文本");
+  await page
+    .getByTestId("card")
+    .dispatchEvent("contextmenu", { clientX: 400, clientY: 200 });
+  await expect(
+    page.getByRole("menuitem", { name: "取消加密", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("menuitem", { name: "密码锁定", exact: true }),
+  ).toBeVisible();
+  const pending = page.waitForEvent("download");
+  await page.getByRole("menuitem", { name: "下载", exact: true }).click();
+  const chunks: Buffer[] = [];
+  for await (const chunk of (await (await pending).createReadStream())!)
+    chunks.push(chunk);
+  expect(Buffer.concat(chunks).toString()).toBe("永久取消加密的文本");
+});
+
+test("removing encryption from an open component verifies the password and keeps the newest edits", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await saved(page);
+  await note(page, "加密前的文本");
+  await menu(page, "密码锁定");
+  await submit(page, true);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await menu(page, "密码解锁");
+  await submit(page);
+  await expect(page.locator(".note-body")).toHaveText("加密前的文本");
+  await page.locator(".note-body").dblclick();
+  await page
+    .getByRole("textbox", { name: "文本内容", exact: true })
+    .fill("解锁后最新的修改");
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await menu(page, "取消加密");
+  await submit(page, false, "wrong-password");
+  await expect(page.getByRole("alert")).toHaveText("密码错误或加密数据已损坏");
+  await submit(page);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".note-body")).toHaveText("解锁后最新的修改");
+  expect((await stored(page)).root.cards[0].text).toBe("解锁后最新的修改");
+  await page.reload();
+  await expect(page.locator(".note-body")).toHaveText("解锁后最新的修改");
+});
+
+test("removing a canvas lock preserves independently encrypted descendants, sibling locks and parent protection", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await saved(page);
+  const result = await page.evaluate(async (password) => {
+    const {
+      createLockProfile,
+      lockCard,
+      unlockCard,
+      removeEncryption,
+      releaseUnusedKeys,
+      inheritProtection,
+    } = await import("/src/encryption.ts");
+    const { exportBoard } = await import("/src/storage.ts");
+    const profile = await createLockProfile(password);
+    const note = (id: string, text: string) =>
+      ({
+        id,
+        kind: "text",
+        title: "",
+        text,
+        x: 20,
+        y: 30,
+        color: "#ffffff",
+      }) as any;
+    const child = await lockCard(
+      note("child", "独立子组件秘密"),
+      profile,
+      password,
+    );
+    const sibling = await lockCard(
+      note("sibling", "兄弟组件秘密"),
+      profile,
+      password,
+    );
+    const parent = await lockCard(
+      {
+        id: "parent",
+        kind: "canvas",
+        title: "画布",
+        text: "",
+        x: 10,
+        y: 10,
+        color: "#ffffff",
+        canvas: {
+          version: 1,
+          id: "inside",
+          cards: [note("plain", "取消后的普通内容"), child],
+          groups: [],
+        },
+      },
+      profile,
+      password,
+    );
+    const open = await unlockCard(parent, password);
+    const ownOpen = await unlockCard(open.canvas!.cards[1], password);
+    const root = {
+      version: 1,
+      cards: [
+        {
+          ...open,
+          canvas: { ...open.canvas!, cards: [open.canvas!.cards[0], ownOpen] },
+        },
+        sibling,
+      ],
+      groups: [],
+    } as any;
+    const removed = await removeEncryption(root.cards[0], password, root);
+    const updated = { ...root, cards: [removed, sibling] };
+    releaseUnusedKeys(updated);
+    const raw = await exportBoard(updated);
+    const standalone = JSON.parse(raw);
+    const outer = await unlockCard(parent, password);
+    const nestedRemoved = await removeEncryption(
+      outer.canvas!.cards[1],
+      password,
+      { version: 1, cards: [outer], groups: [] },
+    );
+    const scoped = inheritProtection(
+      { ...outer.canvas!, cards: [outer.canvas!.cards[0], nestedRemoved] },
+      outer.canvas!.protection!,
+    );
+    const scopedExport = await exportBoard({
+      version: 1,
+      cards: [scoped.cards[1]],
+      groups: [],
+    });
+    return {
+      raw,
+      scopedExport,
+      parentLock: removed.lock,
+      scope: removed.canvas!.protection,
+      childInheritance: removed.canvas!.cards[0].inheritedLock,
+      independent: standalone.cards[0].canvas.cards[1].locked,
+      sibling: standalone.cards[1].locked,
+    };
+  }, password);
+  expect(result.raw).toContain("取消后的普通内容");
+  expect(result.raw).not.toContain("独立子组件秘密");
+  expect(result.raw).not.toContain("兄弟组件秘密");
+  expect(result.parentLock).toBeUndefined();
+  expect(result.scope).toBeUndefined();
+  expect(result.childInheritance).toBeUndefined();
+  expect(result.independent).toBe(true);
+  expect(result.sibling).toBe(true);
+  expect(result.scopedExport).not.toContain("独立子组件秘密");
+  expect(JSON.parse(result.scopedExport).cards[0].locked).toBe(true);
+});
+
 test("password locks are encrypted at rest, reject a wrong password, edit only in session and relock on refresh", async ({
   page,
 }) => {

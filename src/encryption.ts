@@ -327,6 +327,48 @@ export async function unlockIsolated(
   }
   return plain;
 }
+export async function removeEncryption(
+  card: Card,
+  password: string,
+  root: Board,
+): Promise<Card> {
+  if (!card.lock) throw Error("组件未单独加密");
+  // An already open component can contain newer edits than its stored envelope.
+  const plain = card.locked
+    ? await unlockIsolated(card, password, root)
+    : (await master(password, card.lock.profile), card);
+  const removedId = plain.lock!.id;
+  const stripCard = (value: Card): Card => {
+    const next = {
+      ...value,
+      ...(value.canvas ? { canvas: stripBoard(value.canvas) } : {}),
+    };
+    if (next.inheritedLock?.id === removedId) delete next.inheritedLock;
+    return next;
+  };
+  const stripBoard = (value: Board): Board => {
+    const next = { ...value, cards: value.cards.map(stripCard) };
+    if (next.protection?.id === removedId) delete next.protection;
+    return next;
+  };
+  const next = stripCard(plain);
+  delete next.lock;
+  delete next.locked;
+  return next;
+}
+export function releaseUnusedKeys(root: Board) {
+  const used = new Set<string>();
+  const scan = (board: Board) => {
+    if (board.protection) used.add(board.protection.id);
+    for (const card of board.cards) {
+      if (card.lock) used.add(card.lock.id);
+      if (card.inheritedLock) used.add(card.inheritedLock.id);
+      if (card.canvas) scan(card.canvas);
+    }
+  };
+  scan(root);
+  for (const id of sessions.keys()) if (!used.has(id)) sessions.delete(id);
+}
 export function sealCard(card: Card): Promise<Card> {
   if (card.inheritedLock && !card.lock) {
     const cached = sealed.get(card);

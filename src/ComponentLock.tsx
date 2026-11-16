@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LockKeyhole, X } from "./icons";
 import { t as tr } from "./i18n";
 export function LockedContent({ onUnlock }: { onUnlock?: () => void }) {
@@ -24,11 +24,13 @@ export function LockedContent({ onUnlock }: { onUnlock?: () => void }) {
 export function ComponentLockDialog({
   mode,
   first = false,
+  inherited = false,
   onSubmit,
   onClose,
 }: {
-  mode: "lock" | "unlock" | "relock" | "copy";
+  mode: "lock" | "unlock" | "relock" | "copy" | "remove";
   first?: boolean;
+  inherited?: boolean;
   onSubmit: (password: string) => Promise<void>;
   onClose: () => void;
 }) {
@@ -36,12 +38,25 @@ export function ComponentLockDialog({
     [confirmation, setConfirmation] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", close, true);
+    return () => window.removeEventListener("keydown", close, true);
+  }, [onClose]);
   const label =
-    mode === "unlock"
-      ? tr("解锁组件")
-      : mode === "copy"
-        ? tr("复制加密组件")
-        : tr("锁定组件");
+    mode === "remove"
+      ? tr("取消加密")
+      : mode === "unlock"
+        ? tr("解锁组件")
+        : mode === "copy"
+          ? tr("复制加密组件")
+          : tr("锁定组件");
   return (
     <div className="modal-backdrop">
       <form
@@ -49,12 +64,6 @@ export function ComponentLockDialog({
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
-            e.stopPropagation();
-            onClose();
-          }
-        }}
         onSubmit={async (e) => {
           e.preventDefault();
           if (busy) return;
@@ -84,11 +93,20 @@ export function ComponentLockDialog({
         </div>
         <p>
           {tr(
-            first
-              ? "设置工作区主密码。所有组件共用此密码，每个组件使用独立的加密密钥。"
-              : "请输入工作区主密码。解锁仅在当前会话有效，保存与同步仍保持加密。",
+            mode === "remove"
+              ? "请输入主密码。取消加密后，组件将恢复普通状态，后续保存、导出和同步会包含明文内容。"
+              : first
+                ? "设置工作区主密码。所有组件共用此密码，每个组件使用独立的加密密钥。"
+                : "请输入工作区主密码。解锁仅在当前会话有效，保存与同步仍保持加密。",
           )}
         </p>
+        {mode === "remove" && inherited && (
+          <p>
+            {tr(
+              "此组件仍受上级加密画布保护；若需完全取消保护，请取消上级画布的加密。",
+            )}
+          </p>
+        )}
         <label>
           {tr("主密码")}
           <input

@@ -8,6 +8,9 @@ import {
   findLockProfile,
   lockCard,
   unlockIsolated,
+  removeEncryption,
+  releaseUnusedKeys,
+  inheritProtection,
   forgetCard,
   hasProtected,
   sealBoard,
@@ -239,7 +242,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   const [lockRequest, setLockRequest] = useState<{
     id?: string;
     path: string[];
-    mode: "lock" | "unlock" | "relock" | "copy";
+    mode: "lock" | "unlock" | "relock" | "copy" | "remove";
     fragment?: Fragment;
     offset?: number | { x: number; y: number };
   } | null>(null);
@@ -3829,6 +3832,22 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     )}
                   </button>
                 )}
+                {menuCard?.lock && (
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setLockRequest({
+                        id: menuCard.id,
+                        path: [...path],
+                        mode: "remove",
+                      });
+                      setMenu(null);
+                    }}
+                  >
+                    <LockKeyhole size={14} />
+                    {tr("取消加密")}
+                  </button>
+                )}
                 <MenuButton
                   shortcut="mask"
                   role="menuitem"
@@ -4098,6 +4117,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         <ComponentLockDialog
           key={lockRequest.mode + ":" + (lockRequest.id || "copy")}
           mode={lockRequest.mode}
+          inherited={!!locateBoard(root, lockRequest.path).board.protection}
           first={lockRequest.mode === "lock" && !findLockProfile(root)}
           onClose={() => setLockRequest(null)}
           onSubmit={async (password) => {
@@ -4130,13 +4150,20 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   findLockProfile(snapshot.root) ||
                   (await createLockProfile(password));
                 const next =
-                  request.mode === "unlock"
-                    ? await unlockIsolated(old, password, snapshot.root)
-                    : await lockCard(old, profile, password);
-                updated = replaceBoard(snapshot.root, request.path, (b) => ({
-                  ...b,
-                  cards: b.cards.map((c) => (c.id === old!.id ? next : c)),
-                }));
+                  request.mode === "remove"
+                    ? await removeEncryption(old, password, snapshot.root)
+                    : request.mode === "unlock"
+                      ? await unlockIsolated(old, password, snapshot.root)
+                      : await lockCard(old, profile, password);
+                updated = replaceBoard(snapshot.root, request.path, (b) => {
+                  const nextBoard = {
+                    ...b,
+                    cards: b.cards.map((c) => (c.id === old!.id ? next : c)),
+                  };
+                  return request.mode === "remove" && b.protection
+                    ? inheritProtection(nextBoard, b.protection)
+                    : nextBoard;
+                });
                 updated = {
                   ...updated,
                   lockProfile: snapshot.root.lockProfile || profile,
@@ -4152,11 +4179,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               )
                 return;
               if (request.mode !== "unlock" && request.mode !== "copy") {
-                if (old) forgetCard(old);
+                if (old && request.mode !== "remove") forgetCard(old);
                 internalCopy.current = null;
                 setCopyFiles([]);
                 await clearCanvasClipboard();
               }
+              if (request.mode === "remove") releaseUnusedKeys(updated);
               clearCanvasUI();
               setLockRequest(null);
               // A security boundary must not be undone into an unauthenticated plaintext snapshot.

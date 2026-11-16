@@ -616,7 +616,7 @@ test("canvas deep links and inline names survive offline direct entry at the Pag
   }
 });
 
-test("component envelopes remain encrypted at rest and unlock offline after reload at the Pages subpath", async () => {
+test("component envelopes unlock and permanently remove encryption offline at the Pages subpath", async () => {
   const context = await browser.newContext();
   try {
     const page = await app(context);
@@ -658,6 +658,29 @@ test("component envelopes remain encrypted at rest and unlock offline after relo
     assert.ok(!raw.includes("离线加密秘密"));
     assert.ok(!raw.includes(password));
     assert.equal(JSON.parse(raw).cards[0].locked, true);
+    await page.keyboard.press("Escape");
+    await page
+      .getByTestId("card")
+      .dispatchEvent("contextmenu", { clientX: 400, clientY: 200 });
+    await page.getByRole("menuitem", { name: "取消加密", exact: true }).click();
+    await page
+      .getByRole("textbox", { name: "主密码", exact: true })
+      .fill(password);
+    await page.getByRole("dialog").locator("button.primary").click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.locator(".note-body")).toHaveText("离线加密秘密");
+    await page.reload();
+    await expect(page.locator(".note-body")).toHaveText("离线加密秘密");
+    await expect(page.locator(".component-locked")).toHaveCount(0);
+    const plainDownload = page.waitForEvent("download");
+    await openSettings(page);
+    await exportCanvas(page);
+    const plainChunks = [];
+    for await (const chunk of await (await plainDownload).createReadStream())
+      plainChunks.push(chunk);
+    const plain = JSON.parse(Buffer.concat(plainChunks).toString());
+    assert.equal(plain.cards[0].text, "离线加密秘密");
+    assert.equal(plain.cards[0].lock, undefined);
   } finally {
     await context.close();
   }
