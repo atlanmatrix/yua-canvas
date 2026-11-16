@@ -265,6 +265,17 @@ export const CanvasCard = memo(function CanvasCard({
           return;
         }
         if (c.kind === "vscode") return;
+        if (
+          c.kind === "canvas" &&
+          !e.ctrlKey &&
+          !e.metaKey &&
+          document
+            .elementFromPoint(e.clientX, e.clientY)
+            ?.closest(".attachment-title")
+        ) {
+          setRenamingCanvas(c.id);
+          return;
+        }
         if (c.kind === "todo" && !e.ctrlKey && !e.metaKey) {
           const focus = todoFocusAt(e, e.target as Element);
           openCard(c, focus.task, focus.offset, !focus.task);

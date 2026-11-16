@@ -10,6 +10,7 @@ import { SettingsMenu } from "./SettingsMenu";
 import { t as tr, usePreferences } from "./i18n";
 import { detectTextFormat } from "./textFormats";
 import { GroupNameEditor } from "./GroupNameEditor";
+import { readCanvasPath, writeCanvasPath } from "./canvasUrl";
 import { useLatestActions } from "./useLatestActions";
 import React, {
   useEffect,
@@ -261,6 +262,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     [miniatureDraft, setMiniatureDraft] = useState<Card>(),
     [activeMiniature, setActiveMiniature] = useState<string>(),
     [renamingCanvas, setRenamingCanvas] = useState<string>(),
+    [renamingCurrentCanvas, setRenamingCurrentCanvas] = useState(false),
     [editingCard, setEditingCard] = useState<string>(),
     [editingTask, setEditingTask] = useState<string>(),
     [editingTaskOffset, setEditingTaskOffset] = useState<number>(),
@@ -415,7 +417,18 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     ])
       .then(([b, savedView, savedNavigation, clipboard]) => {
         if (clipboard) internalCopy.current = clipboard;
-        restore(b || emptyBoard, savedView, savedNavigation);
+        const urlPath = readCanvasPath();
+        restore(
+          b || emptyBoard,
+          urlPath === undefined ||
+            JSON.stringify(urlPath) ===
+              JSON.stringify(savedNavigation?.path || [])
+            ? savedView
+            : undefined,
+          urlPath === undefined
+            ? savedNavigation
+            : { path: urlPath, views: savedNavigation?.views || {} },
+        );
         setReady(true);
         setSaveStatus("已保存至本地");
       })
@@ -901,6 +914,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setActiveMiniature(undefined);
     setEditingGroup(undefined);
     setRenamingCanvas(undefined);
+    setRenamingCurrentCanvas(false);
     setGroupDialog(null);
     setConfirmImport(null);
     setToast("");
@@ -909,8 +923,24 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   };
   const navigateCanvas = (next: string[]) => {
     clearCanvasUI();
+    writeCanvasPath(next, true);
     workspace.navigate(next);
   };
+  useLayoutEffect(() => {
+    if (ready) writeCanvasPath(path);
+  }, [ready, JSON.stringify(path)]);
+  useEffect(() => {
+    if (!ready) return;
+    const onPopState = () => {
+      clearCanvasUI();
+      workspace.navigate(readCanvasPath() || []);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  });
+  useEffect(() => {
+    setRenamingCurrentCanvas(false);
+  }, [JSON.stringify(path)]);
   const addCanvas = (point = center()) => {
     const card = canvasCard(newBoard(), tr("子画布"), point);
     setBoard((b) => ({
@@ -2522,7 +2552,31 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               >
                 <ArrowLeft size={18} />
               </button>
-              <span title={names.join(" / ")}>{names.at(-1)}</span>
+              {renamingCurrentCanvas ? (
+                <GroupNameEditor
+                  name={names.at(-1) || ""}
+                  label={tr("画布名称")}
+                  onCancel={() => setRenamingCurrentCanvas(false)}
+                  onSave={(title) => {
+                    workspace.updateRoot((root) =>
+                      replaceBoard(root, path.slice(0, -1), (parent) => ({
+                        ...parent,
+                        cards: parent.cards.map((card) =>
+                          card.id === path.at(-1) ? { ...card, title } : card,
+                        ),
+                      })),
+                    );
+                    setRenamingCurrentCanvas(false);
+                  }}
+                />
+              ) : (
+                <span
+                  title={names.join(" / ")}
+                  onDoubleClick={() => setRenamingCurrentCanvas(true)}
+                >
+                  {names.at(-1)}
+                </span>
+              )}
             </nav>
           )}
           <div className="floating-actions">

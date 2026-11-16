@@ -28,6 +28,7 @@ export function GroupNameEditor({
       onFocus={(e) => e.target.select()}
       onChange={(e) => setValue(e.target.value)}
       onPointerDown={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
       onBlur={save}
       onKeyDown={(e) => {
         e.stopPropagation();

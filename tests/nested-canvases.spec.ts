@@ -113,6 +113,154 @@ const seed = () => ({
   ],
 });
 
+test("canvas URLs support nested direct entry, reload and browser history ahead of saved navigation", async ({
+  page,
+}) => {
+  await page.goto("/?keep=1");
+  await saved(page);
+  const rootUrl = page.url();
+  await page.getByRole("button", { name: "创建子画布", exact: true }).click();
+  await page
+    .getByRole("button", { name: "进入子画布 子画布", exact: true })
+    .click();
+  const childUrl = page.url();
+  expect(childUrl).not.toBe(rootUrl);
+  expect(new URL(childUrl).searchParams.get("keep")).toBe("1");
+  await text(page, "子画布内容");
+  await page.getByRole("button", { name: "放大", exact: true }).click();
+  const childView = await view(page);
+  await page.getByRole("button", { name: "创建子画布", exact: true }).click();
+  await page
+    .getByRole("button", { name: "进入子画布 子画布", exact: true })
+    .click();
+  const grandchildUrl = page.url();
+  expect(grandchildUrl).not.toBe(childUrl);
+  await text(page, "孙画布内容");
+  await saved(page);
+  await page.goBack();
+  await expect(page).toHaveURL(childUrl);
+  await expect(page.locator(".card-text")).toHaveText("子画布内容");
+  expect(await view(page)).toEqual(childView);
+  await page.goForward();
+  await expect(page).toHaveURL(grandchildUrl);
+  await expect(page.locator(".card-text")).toHaveText("孙画布内容");
+  await saved(page);
+  await page.goto("/?keep=1");
+  await expect(page.locator(".card-text")).toHaveText("孙画布内容");
+  await expect(page).toHaveURL(grandchildUrl);
+  await page.goto(rootUrl);
+  await expect(page.locator(".canvas-navigation")).toHaveCount(0);
+  await expect(page.locator(".card-canvas")).toHaveCount(1);
+  await saved(page);
+  await page.goto(grandchildUrl);
+  await expect(page.locator(".card-text")).toHaveText("孙画布内容");
+  await page.reload();
+  await expect(page.locator(".card-text")).toHaveText("孙画布内容");
+  await page.getByRole("button", { name: "返回父画布" }).click();
+  await expect(page).toHaveURL(childUrl);
+  expect(await view(page)).toEqual(childView);
+});
+
+test("invalid canvas URLs fall back to the closest existing parent and escape imported IDs", async ({
+  page,
+}) => {
+  const id = "项目/child %";
+  await load(page, {
+    version: 1,
+    groups: [],
+    cards: [
+      {
+        ...note(id),
+        kind: "canvas",
+        title: "项目",
+        canvas: {
+          version: 1,
+          groups: [],
+          cards: [note("内部内容")],
+        },
+      },
+    ],
+  });
+  await page
+    .getByRole("button", { name: "进入子画布 项目", exact: true })
+    .click();
+  const childUrl = page.url();
+  expect(new URL(childUrl).searchParams.get("canvas")).toBe(
+    encodeURIComponent(id),
+  );
+  await saved(page);
+  await page.reload();
+  await expect(page.locator(".card-text")).toHaveText("内部内容");
+  const invalid = new URL(childUrl);
+  invalid.searchParams.set("canvas", encodeURIComponent(id) + "/missing");
+  await page.goto(invalid.href);
+  await expect(page.locator(".card-text")).toHaveText("内部内容");
+  await expect(page).toHaveURL(childUrl);
+  invalid.searchParams.set("canvas", "missing");
+  await page.goto(invalid.href);
+  await expect(page.locator(".canvas-navigation")).toHaveCount(0);
+  await expect(page.locator(".card-canvas")).toHaveCount(1);
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("canvas"))
+    .toBe("");
+  invalid.searchParams.set("canvas", "%invalid");
+  await page.goto(invalid.href);
+  await expect(page.locator(".card-canvas")).toHaveCount(1);
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("canvas"))
+    .toBe("");
+});
+
+test("double-click renames canvas titles inline with save, cancel, undo and persistence", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await saved(page);
+  await page.getByRole("button", { name: "创建子画布", exact: true }).click();
+  const title = page.locator(".card-canvas .attachment-title span");
+  const input = page.getByRole("textbox", { name: "画布名称" });
+  const rootUrl = page.url();
+  await title.dblclick();
+  await expect(input).toBeFocused();
+  await expect(page).toHaveURL(rootUrl);
+  await input.fill("新名称");
+  await input.press("Enter");
+  await expect(title).toHaveText("新名称");
+  await title.dblclick();
+  await input.fill("取消修改");
+  await input.press("Escape");
+  await expect(title).toHaveText("新名称");
+  await title.dblclick();
+  await input.fill("   ");
+  await input.press("Enter");
+  await expect(title).toHaveText("新名称");
+  await title.dblclick();
+  await input.fill("失焦保存");
+  await page.getByRole("button", { name: "放大", exact: true }).click();
+  await expect(title).toHaveText("失焦保存");
+  await page
+    .getByRole("button", { name: "进入子画布 失焦保存", exact: true })
+    .click();
+  const childUrl = page.url();
+  await text(page, "保留画布内容");
+  const heading = page.locator(".canvas-navigation span");
+  await heading.dblclick();
+  await input.fill("内部重命名");
+  await input.press("Enter");
+  await expect(heading).toHaveText("内部重命名");
+  await expect(page).toHaveURL(childUrl);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(heading).toHaveText("失焦保存");
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await expect(heading).toHaveText("内部重命名");
+  await saved(page);
+  await page.reload();
+  await expect(heading).toHaveText("内部重命名");
+  await expect(page.locator(".card-text")).toHaveText("保留画布内容");
+  await page.getByRole("button", { name: "返回父画布" }).click();
+  await expect(title).toHaveText("内部重命名");
+});
+
 test("toolbar and background create nested canvases with separate views, content, navigation and reload restoration", async ({
   page,
 }) => {
@@ -373,11 +521,14 @@ test("deleting inside a child prunes its own links and deletion of an active can
   await saved(page);
   await page.getByRole("button", { name: "创建子画布", exact: true }).click();
   await page.getByRole("button", { name: "进入子画布 子画布" }).click();
+  const childUrl = page.url();
   await page.keyboard.press("ControlOrMeta+z");
   await expect(page.getByTestId("card")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "返回父画布" })).toHaveCount(0);
+  expect(new URL(page.url()).searchParams.get("canvas")).toBe("");
   await page.keyboard.press("ControlOrMeta+Shift+z");
   await page.getByRole("button", { name: "进入子画布 子画布" }).click();
+  await expect(page).toHaveURL(childUrl);
   await text(page, "内部元素");
   await page.locator(".card-text").click();
   await page.keyboard.press("Delete");

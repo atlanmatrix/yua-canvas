@@ -579,6 +579,43 @@ test("application associations restore offline under the Pages path and only lau
   }
 });
 
+test("canvas deep links and inline names survive offline direct entry at the Pages subpath", async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await app(context);
+    const rootUrl = page.url();
+    await page.getByRole("button", { name: "创建子画布", exact: true }).click();
+    await page.locator(".card-canvas .attachment-title span").dblclick();
+    const input = page.getByRole("textbox", { name: "画布名称" });
+    await input.fill("离线子画布");
+    await input.press("Enter");
+    await page
+      .getByRole("button", { name: "进入子画布 离线子画布", exact: true })
+      .click();
+    const childUrl = page.url();
+    assert.equal(new URL(childUrl).pathname, prefix);
+    assert.ok(new URL(childUrl).searchParams.get("canvas"));
+    await page.keyboard.press("n");
+    await page.getByRole("textbox", { name: "文本内容" }).fill("直达内容");
+    await page.keyboard.press("ControlOrMeta+Enter");
+    await expect(
+      page.locator('.save-indicator[data-state="已保存至本地"]'),
+    ).toBeVisible();
+    await context.setOffline(true);
+    await page.goto(rootUrl);
+    await expect(
+      page.locator(".card-canvas .attachment-title span"),
+    ).toHaveText("离线子画布");
+    await page.goto(childUrl);
+    await expect(page.locator(".canvas-navigation")).toHaveText("离线子画布");
+    await expect(page.locator(".card-text")).toHaveText("直达内容");
+    await page.reload();
+    await expect(page.locator(".card-text")).toHaveText("直达内容");
+  } finally {
+    await context.close();
+  }
+});
+
 test("update saves pending canvas edits and does not reload other open tabs", async () => {
   const context = await browser.newContext();
   try {

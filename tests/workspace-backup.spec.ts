@@ -176,7 +176,9 @@ async function seed(page: Page) {
       views,
     });
   });
-  await page.reload();
+  // The fixture changes saved navigation directly. Open a legacy URL without
+  // an explicit canvas so the saved deep path, rather than the root URL, wins.
+  await page.goto("/");
   await expect(page.locator(".canvas-navigation")).toHaveText("深层画布");
 }
 
