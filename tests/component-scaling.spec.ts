@@ -236,6 +236,7 @@ for (const dpr of [1, 2])
       expect(await visualFont(taskInput)).toBeCloseTo(13, 2);
       await taskInput.press("ControlOrMeta+Enter");
       await page.locator('[data-card-id="code"]').dblclick();
+      await page.getByRole("button", { name: "文件名", exact: true }).click();
       await expect(
         page.getByRole("textbox", { name: "文件名", exact: true }),
       ).toHaveCSS("font-size", "13px");

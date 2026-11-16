@@ -119,6 +119,7 @@ test("new files appear without a picker, edit on click, render Markdown and reta
   expect(chooserOpened).toBe(false);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await card.click();
+  await page.getByRole("button", { name: "文件名", exact: true }).click();
   await page.getByRole("textbox", { name: "文件名" }).fill("方案.md");
   const markdown = "# 画布上的文档\n\n- [x] 完成\n\n**直接渲染**";
   await page.getByRole("textbox", { name: "文件内容" }).fill(markdown);
@@ -152,13 +153,14 @@ test("new files appear without a picker, edit on click, render Markdown and reta
   await expect(page.getByRole("textbox", { name: "文件内容" })).toHaveValue(
     markdown,
   );
+  await page.getByRole("button", { name: "文件名", exact: true }).click();
   await page.getByRole("textbox", { name: "文件名" }).fill("无扩展名文件");
   await page.getByRole("button", { name: "保存文件", exact: true }).click();
   await page.getByRole("button", { name: "关闭详情" }).click();
   await card.click();
-  await expect(page.getByRole("textbox", { name: "文件名" })).toHaveValue(
-    "无扩展名文件",
-  );
+  await expect(
+    page.getByRole("button", { name: "文件名", exact: true }),
+  ).toHaveText("无扩展名文件");
   await expect(page.getByRole("textbox", { name: "文件内容" })).toHaveValue(
     markdown,
   );

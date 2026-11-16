@@ -15,13 +15,20 @@ export function SelectField({
 }) {
   const id = useId(),
     root = useRef<HTMLDivElement>(null),
-    trigger = useRef<HTMLButtonElement>(null);
+    trigger = useRef<HTMLButtonElement>(null),
+    search = useRef({ text: "", time: 0 });
   const [open, setOpen] = useState(false),
     [active, setActive] = useState(0);
   const selected = Math.max(
     0,
     options.findIndex((o) => o.value === value),
   );
+  useEffect(() => {
+    if (open)
+      root.current
+        ?.querySelector('[data-active="true"]')
+        ?.scrollIntoView({ block: "nearest" });
+  }, [open, active]);
   useEffect(() => {
     if (!open) return;
     const outside = (e: PointerEvent) => {
@@ -56,6 +63,7 @@ export function SelectField({
         aria-controls={id}
         aria-activedescendant={open ? id + "-" + active : undefined}
         onClick={() => {
+          search.current.text = "";
           setActive(selected);
           setOpen(!open);
         }}
@@ -87,6 +95,36 @@ export function SelectField({
             e.stopPropagation();
             setOpen(false);
           } else if (e.key === "Tab") setOpen(false);
+          else if (
+            e.key.length === 1 &&
+            !e.ctrlKey &&
+            !e.metaKey &&
+            !e.altKey &&
+            !e.nativeEvent.isComposing
+          ) {
+            e.preventDefault();
+            const now = Date.now();
+            const previous =
+              now - search.current.time < 700 ? search.current.text : "";
+            const query = previous + e.key.toLowerCase();
+            search.current = { text: query, time: now };
+            // Repeating a character cycles through matches, as in a native select.
+            const repeated = [...query].every(
+              (character) => character === query[0],
+            );
+            const prefix = repeated ? query[0] : query;
+            const start = repeated ? (open ? active : selected) + 1 : 0;
+            const index = Array.from(
+              { length: options.length },
+              (_, i) => (start + i) % options.length,
+            ).find(
+              (i) =>
+                options[i].label.toLowerCase().startsWith(prefix) ||
+                options[i].value.toLowerCase().startsWith(prefix),
+            );
+            setOpen(true);
+            if (index !== undefined) setActive(index);
+          }
         }}
       >
         <span>{options[selected].label}</span>

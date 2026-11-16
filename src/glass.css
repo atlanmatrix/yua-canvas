@@ -1,11 +1,11 @@
 :root {
   --glass-surface: color-mix(in srgb, var(--surface) 61%, transparent);
-  --glass-field: color-mix(in srgb, var(--surface-muted) 51%, transparent);
+  --glass-field: color-mix(in srgb, var(--surface-muted) 88%, transparent);
   --glass-thumb: color-mix(in srgb, var(--surface) 67%, transparent);
   --glass-filter: blur(18px) saturate(145%);
   --todo-marker: #b8c2cf40;
   --glass-field-filter: blur(8px);
-  --preference-track-surface: #ecf0f6;
+  --preference-track-surface: #e2e7ef;
   --preference-thumb-surface: #fafcff;
   --preference-label: #475569;
   --preference-active-label: #1d4ed8;
@@ -236,7 +236,7 @@
   body
   .settings-popover
   .preference-slider:has(input:focus-visible) {
-  box-shadow: var(--focus-shadow);
+  border-color: var(--accent) !important;
 }
 :root[data-theme] body .settings-popover .preference-slider-thumb {
   background: color-mix(

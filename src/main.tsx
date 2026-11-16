@@ -1649,7 +1649,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         proportional,
         64,
         32,
-        original.kind === "text" ? TEXT_MAX_WIDTH : 8000,
+        original.kind === "text" && !original.locked ? TEXT_MAX_WIDTH : 8000,
       );
       const autoHeight =
         original.kind === "text" &&
@@ -4200,7 +4200,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       {current && (
         <div className="modal-backdrop">
           <div
-            className="modal detail-modal"
+            className={`modal detail-modal${current.kind === "file" ? " file-detail-modal" : ""}`}
             role="dialog"
             aria-modal="true"
             aria-label={

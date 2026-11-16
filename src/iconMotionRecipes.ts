@@ -40,7 +40,7 @@ for (const [family, names] of Object.entries({
   navigation:
     "ArrowLeft ArrowUpRight LogOut ChevronUp ChevronDown ChevronLeft ChevronRight",
   history: "Undo2 RotateCcw RotateCw RefreshCw",
-  visibility: "Eye EyeOff",
+  visibility: "Eye EyeOff LockKeyhole",
   remove: "Trash2 Delete X Unlink",
   drawing: "Paintbrush Pencil Palette Highlighter",
   typography: "Type Bold Italic Underline Strikethrough",

@@ -196,7 +196,7 @@ test("seven horizontal pastel choices color every card type and groups, preserve
   });
   expect(swatchStyle.width).toBeCloseTo(24 * 0.8, 1);
   expect(swatchStyle.height).toBeCloseTo(24 * 0.8, 1);
-  expect(swatchStyle.border).toBe("0px");
+  expect(swatchStyle.border).toBe("1px");
   const boxes = await swatches.evaluateAll((els) =>
     els.map((el) => ({
       x: el.getBoundingClientRect().x,

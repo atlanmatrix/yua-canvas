@@ -1,7 +1,6 @@
 :root {
   --control-shadow: 0 2px 6px #25344d0a, 0 5px 16px #25344d0a;
   --panel-shadow: 0 8px 28px #25344d16, 0 24px 64px #25344d0c;
-  --focus-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 32%, transparent);
 }
 :root[data-theme="dark"] {
   --control-shadow: 0 2px 8px #0003, 0 5px 18px #0002;
@@ -18,16 +17,16 @@ body
         )
     )
   ) {
-  border: 0 !important;
+  border: 1px solid transparent !important;
   border-radius: 999px !important;
   box-shadow: none;
 }
 body :is(button, a, input, textarea, select):focus-visible {
   outline: none;
-  box-shadow: var(--focus-shadow);
+  border-color: var(--accent) !important;
 }
 body textarea:not(.canvas-editor) {
-  border: 0 !important;
+  border: 1px solid transparent !important;
   border-radius: 28px;
   box-shadow: none;
   padding-inline: 16px;
@@ -40,14 +39,14 @@ body
     .pin-bar input,
     .miniature-label-editor
   ) {
-  border: 0 !important;
+  border: 1px solid transparent !important;
 }
 /* Multi-line content editors keep their document surface. */
 body .canvas-editor {
   box-shadow: none;
 }
 body .canvas-editor:focus-visible {
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+  border-color: var(--accent) !important;
 }
 :root
   body
@@ -76,7 +75,7 @@ body
     .level-caption,
     .canvas3d-layer-title
   ) {
-  border: 0 !important;
+  border: 1px solid transparent !important;
   border-radius: 999px;
   box-shadow: var(--control-shadow);
 }
@@ -111,8 +110,10 @@ body .context-menu button:not(.color-swatch) {
   box-shadow: none;
 }
 body .context-menu .color-swatch[aria-checked="true"]::after {
-  border: 0;
-  box-shadow: 0 0 0 2px var(--accent);
+  content: none;
+}
+body a:focus-visible {
+  border: 1px solid var(--accent);
 }
 body .context-menu .color-palette {
   justify-content: center;
@@ -120,7 +121,7 @@ body .context-menu .color-palette {
 }
 body .context-menu :is(button:focus-visible, .color-swatch:focus-visible) {
   outline: none;
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
+  border-color: var(--accent) !important;
 }
 .preferences-controls {
   display: flex;
@@ -135,6 +136,7 @@ body .context-menu :is(button:focus-visible, .color-swatch:focus-visible) {
   height: 38px;
   width: calc(var(--segments) * var(--segment) + 8px);
   padding: 4px;
+  border: 1px solid transparent;
   background: var(--surface-muted);
   border-radius: 999px;
   box-shadow: var(--control-shadow);
@@ -198,7 +200,7 @@ body .context-menu :is(button:focus-visible, .color-swatch:focus-visible) {
   border: 0;
 }
 .preference-slider:has(input:focus-visible) {
-  box-shadow: var(--control-shadow), var(--focus-shadow);
+  border-color: var(--accent) !important;
 }
 @media (max-width: 600px) {
   .preference-slider {
@@ -234,7 +236,7 @@ body .context-menu :is(button:focus-visible, .color-swatch:focus-visible) {
 @media (forced-colors: active) {
   body :is(button, input, select, textarea),
   .preference-slider {
-    outline: 1px solid ButtonText;
+    border: 1px solid ButtonText !important;
   }
   .preference-slider-thumb {
     background: Highlight;
@@ -245,7 +247,7 @@ body .context-menu :is(button:focus-visible, .color-swatch:focus-visible) {
 }
 
 body textarea:not(.canvas-editor):focus-visible {
-  box-shadow: var(--focus-shadow);
+  border-color: var(--accent) !important;
 }
 body input:is([type="checkbox"], [type="radio"]) {
   appearance: none;
@@ -255,7 +257,7 @@ body input:is([type="checkbox"], [type="radio"]) {
   width: 16px;
   height: 16px;
   padding: 0;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 999px;
   background: var(--surface-muted);
   box-shadow: none;
@@ -318,11 +320,11 @@ body input[type="range"]:not(.preference-range)::-moz-range-thumb {
 body .display-mode-options > button {
   min-width: 0;
   padding-inline: 6px;
-  border: 0 !important;
+  border: 1px solid transparent !important;
   border-radius: 999px !important;
 }
 body :is(.cloud-login, .share-viewer > header a) {
-  border: 0 !important;
+  border: 1px solid transparent !important;
   border-radius: 999px;
   box-shadow: none;
 }
@@ -370,7 +372,7 @@ body
 body
   :where(.share-viewer > header)
   .preference-slider:has(input:focus-visible) {
-  box-shadow: var(--focus-shadow);
+  border-color: var(--accent) !important;
 }
 
 /* Settings is one floating surface, with flat controls inside. */
@@ -426,7 +428,7 @@ body .settings-popover .preference-slider {
   box-shadow: none;
 }
 body .settings-popover .preference-slider:has(input:focus-visible) {
-  box-shadow: var(--focus-shadow);
+  border-color: var(--accent) !important;
 }
 body .settings-popover .settings-action {
   display: flex;
@@ -552,10 +554,35 @@ body .paint-controls input[type="range"]::-moz-range-thumb {
   box-shadow: none;
 }
 body input:is([type="range"], [type="checkbox"], [type="radio"]):focus-visible {
-  box-shadow: var(--focus-shadow);
+  border-color: var(--accent) !important;
 }
 @media (prefers-reduced-motion: reduce) {
   body :is(.toolbar, .paint-controls) button {
     transition: none;
   }
+}
+
+/* Keep selection and focus inside the component's existing frame. */
+:root[data-theme] body :is(
+  .card.selected,
+  .card.canvas-editing,
+  .card:focus-visible,
+  .group-boundary.group-selected,
+  .colors .selected-color
+) {
+  border-color: var(--accent) !important;
+  outline: none;
+}
+:root[data-theme] body :is(button, input, textarea, select):is(
+  :focus-visible,
+  .active,
+  [aria-pressed="true"],
+  [aria-checked="true"]
+),
+:root[data-theme] body :is(input, textarea):focus {
+  border-color: var(--accent) !important;
+  outline: none;
+}
+:root[data-theme] body .preference-slider:has(input:focus-visible) {
+  border-color: var(--accent) !important;
 }

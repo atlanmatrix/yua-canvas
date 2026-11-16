@@ -43,21 +43,19 @@ test("changing file types synchronizes extensions, draft and saved highlighting,
     Buffer.from([239, 187, 191]),
     Buffer.from("const value = 42;\r\n// second line\n"),
   ]);
-  await page
-    .getByTestId("files")
-    .setInputFiles({
-      name: "sample.txt",
-      mimeType: "text/plain",
-      buffer: original,
-    });
+  await page.getByTestId("files").setInputFiles({
+    name: "sample.txt",
+    mimeType: "text/plain",
+    buffer: original,
+  });
   const card = page.getByTestId("card");
   await card.dblclick();
-  const filename = page.getByRole("textbox", { name: "文件名", exact: true });
+  const filename = page.getByRole("button", { name: "文件名", exact: true });
   await page.getByRole("combobox", { name: "文件类型", exact: true }).click();
   await page
     .getByRole("option", { name: "javascript (.js)", exact: true })
     .click();
-  await expect(filename).toHaveValue("sample.js");
+  await expect(filename).toHaveText("sample.js");
   const preview = page
     .getByRole("dialog")
     .locator('[data-code-language="javascript"]');
@@ -89,16 +87,14 @@ test("file type and filename choose Markdown, Mermaid and code renderers before 
 }) => {
   await page.goto("/");
   await saved(page);
-  await page
-    .getByTestId("files")
-    .setInputFiles({
-      name: "draft.txt",
-      mimeType: "text/plain",
-      buffer: Buffer.from("# 文档标题\n\n正文"),
-    });
+  await page.getByTestId("files").setInputFiles({
+    name: "draft.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("# 文档标题\n\n正文"),
+  });
   await page.getByTestId("card").dblclick();
   const dialog = page.getByRole("dialog");
-  const filename = page.getByRole("textbox", { name: "文件名", exact: true });
+  const filename = page.getByRole("button", { name: "文件名", exact: true });
   await page.getByRole("combobox", { name: "文件类型", exact: true }).click();
   await page
     .getByRole("option", { name: "markdown (.md)", exact: true })
@@ -109,7 +105,10 @@ test("file type and filename choose Markdown, Mermaid and code renderers before 
   await page.getByRole("button", { name: "编辑文件", exact: true }).click();
   const input = page.getByRole("textbox", { name: "文件内容" });
   await input.fill("def greet():\n    return 42\n");
-  await filename.fill("draft.py");
+  await filename.click();
+  await page
+    .getByRole("textbox", { name: "文件名", exact: true })
+    .fill("draft.py");
   await expect(
     page.getByRole("combobox", { name: "文件类型", exact: true }),
   ).toContainText("python (.py)");
@@ -127,7 +126,7 @@ test("file type and filename choose Markdown, Mermaid and code renderers before 
   await page
     .getByRole("option", { name: "mermaid (.mmd)", exact: true })
     .click();
-  await expect(filename).toHaveValue("draft.mmd");
+  await expect(filename).toHaveText("draft.mmd");
   await page.getByRole("button", { name: "预览文件", exact: true }).click();
   await expect(
     dialog.locator('.markdown-diagram[data-diagram-state="ready"] svg'),

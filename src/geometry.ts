@@ -122,8 +122,8 @@ export function resizeRect(
     width = bounds.width * scale;
     height = bounds.height * scale;
   } else {
-    width = Math.max(minWidth, Math.min(maxWidth, width));
-    height = Math.max(minHeight, Math.min(8000, height));
+    if (horizontal) width = Math.max(minWidth, Math.min(maxWidth, width));
+    if (vertical) height = Math.max(minHeight, Math.min(8000, height));
   }
   return {
     x: edge.includes("w")

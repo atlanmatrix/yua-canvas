@@ -125,7 +125,11 @@ export const TEXT_FILE_TYPES = [
         !definitions[language] && all.indexOf(language) === index,
     )
     .map((language) => ({ extension: language, language })),
-];
+].filter(
+  (type, index, all) =>
+    all.findIndex((candidate) => candidate.extension === type.extension) ===
+    index,
+);
 
 export function fileExtension(name: string) {
   const base = name.split(/[\\/]/).pop() || "";

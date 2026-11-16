@@ -48,7 +48,7 @@
   min-height: 32px;
   background: var(--cloud-field);
   color: var(--cloud-ink);
-  border: 0 !important;
+  border: 1px solid transparent !important;
   box-shadow: none;
   backdrop-filter: none;
   font-size: 13px;
@@ -98,8 +98,7 @@
   body
   :is(.cloud-panel, .cloud-server-row)
   :is(button, input):focus-visible {
-  outline: 2px solid var(--cloud-focus);
-  outline-offset: 2px;
+  border-color: var(--cloud-focus) !important;
   box-shadow: none;
 }
 .cloud-server-heading {
@@ -233,7 +232,7 @@
   min-height: 32px;
   padding: 0;
   background: transparent;
-  border: 0 !important;
+  border: 1px solid transparent !important;
   border-radius: 999px !important;
   cursor: pointer;
 }

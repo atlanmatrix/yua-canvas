@@ -1,5 +1,5 @@
 import { t as tr } from "./i18n";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Download, Pencil, Eye, Save } from "./icons";
 import type { Card } from "./storage";
 import { fileMime } from "./files";
@@ -76,6 +76,7 @@ export function TextFileEditor({
 }) {
   const [editing, setEditing] = useState(!!card.editableFile),
     [name, setName] = useState(card.title),
+    [renaming, setRenaming] = useState(false),
     [text, setText] = useState(""),
     [original, setOriginal] = useState(""),
     [format, setFormat] = useState<TextFormat>(),
@@ -99,6 +100,7 @@ export function TextFileEditor({
       active = false;
     };
   }, [card.blob]);
+  const previousName = useRef(name);
   const extension = fileExtension(name.trim());
   const types = TEXT_FILE_TYPES.map((type) => ({
     value: type.extension,
@@ -132,14 +134,43 @@ export function TextFileEditor({
   return (
     <>
       <div className="file-edit-controls">
-        <label>
-          {tr("文件名")}
-          <input
-            aria-label={tr("文件名")}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </label>
+        <div className="file-name-field">
+          <span>{tr("文件名")}</span>
+          {renaming ? (
+            <input
+              aria-label={tr("文件名")}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+              onFocus={(e) => e.target.select()}
+              onBlur={() => {
+                setName(name.trim() || previousName.current);
+                setRenaming(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  e.currentTarget.blur();
+                } else if (e.key === "Escape") {
+                  e.stopPropagation();
+                  setName(previousName.current);
+                  setRenaming(false);
+                }
+              }}
+            />
+          ) : (
+            <button
+              className="file-name-title"
+              aria-label={tr("文件名")}
+              onClick={() => {
+                previousName.current = name;
+                setRenaming(true);
+              }}
+            >
+              {name}
+            </button>
+          )}
+        </div>
         <SelectField
           label={tr("文件类型")}
           value={extension}
@@ -167,7 +198,9 @@ export function TextFileEditor({
         </button>
       </div>
       {error && <p role="alert">{tr(error)}</p>}
-      <div className="detail-content">
+      <div
+        className={`detail-content${editing ? " file-editing-content" : ""}`}
+      >
         {editing ? (
           <textarea
             className="file-content-editor"

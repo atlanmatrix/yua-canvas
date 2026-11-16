@@ -259,8 +259,14 @@ for (const theme of ["light", "dark"]) {
       theme === "light" ? "rgb(243, 244, 246)" : "rgb(32, 33, 36)",
     );
     expect(palette.text).toBeGreaterThanOrEqual(4.5);
-    expect(palette.borderWidth).toBe("0px");
+    expect(palette.borderWidth).toBe("1px");
     expect(palette.height).toBeLessThanOrEqual(36);
+    const field = form.locator("input").first();
+    const bounds = await field.boundingBox();
+    await field.focus();
+    await expect(field).toHaveCSS("outline-style", "none");
+    await expect(field).toHaveCSS("border-top-style", "solid");
+    expect(await field.boundingBox()).toEqual(bounds);
     await page.screenshot({ path: `/tmp/yua-cloud-form-${theme}.png` });
   });
 }

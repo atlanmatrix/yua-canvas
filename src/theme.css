@@ -1,6 +1,6 @@
 :root {
   --surface: #ffffff;
-  --surface-muted: #f8fafc;
+  --surface-muted: #edf0f4;
   --canvas-bg: #f1f2f4;
   --canvas-dot: #d5d8dc;
   --border: #d5dae4;
@@ -32,7 +32,7 @@
   --ink: #334155;
   --muted: #64748b;
   --surface: #ffffff;
-  --surface-muted: #f8fafc;
+  --surface-muted: #edf0f4;
   --border: #d5dae4;
 }
 :root[data-theme="dark"] .component-mask,
