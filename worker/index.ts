@@ -2,6 +2,7 @@ import { validAgentText } from "../src/agent";
 import { validPresentation, validStrokes } from "../src/presentation";
 import { TOOL_KINDS, isToolKind, validToolText } from "../src/tools";
 import { miniatureUrl, miniatureViewUrl } from "../src/miniatureScene";
+import { validEnvelope, validLockProfile } from "../src/encryptionSchema";
 import {
   isApplicationKind,
   validApplicationText,
@@ -111,6 +112,8 @@ function validateSnapshot(data: any): string[] {
       fail(400, "显示或画笔数据无效");
     count += b.cards.length + b.groups.length + (b.connections?.length || 0);
     if (count > 10000) fail(400, "画布元素过多");
+    if (b.lockProfile !== undefined && !validLockProfile(b.lockProfile))
+      fail(400, "加密主密码配置无效");
     for (const c of b.cards) {
       if (
         !c ||
@@ -135,9 +138,27 @@ function validateSnapshot(data: any): string[] {
         c.blob !== undefined
       )
         fail(400, "卡片格式无效");
-      if (c.kind === "agent" && !validAgentText(c.text)) fail(400, "Agent 配置无效");
+      if (c.kind === "agent" && !validAgentText(c.text))
+        fail(400, "Agent 配置无效");
       if (!validPresentation(c)) fail(400, "组件显示设置无效");
-      if (isToolKind(c.kind) && !validToolText(c.kind, c.text)) fail(400, "工具配置无效");
+      if (c.lock !== undefined || c.locked !== undefined) {
+        if (
+          !validEnvelope(c.lock) ||
+          c.locked !== true ||
+          c.kind !== "text" ||
+          c.text !== "" ||
+          c.title !== "已锁定组件" ||
+          c.canvas !== undefined ||
+          c.tasks !== undefined ||
+          c.remark !== undefined ||
+          c.pin !== undefined ||
+          c.mime !== undefined ||
+          c.textStyle !== undefined
+        )
+          fail(400, "加密组件数据无效");
+      }
+      if (isToolKind(c.kind) && !validToolText(c.kind, c.text))
+        fail(400, "工具配置无效");
       if (isApplicationKind(c.kind) && !validApplicationText(c.kind, c.text))
         fail(400, "应用关联配置无效");
       if (c.kind === "miniature" && !miniatureUrl(c.text))
@@ -158,6 +179,7 @@ function validateSnapshot(data: any): string[] {
       )
         fail(400, "3D 场景视图无效");
       if (
+        c.locked === true ||
         c.kind === "file" ||
         c.kind === "image" ||
         (c.kind === "miniature" && c.archiveFile !== undefined)

@@ -113,6 +113,7 @@ export const digest = async (bytes: BufferSource) =>
     (n) => n.toString(16).padStart(2, "0"),
   ).join("");
 export async function packCloud(board: Board) {
+  board = await (await import("./encryption")).sealBoard(board);
   const assets = new Map<string, Blob>();
   async function pack(b: Board): Promise<any> {
     const cards = [];

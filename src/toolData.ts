@@ -1,10 +1,13 @@
+import { isPrivateSession } from "./privateSession";
 type Cached<T> = { saved: number; data: T };
 const memory = new Map<string, Cached<unknown>>();
 export function readToolCache<T>(key: string): Cached<T> | undefined {
   try {
     const value =
       memory.get(key) ||
-      JSON.parse(localStorage.getItem("yua-tool:" + key) || "null");
+      (!isPrivateSession()
+        ? JSON.parse(localStorage.getItem("yua-tool:" + key) || "null")
+        : undefined);
     if (value && Number.isFinite(value.saved) && value.data)
       return value as Cached<T>;
   } catch {
@@ -16,7 +19,8 @@ export function saveToolCache<T>(key: string, data: T) {
   memory.set(key, value);
   if (memory.size > 40) memory.delete(memory.keys().next().value!);
   try {
-    localStorage.setItem("yua-tool:" + key, JSON.stringify(value));
+    if (!isPrivateSession())
+      localStorage.setItem("yua-tool:" + key, JSON.stringify(value));
   } catch {
     /* Cache is optional. */
   }

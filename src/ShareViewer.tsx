@@ -1,4 +1,6 @@
 import { useCanvasTouch } from "./useCanvasTouch";
+import { ComponentLockDialog, LockedContent } from "./ComponentLock";
+import { unlockIsolated } from "./encryption";
 import { useCanvasWheelGuard } from "./useCanvasWheelGuard";
 import { AgentCard } from "./AgentCard";
 import { Attachment } from "./Attachment";
@@ -47,12 +49,30 @@ function Asset({ card }: { card: Card }) {
     setUrl(u);
     return () => URL.revokeObjectURL(u);
   }, [card.blob]);
+  const encryptedDownload =
+    card.lock || card.inheritedLock
+      ? (e: React.MouseEvent) => {
+          e.preventDefault();
+          void exportBoard({ version: 1, cards: [card], groups: [] }).then(
+            (raw) => {
+              const u = URL.createObjectURL(
+                new Blob([raw], { type: "application/json" }),
+              );
+              const a = document.createElement("a");
+              a.href = u;
+              a.download = "encrypted-component.canvas.json";
+              a.click();
+              setTimeout(() => URL.revokeObjectURL(u), 1000);
+            },
+          );
+        }
+      : undefined;
   return card.kind === "image" ? (
-    <a href={url} download={card.title}>
+    <a href={url} download={card.title} onClick={encryptedDownload}>
       <img src={url} alt={card.title} />
     </a>
   ) : (
-    <a href={url} download={card.title}>
+    <a href={url} download={card.title} onClick={encryptedDownload}>
       {tr("下载 ")}
       {card.title}
     </a>
@@ -67,6 +87,9 @@ export function ShareViewer({ token }: { token: string }) {
   const surface = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number } | undefined>(undefined);
   const board = stack.at(-1) || root;
+  const [unlocking, setUnlocking] = useState<Card>();
+  const unlockingRef = useRef(unlocking);
+  unlockingRef.current = unlocking;
   useCanvasWheelGuard(surface, { enabled: !!board });
   useEffect(() => {
     let active = true;
@@ -178,6 +201,25 @@ export function ShareViewer({ token }: { token: string }) {
           </>
         )}
       </header>
+      {unlocking && board && (
+        <ComponentLockDialog
+          mode="unlock"
+          onClose={() => setUnlocking(undefined)}
+          onSubmit={async (password) => {
+            const plain = await unlockIsolated(unlocking, password, root!);
+            if (unlockingRef.current !== unlocking) return;
+            const next = {
+              ...board,
+              cards: board.cards.map((c) =>
+                c.id === unlocking.id ? plain : c,
+              ),
+            };
+            if (stack.length) setStack((s) => [...s.slice(0, -1), next]);
+            else setRoot(next);
+            setUnlocking(undefined);
+          }}
+        />
+      )}
       {error ? (
         <p role="alert">{tr(error)}</p>
       ) : !board ? (
@@ -314,7 +356,9 @@ export function ShareViewer({ token }: { token: string }) {
                           : surfaceColor(c.color),
                     }}
                   >
-                    {c.masked ? (
+                    {c.locked ? (
+                      <LockedContent onUnlock={() => setUnlocking(c)} />
+                    ) : c.masked ? (
                       <Mask />
                     ) : c.displayMode === "small" ? (
                       <TypeIcon card={c} />

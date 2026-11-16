@@ -25,9 +25,10 @@ export function validEndpoint(
     ["n", "e", "s", "w"].includes(e.side) &&
     (e.task === undefined ||
       (typeof e.task === "string" &&
-        c.kind === "todo" &&
+        (c.kind === "todo" || c.locked === true) &&
         (e.side === "e" || e.side === "w") &&
-        !!c.tasks?.some((t) => t.id === e.task)))
+        (!!c.tasks?.some((t) => t.id === e.task) ||
+          (c.locked === true && !!c.lock?.taskIds?.includes(e.task)))))
   );
 }
 export function pruneConnections(board: Board): Board {

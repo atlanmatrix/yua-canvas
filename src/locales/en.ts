@@ -1,4 +1,26 @@
 export const english: Record<string, string> = {
+  已锁定组件: "Locked component",
+  密码锁定: "Lock with password",
+  密码解锁: "Unlock with password",
+  重新锁定: "Lock again",
+  锁定组件: "Lock component",
+  解锁组件: "Unlock component",
+  复制加密组件: "Copy encrypted components",
+  主密码: "Master password",
+  确认主密码: "Confirm master password",
+  "正在加解密…": "Encrypting / decrypting…",
+  "设置工作区主密码。所有组件共用此密码，每个组件使用独立的加密密钥。":
+    "Set a workspace master password. Components share this password, each with its own encryption key.",
+  "请输入工作区主密码。解锁仅在当前会话有效，保存与同步仍保持加密。":
+    "Enter the workspace master password. Unlocking lasts for this session; saved and synced data stays encrypted.",
+  "主密码至少 8 个字符，不会被保存；遗忘后无法恢复加密内容。":
+    "Use at least 8 characters. The password is never stored; encrypted content cannot be recovered without it.",
+  两次输入的密码不一致: "The passwords do not match",
+  密码错误或加密数据已损坏: "Incorrect password or damaged encrypted data",
+  "组件已更改，请重试": "The component changed. Please try again.",
+  "加密操作失败，请重试": "Encryption failed. Please try again.",
+  "主密码至少需要 8 个字符":
+    "The master password must contain at least 8 characters",
   文件类型: "File type",
   纯文本: "Plain text",
   无后缀: "No extension",

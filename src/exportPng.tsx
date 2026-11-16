@@ -74,6 +74,7 @@ function ExportContent({ card }: { card: Card }) {
 
 /** A frozen, readonly scene: never mounts agent settings, live embeds or selection UI. */
 export async function exportPng(board: Board): Promise<Blob> {
+  board = await (await import("./encryption")).sealBoard(board);
   const cards = board.cards.filter((c) => !presentationHidden(board, c.group));
   const groups = board.groups
     .filter((g) => g.bounds && !presentationHidden(board, g.parent))

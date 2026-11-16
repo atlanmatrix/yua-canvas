@@ -616,6 +616,53 @@ test("canvas deep links and inline names survive offline direct entry at the Pag
   }
 });
 
+test("component envelopes remain encrypted at rest and unlock offline after reload at the Pages subpath", async () => {
+  const context = await browser.newContext();
+  try {
+    const page = await app(context);
+    await page.keyboard.press("n");
+    await page
+      .getByRole("textbox", { name: "文本内容", exact: true })
+      .fill("离线加密秘密");
+    await page.keyboard.press("ControlOrMeta+Enter");
+    await page
+      .getByTestId("card")
+      .dispatchEvent("contextmenu", { clientX: 400, clientY: 200 });
+    await page.getByRole("menuitem", { name: "密码锁定", exact: true }).click();
+    const password = "offline-test-master";
+    await page
+      .getByRole("textbox", { name: "主密码", exact: true })
+      .fill(password);
+    await page
+      .getByRole("textbox", { name: "确认主密码", exact: true })
+      .fill(password);
+    await page.getByRole("dialog").locator("button.primary").click();
+    await expect(page.locator(".component-locked")).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await context.setOffline(true);
+    await page.reload();
+    await expect(page.locator(".component-locked")).toBeVisible();
+    await page.getByRole("button", { name: "密码解锁", exact: true }).click();
+    await page
+      .getByRole("textbox", { name: "主密码", exact: true })
+      .fill(password);
+    await page.getByRole("dialog").locator("button.primary").click();
+    await expect(page.locator(".note-body")).toHaveText("离线加密秘密");
+    const pending = page.waitForEvent("download");
+    await openSettings(page);
+    await exportCanvas(page);
+    const chunks = [];
+    for await (const chunk of await (await pending).createReadStream())
+      chunks.push(chunk);
+    const raw = Buffer.concat(chunks).toString();
+    assert.ok(!raw.includes("离线加密秘密"));
+    assert.ok(!raw.includes(password));
+    assert.equal(JSON.parse(raw).cards[0].locked, true);
+  } finally {
+    await context.close();
+  }
+});
+
 test("update saves pending canvas edits and does not reload other open tabs", async () => {
   const context = await browser.newContext();
   try {

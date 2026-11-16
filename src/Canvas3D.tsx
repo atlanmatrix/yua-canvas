@@ -1,4 +1,5 @@
 import { AgentCard } from "./AgentCard";
+import { LockedContent } from "./ComponentLock";
 import { t as tr } from "./i18n";
 import { StrokeView } from "./PaintLayer";
 import {
@@ -86,6 +87,7 @@ function ComponentPreview({ card }: { card: Card }) {
     card.masked,
     card.displayMode,
   ]);
+  if (card.locked) return <LockedContent />;
   if (card.masked) return <Mask />;
   if (card.displayMode === "small") return <TypeIcon card={card} />;
   if (card.kind === "agent") return <AgentCard card={card} />;

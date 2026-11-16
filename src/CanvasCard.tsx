@@ -1,4 +1,5 @@
 import { AgentCard } from "./AgentCard";
+import { LockedContent } from "./ComponentLock";
 import React, { memo } from "react";
 import {
   ListTodo,
@@ -251,6 +252,10 @@ export const CanvasCard = memo(function CanvasCard({
       }}
       onDoubleClick={(e) => {
         e.stopPropagation();
+        if (c.locked) {
+          openCard(c);
+          return;
+        }
         if (c.masked) return;
         if (c.displayMode === "small") {
           setBoard(
@@ -290,7 +295,9 @@ export const CanvasCard = memo(function CanvasCard({
           );
       }}
     >
-      {c.masked ? (
+      {c.locked ? (
+        <LockedContent onUnlock={() => openCard(c)} />
+      ) : c.masked ? (
         <Mask />
       ) : c.displayMode === "small" && !editing ? (
         <TypeIcon card={c} />

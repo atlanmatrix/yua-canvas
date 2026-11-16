@@ -2,6 +2,17 @@ import { useCanvasTouch } from "./useCanvasTouch";
 import { useCanvasWheelGuard } from "./useCanvasWheelGuard";
 import { defaultAgent } from "./agent";
 import { CanvasCard } from "./CanvasCard";
+import { ComponentLockDialog } from "./ComponentLock";
+import {
+  createLockProfile,
+  findLockProfile,
+  lockCard,
+  unlockIsolated,
+  forgetCard,
+  hasProtected,
+  sealBoard,
+  duplicateProtected,
+} from "./encryption";
 import { TOOL_KINDS, TOOL_NAMES, isToolKind } from "./tools";
 import { TOOL_ICONS } from "./ToolCard";
 import { ExportMenu, type ExportFormat } from "./ExportMenu";
@@ -22,6 +33,7 @@ import React, {
 import { createRoot } from "react-dom/client";
 import {
   ListTodo,
+  LockKeyhole,
   Bot,
   Box,
   PanelsTopLeft,
@@ -73,6 +85,7 @@ import {
   saveBoard,
   readCanvasClipboard,
   saveCanvasClipboard,
+  clearCanvasClipboard,
   readView,
   readNavigation,
   exportBoard,
@@ -139,6 +152,7 @@ import {
   newBoard,
   canvasCard,
   replaceBoard,
+  locateBoard,
 } from "./workspace";
 import {
   selectedFragment,
@@ -188,6 +202,7 @@ import "./bottom-tools.css";
 import "./icon-motion.css";
 import "./cloud.css";
 import "./typography.css";
+import "./encryption.css";
 import { installIconMotion } from "./iconMotion";
 import { registerPwa } from "./pwa";
 void registerPwa();
@@ -221,6 +236,16 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   );
   const latestWorkspace = useRef({ root, view, navigation });
   latestWorkspace.current = { root, view, navigation };
+  const [lockRequest, setLockRequest] = useState<{
+    id?: string;
+    path: string[];
+    mode: "lock" | "unlock" | "relock" | "copy";
+    fragment?: Fragment;
+    offset?: number | { x: number; y: number };
+  } | null>(null);
+  const currentLockRequest = useRef(lockRequest);
+  const [lockBusy, setLockBusy] = useState(false);
+  currentLockRequest.current = lockRequest;
   const [dragCursor, setDragCursor] = useState(false);
   const [touchMode, setTouchMode] = useState(
     () => matchMedia("(pointer: coarse)").matches,
@@ -438,7 +463,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         notify("无法读取浏览器存储，请检查浏览器设置后刷新。");
       });
   }, []);
-  useAutosave(root, view, ready && !importBusy, setSaveStatus, navigation);
+  useAutosave(
+    root,
+    view,
+    ready && !importBusy && !lockBusy,
+    setSaveStatus,
+    navigation,
+  );
   useCanvasWheelGuard(surface, {
     forceCanvas: () =>
       gesture.current?.kind === "pan" && gesture.current.button === 2,
@@ -641,6 +672,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             y: point.y - Math.min(...positions.map((p) => p.y)),
           }
         : internalCopy.current.offset;
+      if (hasProtected(fragment)) {
+        setLockRequest({ path: [...path], mode: "copy", fragment, offset });
+        return true;
+      }
       const result = duplicateFragment(latestBoard.current, fragment, offset);
       internalCopy.current.offset += 30;
       setBoard(result.board);
@@ -1073,6 +1108,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     offset?: number,
     appendTask = false,
   ) => {
+    if (card.locked) {
+      setLockRequest({ id: card.id, path: [...path], mode: "unlock" });
+      return;
+    }
     if (card.masked) return;
     if (
       presentationHidden(board, card.group) &&
@@ -1877,6 +1916,16 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
   const downloadCard = async (card: Card) => {
+    if (card.lock || card.inheritedLock) {
+      download(
+        new Blob(
+          [await exportBoard({ version: 1, cards: [card], groups: [] })],
+          { type: "application/json" },
+        ),
+        "encrypted-component.canvas.json",
+      );
+      return;
+    }
     if (card.kind === "canvas" && card.canvas) {
       download(
         new Blob([await exportBoard(card.canvas)], {
@@ -1920,19 +1969,34 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     const group = options?.groupId || (cardIds ? undefined : selectedGroup);
     const cutting = !!options?.cut;
     const destination = activeCanvasKey.current;
-    const fragment = selectedFragment(board, cardIds || selection, group);
+    let fragment = selectedFragment(board, cardIds || selection, group);
+    const protectedCopy = hasProtected(fragment);
     if (!fragment.cards.length && !fragment.groups.length) return;
     const token = uid();
     clipboardBusy.current = true;
     notify(cutting ? "正在剪切…" : "正在复制…");
-    internalCopy.current = { token, fragment, offset: cutting ? 0 : 30 };
+    internalCopy.current = {
+      token,
+      fragment: protectedCopy ? { cards: [], groups: [] } : fragment,
+      offset: cutting ? 0 : 30,
+    };
     try {
       if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined")
         throw Error("当前浏览器不支持系统剪贴板");
+      // Start the platform write inside the user gesture, including on Safari.
+      // A protected selection puts only an opaque marker on the system clipboard.
+      let protectedWrite: Promise<void> | undefined;
+      if (protectedCopy) {
+        protectedWrite = navigator.clipboard.write(
+          canvasClipboard(undefined, token, tr("已锁定组件")),
+        );
+        void protectedWrite.catch(() => {});
+        fragment = await sealBoard(fragment);
+      }
       let copy;
       let unsupported: Card[] = [];
       try {
-        if (!group) copy = clipboardCopy(fragment.cards);
+        if (!group && !protectedCopy) copy = clipboardCopy(fragment.cards);
       } catch (error) {
         if (error instanceof FileClipboardUnsupported)
           unsupported = error.files;
@@ -1944,7 +2008,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             c.text || c.title || (c.tasks || []).map((t) => t.text).join("\n"),
         )
         .join("\n\n");
-      await navigator.clipboard.write(canvasClipboard(copy, token, text));
+      await (protectedWrite ||
+        navigator.clipboard.write(canvasClipboard(copy, token, text)));
+      internalCopy.current = { token, fragment, offset: cutting ? 0 : 30 };
       if (cutting) {
         await saveCanvasClipboard({ token, fragment, offset: 0 });
         if (
@@ -2179,6 +2245,15 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           e.preventDefault();
           const fragment = selectedFragment(board, selection, selectedGroup);
           if (fragment.cards.length || fragment.groups.length) {
+            if (hasProtected(fragment)) {
+              setLockRequest({
+                path: [...path],
+                mode: "copy",
+                fragment,
+                offset: 30,
+              });
+              return;
+            }
             const result = duplicateFragment(board, fragment, 30);
             setBoard(result.board);
             setSelection(result.group ? [] : result.cards);
@@ -2834,6 +2909,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                         renderContent={(card) => (
                           <StaticContent
                             card={card}
+                            onUnlock={openCard}
                             onToolChange={(card, text) =>
                               updateCards((cards) =>
                                 cards.map((c) =>
@@ -3727,6 +3803,32 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 </MenuSection>
               )}
               <MenuSection label={tr("内容显示")}>
+                {menuCard && (
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setLockRequest({
+                        id: menuCard.id,
+                        path: [...path],
+                        mode: menuCard.locked
+                          ? "unlock"
+                          : menuCard.lock
+                            ? "relock"
+                            : "lock",
+                      });
+                      setMenu(null);
+                    }}
+                  >
+                    <LockKeyhole size={14} />
+                    {tr(
+                      menuCard.locked
+                        ? "密码解锁"
+                        : menuCard.lock
+                          ? "重新锁定"
+                          : "密码锁定",
+                    )}
+                  </button>
+                )}
                 <MenuButton
                   shortcut="mask"
                   role="menuitem"
@@ -3739,6 +3841,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 </MenuButton>
                 <button
                   role="menuitem"
+                  disabled={!!menuCard?.locked}
                   onClick={() => {
                     const item = menuCard || menuGroup;
                     if (item)
@@ -3991,6 +4094,81 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           </form>
         </div>
       )}
+      {lockRequest && (
+        <ComponentLockDialog
+          key={lockRequest.mode + ":" + (lockRequest.id || "copy")}
+          mode={lockRequest.mode}
+          first={lockRequest.mode === "lock" && !findLockProfile(root)}
+          onClose={() => setLockRequest(null)}
+          onSubmit={async (password) => {
+            setLockBusy(true);
+            try {
+              const request = lockRequest;
+              const snapshot = latestWorkspace.current;
+              const located = locateBoard(snapshot.root, request.path);
+              if (JSON.stringify(located.path) !== JSON.stringify(request.path))
+                throw Error("组件已更改，请重试");
+              let updated: Board;
+              let old: Card | undefined;
+              if (request.mode === "copy" && request.fragment) {
+                const result = await duplicateProtected(
+                  located.board,
+                  request.fragment,
+                  request.offset || 30,
+                  password,
+                );
+                updated = replaceBoard(
+                  snapshot.root,
+                  request.path,
+                  () => result.board,
+                );
+              } else {
+                old = located.board.cards.find((c) => c.id === request.id);
+                if (!old) throw Error("组件已更改，请重试");
+                const profile =
+                  old.lock?.profile ||
+                  findLockProfile(snapshot.root) ||
+                  (await createLockProfile(password));
+                const next =
+                  request.mode === "unlock"
+                    ? await unlockIsolated(old, password, snapshot.root)
+                    : await lockCard(old, profile, password);
+                updated = replaceBoard(snapshot.root, request.path, (b) => ({
+                  ...b,
+                  cards: b.cards.map((c) => (c.id === old!.id ? next : c)),
+                }));
+                updated = {
+                  ...updated,
+                  lockProfile: snapshot.root.lockProfile || profile,
+                };
+              }
+              if (currentLockRequest.current !== request) return;
+              if (latestWorkspace.current.root !== snapshot.root)
+                throw Error("组件已更改，请重试");
+              await saveBoard(updated, snapshot.view, snapshot.navigation);
+              if (
+                currentLockRequest.current !== request ||
+                latestWorkspace.current.root !== snapshot.root
+              )
+                return;
+              if (request.mode !== "unlock" && request.mode !== "copy") {
+                if (old) forgetCard(old);
+                internalCopy.current = null;
+                setCopyFiles([]);
+                await clearCanvasClipboard();
+              }
+              clearCanvasUI();
+              setLockRequest(null);
+              // A security boundary must not be undone into an unauthenticated plaintext snapshot.
+              if (request.mode === "unlock" || request.mode === "copy")
+                workspace.updateRoot(updated, { preserveLayout: true });
+              else restore(updated, snapshot.view, snapshot.navigation);
+            } finally {
+              setLockBusy(false);
+            }
+          }}
+        />
+      )}
       {current && (
         <div className="modal-backdrop">
           <div
@@ -4098,7 +4276,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 key={current.id}
                 card={current}
                 preview={<Attachment card={current} large />}
-                onDownload={() => download(current.blob!, current.title)}
+                onDownload={() => void downloadCard(current)}
                 onSave={(blob, name) =>
                   updateCards((cards) =>
                     cards.map((card) =>
@@ -4124,7 +4302,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   <small>{current.mime || tr("文件")}</small>
                   <button
                     className="primary"
-                    onClick={() => download(current.blob!, current.title)}
+                    onClick={() => void downloadCard(current)}
                   >
                     <Download size={15} />
                     {tr("下载原文件")}

@@ -1,4 +1,12 @@
 import { validAgentText } from "./agent";
+import { sealBoard, protectedNavigation, hasProtected } from "./encryption";
+import { protectPreviewCaches } from "./previewDisk";
+import {
+  validEnvelope,
+  validLockProfile,
+  type Envelope,
+  type LockProfile,
+} from "./encryptionSchema";
 import {
   validPresentation,
   validStrokes,
@@ -13,6 +21,9 @@ import { isApplicationKind, validApplicationText } from "./appAssociations";
 import { TOOL_KINDS, isToolKind, validToolText, type ToolKind } from "./tools";
 export type PinColor = "info" | "warn" | "danger" | "normal";
 export type Card = {
+  inheritedLock?: Envelope;
+  lock?: Envelope;
+  locked?: boolean;
   id: string;
   pin?: string;
   pinColor?: PinColor;
@@ -178,6 +189,8 @@ export function initializeGroups(board: Board): Board {
 export type View = { x: number; y: number; z: number };
 export type Navigation = { path: string[]; views: Record<string, View> };
 export type Board = {
+  protection?: Envelope;
+  lockProfile?: LockProfile;
   version: 1;
   parentCreated?: boolean;
   id?: string;
@@ -198,8 +211,16 @@ export async function readBoard(): Promise<Board | undefined> {
   const db = await database;
   return new Promise((resolve, reject) => {
     const r = db.transaction("boards").objectStore("boards").get("main");
-    r.onsuccess = () =>
-      resolve(r.result ? initializeGroups(r.result) : undefined);
+    r.onsuccess = async () => {
+      try {
+        const board = r.result ? initializeGroups(r.result) : undefined;
+        if (board && (board.lockProfile || hasProtected(board)))
+          await protectPreviewCaches();
+        resolve(board);
+      } catch (error) {
+        reject(error);
+      }
+    };
     r.onerror = () => reject(r.error);
   });
 }
@@ -223,12 +244,17 @@ export async function readView(): Promise<View | undefined> {
     request.onerror = () => reject(request.error);
   });
 }
+let saveRevision = 0;
 export async function saveBoard(
   board: Board,
   view?: View,
   navigation?: Navigation,
 ) {
+  const revision = ++saveRevision;
+  board = await sealBoard(board);
+  ({ view, navigation } = protectedNavigation(board, view, navigation));
   const db = await database;
+  if (revision !== saveRevision) return;
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction("boards", "readwrite");
     tx.objectStore("boards").put(board, "main");
@@ -272,6 +298,7 @@ export async function readNavigation(): Promise<Navigation | undefined> {
   });
 }
 export async function serializeBoard(board: Board): Promise<object> {
+  board = await sealBoard(board);
   return {
     ...board,
     cards: await Promise.all(
@@ -308,6 +335,8 @@ export async function importBoard(
 ): Promise<Board> {
   if (depth > 128) throw Error("画布嵌套过深");
   const data = JSON.parse(raw);
+  if (data.lockProfile !== undefined && !validLockProfile(data.lockProfile))
+    throw Error("加密主密码配置无效");
   if (
     data.version !== 1 ||
     !Array.isArray(data.cards) ||
@@ -400,6 +429,22 @@ export async function importBoard(
       )
         throw new Error("卡片数据无效");
       if (!validPresentation(c)) throw Error("组件显示设置无效");
+      if (c.lock !== undefined || c.locked !== undefined) {
+        if (
+          !validEnvelope(c.lock) ||
+          c.locked !== true ||
+          c.kind !== "text" ||
+          c.text !== "" ||
+          c.title !== "已锁定组件" ||
+          c.canvas !== undefined ||
+          c.tasks !== undefined ||
+          c.remark !== undefined ||
+          c.pin !== undefined ||
+          c.mime !== undefined ||
+          c.textStyle !== undefined
+        )
+          throw Error("加密组件数据无效");
+      }
       if (
         isToolKind(c.kind as string) &&
         !validToolText(c.kind as ToolKind, c.text)
@@ -451,7 +496,10 @@ export async function importBoard(
         throw Error("文本显示设置无效");
       let blob: Blob | undefined =
         attachment &&
-        (c.kind === "file" || c.kind === "image" || c.kind === "miniature") &&
+        (c.kind === "file" ||
+          c.kind === "image" ||
+          c.kind === "miniature" ||
+          c.locked === true) &&
         typeof c.archiveFile === "string"
           ? attachment(
               c.archiveFile,
@@ -485,6 +533,7 @@ export async function importBoard(
       }
       if ((c.kind === "image" || c.kind === "file") && !blob)
         throw new Error("缺少附件");
+      if (c.locked && (!blob || blob.size < 16)) throw Error("缺少加密内容");
       if (
         c.kind === "miniature" &&
         blob &&
@@ -526,6 +575,7 @@ export async function importBoard(
             )
           : undefined;
       return {
+        ...(c.lock ? { lock: c.lock as Envelope, locked: true } : {}),
         displayMode: c.displayMode as Card["displayMode"],
         previewWidth: c.previewWidth as number | undefined,
         previewHeight: c.previewHeight as number | undefined,
@@ -599,7 +649,11 @@ export async function importBoard(
   )
     throw Error("画笔显示设置无效");
   if (!validStrokes(data.strokes)) throw Error("画笔数据无效");
+  if (data.lockProfile || hasProtected({ cards })) await protectPreviewCaches();
   return initializeGroups({
+    ...(data.lockProfile
+      ? { lockProfile: data.lockProfile as LockProfile }
+      : {}),
     ...(data.strokes !== undefined ? { strokes: data.strokes } : {}),
     ...(data.strokesHidden !== undefined
       ? { strokesHidden: data.strokesHidden }
@@ -617,6 +671,7 @@ export async function importBoard(
 
 // Kept separately from the active workspace so adopting cloud content is recoverable.
 export async function saveRecovery(board: Board) {
+  board = await sealBoard(board);
   const db = await database;
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction("boards", "readwrite");
@@ -643,10 +698,21 @@ export type CanvasClipboard = {
   offset: number;
 };
 export async function saveCanvasClipboard(value: CanvasClipboard) {
+  value = { ...value, fragment: await sealBoard(value.fragment) };
   const db = await database;
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction("boards", "readwrite");
     tx.objectStore("boards").put(value, "cut-clipboard");
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+export async function clearCanvasClipboard() {
+  const db = await database;
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction("boards", "readwrite");
+    tx.objectStore("boards").delete("cut-clipboard");
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error);

@@ -42,6 +42,7 @@ function safeName(name: string) {
   return value === "." || value === ".." ? "file" : value;
 }
 export async function createArchive(fragment: Fragment): Promise<Blob> {
+  fragment = await (await import("./encryption")).sealBoard(fragment);
   const entries: Zippable = Object.create(null);
   const used = new Set([METADATA.toLowerCase()]);
   const pack = async (source: Fragment, prefix = ""): Promise<any> => {
@@ -120,6 +121,8 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
           entries[coverFile] = new Uint8Array(await card.blob.arrayBuffer());
         }
         return {
+          lock: card.lock,
+          locked: card.locked,
           id: card.id,
           kind: card.kind,
           file: path,
@@ -254,13 +257,14 @@ export async function readArchive(
         let text = "",
           tasks;
         if (
-          meta.kind === "text" ||
-          meta.kind === "miniature" ||
-          meta.kind === "mermaid" ||
-          meta.kind === "vscode" ||
-          meta.kind === "iterm2" ||
-          meta.kind === "agent" ||
-          isToolKind(meta.kind)
+          !meta.locked &&
+          (meta.kind === "text" ||
+            meta.kind === "miniature" ||
+            meta.kind === "mermaid" ||
+            meta.kind === "vscode" ||
+            meta.kind === "iterm2" ||
+            meta.kind === "agent" ||
+            isToolKind(meta.kind))
         )
           text = strFromU8(content);
         if (meta.kind === "todo") {
@@ -292,8 +296,9 @@ export async function readArchive(
           tasks,
           blob: undefined,
           archiveFile: meta.kind === "miniature" ? coverPath : filePath,
-          mime:
-            typeof meta.mime === "string"
+          mime: meta.locked
+            ? undefined
+            : typeof meta.mime === "string"
               ? meta.mime
               : meta.blobType !== undefined || meta.kind === "miniature"
                 ? undefined

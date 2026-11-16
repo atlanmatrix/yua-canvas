@@ -7,6 +7,7 @@ import {
   type View,
 } from "./storage";
 import { locateBoard } from "./workspace";
+import { sealBoard, protectedNavigation } from "./encryption";
 
 export type WorkspaceSnapshot = {
   board: Board;
@@ -24,11 +25,13 @@ export async function exportWorkspace({
   view,
   navigation,
 }: WorkspaceSnapshot) {
+  board = await sealBoard(board);
+  const safe = protectedNavigation(board, view, navigation);
   return JSON.stringify(
     {
       ...(await serializeBoard(board)),
       format: FORMAT,
-      workspace: { version: 1, view, navigation },
+      workspace: { version: 1, view: safe.view, navigation: safe.navigation },
     },
     null,
     2,

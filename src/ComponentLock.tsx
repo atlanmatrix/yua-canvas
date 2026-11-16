@@ -1,0 +1,138 @@
+import { useState } from "react";
+import { LockKeyhole, X } from "./icons";
+import { t as tr } from "./i18n";
+export function LockedContent({ onUnlock }: { onUnlock?: () => void }) {
+  return (
+    <div className="component-locked" aria-label={tr("已锁定组件")}>
+      <LockKeyhole size={28} />
+      <span>{tr("已锁定组件")}</span>
+      {onUnlock && (
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onUnlock();
+          }}
+        >
+          {tr("密码解锁")}
+        </button>
+      )}
+    </div>
+  );
+}
+export function ComponentLockDialog({
+  mode,
+  first = false,
+  onSubmit,
+  onClose,
+}: {
+  mode: "lock" | "unlock" | "relock" | "copy";
+  first?: boolean;
+  onSubmit: (password: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [password, setPassword] = useState(""),
+    [confirmation, setConfirmation] = useState(""),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const label =
+    mode === "unlock"
+      ? tr("解锁组件")
+      : mode === "copy"
+        ? tr("复制加密组件")
+        : tr("锁定组件");
+  return (
+    <div className="modal-backdrop">
+      <form
+        className="modal compact component-lock-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.stopPropagation();
+            onClose();
+          }
+        }}
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (busy) return;
+          setError("");
+          if (first && password !== confirmation) {
+            setError("两次输入的密码不一致");
+            return;
+          }
+          setBusy(true);
+          try {
+            await onSubmit(password);
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "加密操作失败，请重试");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <div className="modal-heading">
+          <span>
+            <LockKeyhole size={18} />
+            {label}
+          </span>
+          <button type="button" aria-label={tr("关闭")} onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+        <p>
+          {tr(
+            first
+              ? "设置工作区主密码。所有组件共用此密码，每个组件使用独立的加密密钥。"
+              : "请输入工作区主密码。解锁仅在当前会话有效，保存与同步仍保持加密。",
+          )}
+        </p>
+        <label>
+          {tr("主密码")}
+          <input
+            autoFocus
+            aria-label={tr("主密码")}
+            type="password"
+            autoComplete={first ? "new-password" : "current-password"}
+            minLength={first ? 8 : undefined}
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={busy}
+          />
+        </label>
+        {first && (
+          <label>
+            {tr("确认主密码")}
+            <input
+              aria-label={tr("确认主密码")}
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              required
+              value={confirmation}
+              onChange={(e) => setConfirmation(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+        )}
+        {first && (
+          <small>
+            {tr("主密码至少 8 个字符，不会被保存；遗忘后无法恢复加密内容。")}
+          </small>
+        )}
+        {error && <p role="alert">{tr(error)}</p>}
+        <div className="modal-bottom">
+          <button type="button" onClick={onClose}>
+            {tr("取消")}
+          </button>
+          <button className="primary" disabled={busy}>
+            {busy ? tr("正在加解密…") : label}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}

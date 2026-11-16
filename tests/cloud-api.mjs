@@ -612,3 +612,97 @@ test("Agent conversations sync and share without accepting embedded credentials"
   const resolved = await request("/shares/resolve", "POST", { token: shared.data.token }, null);
   assert.deepEqual(JSON.parse(resolved.data.snapshot.cards[0].text), state);
 });
+
+test("encrypted components validate as opaque ciphertext assets and shares keep the envelope without accepting plaintext fields", async () => {
+  const bytes = Buffer.alloc(64, 173),
+    id = hash(bytes);
+  assert.equal(
+    (
+      await fetch(origin + "/api/assets/" + id, {
+        method: "PUT",
+        headers: { Origin: origin, Cookie: "yua_session=" + token },
+        body: bytes,
+      })
+    ).status,
+    200,
+  );
+  const b64 = (n) => Buffer.alloc(n, 7).toString("base64");
+  const profile = {
+    version: 1,
+    kdf: "PBKDF2-SHA256",
+    iterations: 600000,
+    salt: b64(16),
+    check: { iv: b64(12), ciphertext: b64(32) },
+  };
+  const snapshot = {
+    version: 1,
+    groups: [],
+    lockProfile: profile,
+    cards: [
+      {
+        id: "encrypted",
+        kind: "text",
+        title: "已锁定组件",
+        text: "",
+        x: 10,
+        y: 20,
+        locked: true,
+        archiveFile: id,
+        blobType: "application/octet-stream",
+        lock: {
+          version: 1,
+          id: "12345678-1234-4234-8234-123456789abc",
+          profile,
+          wrappedKey: { iv: b64(12), ciphertext: b64(48) },
+          dataIV: b64(12),
+        },
+      },
+    ],
+  };
+  const revision = (await request("/canvas")).data.revision;
+  for (const mutate of [
+    (s) => {
+      s.cards[0].text = "plaintext";
+    },
+    (s) => {
+      s.lockProfile.iterations = 1;
+    },
+    (s) => {
+      s.cards[0].lock.password = "forbidden";
+    },
+  ]) {
+    const invalid = structuredClone(snapshot);
+    mutate(invalid);
+    assert.equal(
+      (
+        await request("/canvas", "PUT", {
+          baseRevision: revision,
+          snapshot: invalid,
+        })
+      ).status,
+      400,
+    );
+  }
+  assert.equal(
+    (await request("/canvas", "PUT", { baseRevision: revision, snapshot }))
+      .status,
+    200,
+  );
+  const shared = await request("/shares", "POST", {
+    expiresInDays: 7,
+    expectedRevision: revision + 1,
+  });
+  assert.equal(shared.status, 200);
+  const resolved = await request(
+    "/shares/resolve",
+    "POST",
+    { token: shared.data.token },
+    null,
+  );
+  assert.deepEqual(resolved.data.snapshot, snapshot);
+  const response = await fetch(origin + "/api/assets/" + id, {
+    headers: { "X-Share-Token": shared.data.token },
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), bytes);
+});

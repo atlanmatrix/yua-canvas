@@ -9,6 +9,7 @@ import {
   containingGroup,
 } from "./storage";
 export type Fragment = {
+  protection?: Board["protection"];
   cards: Card[];
   groups: Group[];
   strokes?: Stroke[];
@@ -25,6 +26,7 @@ export function selectedFragment(
   );
   const cardIds = new Set(cards.map((c) => c.id));
   return {
+    ...(board.protection ? { protection: board.protection } : {}),
     connections: board.connections?.filter(
       (c) => cardIds.has(c.from.card) && cardIds.has(c.to.card),
     ),

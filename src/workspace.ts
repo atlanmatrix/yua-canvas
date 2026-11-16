@@ -1,5 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useBoardHistory } from "./history";
+import { inheritProtection } from "./encryption";
 import type { WorkspaceSnapshot } from "./workspaceBackup";
 import {
   type Board,
@@ -127,14 +128,16 @@ export function useCanvasWorkspace() {
     history.setBoard((root) => {
       const target = findBoardPath(root, key);
       return target
-        ? replaceBoard(root, target, (b) =>
-            typeof action === "function"
-              ? action(b)
-              : {
-                  ...importedContent(action, b.id),
-                  ...(b.parentCreated ? { parentCreated: true } : {}),
-                },
-          )
+        ? replaceBoard(root, target, (b) => {
+            const next =
+              typeof action === "function"
+                ? action(b)
+                : {
+                    ...importedContent(action, b.id),
+                    ...(b.parentCreated ? { parentCreated: true } : {}),
+                  };
+            return b.protection ? inheritProtection(next, b.protection) : next;
+          })
         : root;
     }, options);
   const canCreateParent = !active.path.length && !history.board.parentCreated;

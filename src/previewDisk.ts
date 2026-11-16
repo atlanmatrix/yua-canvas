@@ -1,3 +1,4 @@
+import { enterPrivateSession, isPrivateSession } from "./privateSession";
 export type PdfBitmap = {
   blob: Blob;
   page: number;
@@ -24,6 +25,7 @@ function db() {
 export async function readPdfBitmap(
   key: string,
 ): Promise<PdfBitmap | undefined> {
+  if (isPrivateSession()) return undefined;
   try {
     const database = await db();
     return await new Promise((resolve, reject) => {
@@ -37,8 +39,10 @@ export async function readPdfBitmap(
   }
 }
 export async function savePdfBitmap(key: string, value: PdfBitmap) {
+  if (isPrivateSession()) return;
   try {
     const database = await db();
+    if (isPrivateSession()) return;
     await new Promise<void>((resolve, reject) => {
       const tx = database.transaction("pdf", "readwrite"),
         store = tx.objectStore("pdf");
@@ -65,4 +69,21 @@ export async function savePdfBitmap(key: string, value: PdfBitmap) {
   } catch {
     /* Derived cache failures never affect the workspace. */
   }
+}
+let privateCacheClear: Promise<void> | undefined;
+export function protectPreviewCaches(): Promise<void> {
+  enterPrivateSession();
+  return (privateCacheClear ||= (async () => {
+    const database = await db();
+    await new Promise<void>((resolve, reject) => {
+      const tx = database.transaction("pdf", "readwrite");
+      tx.objectStore("pdf").clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  })().catch((error) => {
+    privateCacheClear = undefined;
+    throw error;
+  }));
 }

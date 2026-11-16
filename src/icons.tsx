@@ -1,5 +1,6 @@
 // Keep explicit imports so unused Lucide icons remain tree-shakeable.
 import {
+  LockKeyhole as BaseLockKeyhole,
   ArrowLeft as BaseArrowLeft,
   ArrowLeftRight as BaseArrowLeftRight,
   ArrowUpRight as BaseArrowUpRight,
@@ -170,3 +171,4 @@ export const Upload = animatedIcon("Upload", BaseUpload);
 export const WifiOff = animatedIcon("WifiOff", BaseWifiOff);
 export const WrapText = animatedIcon("WrapText", BaseWrapText);
 export const X = animatedIcon("X", BaseX);
+export const LockKeyhole = animatedIcon("LockKeyhole", BaseLockKeyhole);

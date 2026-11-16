@@ -25,7 +25,9 @@ import { ToolCard, TOOL_ICONS } from "./ToolCard";
 import { isToolKind } from "./tools";
 import { surfaceColor, customColor } from "./presentation";
 import { isTextFile } from "./clipboard";
+import { LockedContent } from "./ComponentLock";
 export function TypeIcon({ card }: { card: Card }) {
+  if (card.locked) return <LockedContent />;
   const Icon = {
     text: Type,
     image: Image,
@@ -149,6 +151,7 @@ export function StaticContent({
   onCopyCommands,
   onOpenCanvas,
   onToggleTask,
+  onUnlock,
   onToolChange,
   activeMiniature,
   onActiveMiniatureChange,
@@ -159,10 +162,15 @@ export function StaticContent({
   onCopyCommands?: (text: string) => void;
   onOpenCanvas?: (card: Card) => void;
   onToggleTask?: (card: Card, id: string) => void;
+  onUnlock?: (card: Card) => void;
   onToolChange?: (card: Card, text: string) => void;
   activeMiniature?: boolean;
   onActiveMiniatureChange?: (active: boolean) => void;
 }) {
+  if (card.locked)
+    return (
+      <LockedContent onUnlock={onUnlock ? () => onUnlock(card) : undefined} />
+    );
   if (card.kind === "agent")
     return (
       <AgentCard
