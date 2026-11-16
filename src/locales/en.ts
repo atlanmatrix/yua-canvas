@@ -1,4 +1,7 @@
 export const english: Record<string, string> = {
+  文件类型: "File type",
+  纯文本: "Plain text",
+  无后缀: "No extension",
   "云端请求超时，请稍后重试": "Cloud request timed out. Try again later.",
   同步服务器: "Sync servers",
   新增服务器: "Add server",

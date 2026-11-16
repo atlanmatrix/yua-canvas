@@ -24,6 +24,7 @@ import { ApplicationCard } from "./ApplicationCard";
 import { ToolCard, TOOL_ICONS } from "./ToolCard";
 import { isToolKind } from "./tools";
 import { surfaceColor, customColor } from "./presentation";
+import { isTextFile } from "./clipboard";
 export function TypeIcon({ card }: { card: Card }) {
   const Icon = {
     text: Type,
@@ -80,8 +81,12 @@ export function PreviewFrame({
     height = Math.max(1, natural.height - 2);
   const scaled =
     !pdfGeometry(card) &&
-    card.kind !== "canvas" &&
-    card.kind !== "miniature" &&
+    // Text and interactive controls reflow at their real CSS font size. Scaling
+    // their natural-size preview makes 13px text smaller than a 13px note,
+    // independently of screen density. Images and diagrams retain fit scaling.
+    (card.kind === "image" ||
+      card.kind === "mermaid" ||
+      (card.kind === "file" && !isTextFile(card))) &&
     card.displayMode === "medium";
   const element = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: r.width, height: r.height });

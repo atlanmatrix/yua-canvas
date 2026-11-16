@@ -78,7 +78,7 @@ for (const direction of ["right", "left", "down", "up"]) {
     expect(await coords()).toEqual(after);
   });
 }
-test("env previews, 16px filenames/icons, invisible resize corners and unified group header", async ({
+test("env previews, 13px filenames, 16px icons, invisible resize corners and unified group header", async ({
   page,
 }) => {
   await page.goto("/");
@@ -113,7 +113,7 @@ test("env previews, 16px filenames/icons, invisible resize corners and unified g
     page.locator('.card[aria-label=".env.local"] .file-content-thumbnail'),
   ).toContainText("FEATURE_ENABLED=true");
   for (const title of await page.locator(".attachment-title").all()) {
-    await expect(title).toHaveCSS("font-size", "16px");
+    await expect(title).toHaveCSS("font-size", "13px");
     await expect(title.locator("svg")).toHaveCSS("width", "16px");
     await expect(title.locator("svg")).toHaveCSS("height", "16px");
   }

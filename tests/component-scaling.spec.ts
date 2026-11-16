@@ -93,6 +93,167 @@ for (const dpr of [1, 2])
         .poll(() => visualFont(card.locator(".note-body p")))
         .toBeCloseTo(zoomed, 1);
     });
+
+    test("medium notes, files, tasks and input controls use real 13px text while Markdown keeps its hierarchy", async ({
+      page,
+    }) => {
+      const file = (
+        id: string,
+        title: string,
+        source: string,
+        x: number,
+        y: number,
+      ) => ({
+        ...note(id),
+        kind: "file",
+        displayMode: "medium",
+        title,
+        x,
+        y,
+        width: 640,
+        height: 400,
+        blob:
+          "data:text/plain;base64," + Buffer.from(source).toString("base64"),
+        mime: title.endsWith(".md") ? "text/markdown" : "text/plain",
+      });
+      await seed(page, [
+        {
+          ...note(),
+          x: 20,
+          y: 100,
+          width: 640,
+          height: 400,
+          displayMode: "medium",
+        },
+        file("code", "sample.js", "const value = 42;", 370, 100),
+        {
+          ...note("short"),
+          x: 1070,
+          y: 100,
+          width: 640,
+          height: 50,
+          displayMode: "medium",
+          textAutoHeight: true,
+          text: "https://example.com/docs?project=canvas",
+        },
+        file(
+          "md",
+          "sample.md",
+          "# Retina 标题\n\n正文\n\n```js\nconst n = 1;\n```",
+          720,
+          100,
+        ),
+        {
+          ...note("tasks"),
+          kind: "todo",
+          displayMode: "medium",
+          x: 20,
+          y: 420,
+          width: 640,
+          height: 400,
+          tasks: [{ id: "task", text: "任务正文", done: false }],
+        },
+        {
+          ...note("terminal"),
+          kind: "iterm2",
+          displayMode: "medium",
+          x: 370,
+          y: 420,
+          width: 640,
+          height: 400,
+          text: "echo 'Retina'",
+        },
+        {
+          ...note("calc"),
+          kind: "calculator",
+          displayMode: "medium",
+          x: 720,
+          y: 420,
+          width: 640,
+          height: 400,
+          text: "{}",
+        },
+        {
+          ...note("agent"),
+          kind: "agent",
+          displayMode: "medium",
+          x: 1070,
+          y: 420,
+          width: 640,
+          height: 400,
+          text: JSON.stringify({
+            baseUrl: "https://api.openai.com/v1",
+            model: "test-model",
+            protocol: "responses",
+            instructions: "",
+            messages: [{ role: "user", content: "对话文字" }],
+          }),
+        },
+      ]);
+      await page.getByTitle("重置缩放 (1)", { exact: true }).click();
+      const noteBody = page.locator('[data-card-id="note"] .note-body p');
+      const code = page.locator(
+        '[data-card-id="code"] .file-content-thumbnail',
+      );
+      await expect(code).toHaveAttribute("data-code-state", "ready");
+      await expect.poll(() => visualFont(noteBody)).toBeCloseTo(13, 2);
+      for (const el of [
+        noteBody,
+        page.locator('[data-card-id="short"] .note-body p'),
+        code,
+        page.locator(".todo-row [data-task-text]"),
+        page.locator(".app-terminal pre"),
+        page.locator(".calculator-display"),
+        page.getByRole("textbox", { name: "发送给 Agent" }),
+        page.locator(".agent-message > div"),
+      ]) {
+        await expect(el).toHaveCSS("font-size", "13px");
+        expect(await visualFont(el)).toBeCloseTo(13, 2);
+      }
+      expect(
+        await page.locator(".agent-messages").evaluate((el) => el.clientHeight),
+      ).toBeGreaterThanOrEqual(48);
+      expect(
+        await page
+          .locator('[data-card-id="short"] .note-body')
+          .evaluate((el) => el.clientHeight),
+      ).toBeGreaterThanOrEqual(48);
+      const wrapped = await page
+        .locator('[data-card-id="short"] .note-body')
+        .evaluate((el) => ({
+          height: el.clientHeight,
+          content: el.scrollHeight,
+        }));
+      expect(wrapped.content).toBeLessThanOrEqual(wrapped.height);
+      const markdown = page.locator('[data-card-id="md"] .markdown');
+      await expect(markdown.locator("h1")).toHaveText("Retina 标题");
+      expect(await visualFont(markdown.locator("h1"))).toBe(28);
+      await expect(markdown.locator(".hljs-keyword")).toHaveText("const");
+      await expect(markdown.locator("p")).toHaveCSS("font-size", "14px");
+      await page.locator('[data-card-id="tasks"]').dblclick();
+      const taskInput = page.getByRole("textbox", { name: "任务内容 1" });
+      await expect(taskInput).toHaveCSS("font-size", "13px");
+      expect(await visualFont(taskInput)).toBeCloseTo(13, 2);
+      await taskInput.press("ControlOrMeta+Enter");
+      await page.locator('[data-card-id="code"]').dblclick();
+      await expect(
+        page.getByRole("textbox", { name: "文件名", exact: true }),
+      ).toHaveCSS("font-size", "13px");
+      await page.getByRole("button", { name: "编辑文件", exact: true }).click();
+      await expect(page.getByRole("textbox", { name: "文件内容" })).toHaveCSS(
+        "font-size",
+        "13px",
+      );
+      await page.getByRole("button", { name: "关闭详情" }).click();
+      await page.screenshot({ path: `work/text-density-${dpr}.png` });
+      await page.getByRole("button", { name: "放大", exact: true }).click();
+      expect(await visualFont(code)).toBeCloseTo(await visualFont(noteBody), 2);
+      await expect(
+        page.locator('[data-card-id="code"] .component-content'),
+      ).toHaveCSS("transform", "none");
+      await mode(page, page.locator('[data-card-id="code"]'), "大");
+      expect(await visualFont(code)).toBeCloseTo(await visualFont(noteBody), 2);
+    });
   });
 
 test("medium frames preserve landscape and portrait proportions; PDF large is 150 percent and uses its page's real ratio", async ({

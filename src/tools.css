@@ -55,8 +55,8 @@
 .calculator-display {
   text-align: right;
   font:
-    26px/1.3 ui-monospace,
-    monospace !important;
+    13px/1.3 ui-monospace,
+    monospace;
   margin-bottom: 10px;
 }
 .calculator-keys {

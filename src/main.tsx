@@ -187,6 +187,7 @@ import "./glass.css";
 import "./bottom-tools.css";
 import "./icon-motion.css";
 import "./cloud.css";
+import "./typography.css";
 import { installIconMotion } from "./iconMotion";
 import { registerPwa } from "./pwa";
 void registerPwa();
@@ -4107,6 +4108,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                             blob,
                             mime: blob.type,
                             title: name || card.title,
+                            contentAspectRatio: undefined,
                           }
                         : card,
                     ),

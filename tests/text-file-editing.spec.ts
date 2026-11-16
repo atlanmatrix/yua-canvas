@@ -33,6 +33,114 @@ const formats = [
       ]),
   },
 ];
+
+test("changing file types synchronizes extensions, draft and saved highlighting, bytes, undo and reload", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await saved(page);
+  const original = Buffer.concat([
+    Buffer.from([239, 187, 191]),
+    Buffer.from("const value = 42;\r\n// second line\n"),
+  ]);
+  await page
+    .getByTestId("files")
+    .setInputFiles({
+      name: "sample.txt",
+      mimeType: "text/plain",
+      buffer: original,
+    });
+  const card = page.getByTestId("card");
+  await card.dblclick();
+  const filename = page.getByRole("textbox", { name: "文件名", exact: true });
+  await page.getByRole("combobox", { name: "文件类型", exact: true }).click();
+  await page
+    .getByRole("option", { name: "javascript (.js)", exact: true })
+    .click();
+  await expect(filename).toHaveValue("sample.js");
+  const preview = page
+    .getByRole("dialog")
+    .locator('[data-code-language="javascript"]');
+  await expect(preview).toHaveAttribute("data-code-state", "ready");
+  await expect(preview.locator(".hljs-keyword")).toHaveText("const");
+  expect((await download(page)).name).toBe("sample.txt");
+  await page.getByRole("button", { name: "保存文件", exact: true }).click();
+  await saved(page);
+  const renamed = await download(page);
+  expect(renamed.name).toBe("sample.js");
+  expect(renamed.bytes).toEqual(original);
+  await page.getByRole("button", { name: "关闭详情" }).click();
+  await expect(
+    card.locator('[data-code-language="javascript"]'),
+  ).toHaveAttribute("data-code-state", "ready");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(card.locator(".attachment-title")).toHaveText("sample.txt");
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await saved(page);
+  await page.reload();
+  await expect(card.locator(".attachment-title")).toHaveText("sample.js");
+  await expect(
+    card.locator('[data-code-language="javascript"]'),
+  ).toHaveAttribute("data-code-state", "ready");
+});
+
+test("file type and filename choose Markdown, Mermaid and code renderers before and after saving", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await saved(page);
+  await page
+    .getByTestId("files")
+    .setInputFiles({
+      name: "draft.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("# 文档标题\n\n正文"),
+    });
+  await page.getByTestId("card").dblclick();
+  const dialog = page.getByRole("dialog");
+  const filename = page.getByRole("textbox", { name: "文件名", exact: true });
+  await page.getByRole("combobox", { name: "文件类型", exact: true }).click();
+  await page
+    .getByRole("option", { name: "markdown (.md)", exact: true })
+    .click();
+  await expect(dialog.getByRole("heading", { name: "文档标题" })).toBeVisible();
+  await page.getByRole("button", { name: "保存文件", exact: true }).click();
+  await saved(page);
+  await page.getByRole("button", { name: "编辑文件", exact: true }).click();
+  const input = page.getByRole("textbox", { name: "文件内容" });
+  await input.fill("def greet():\n    return 42\n");
+  await filename.fill("draft.py");
+  await expect(
+    page.getByRole("combobox", { name: "文件类型", exact: true }),
+  ).toContainText("python (.py)");
+  await page.getByRole("button", { name: "预览文件", exact: true }).click();
+  await expect(dialog.locator('[data-code-language="python"]')).toHaveAttribute(
+    "data-code-state",
+    "ready",
+  );
+  await expect(dialog.locator(".hljs-keyword").first()).toHaveText("def");
+  await page.getByRole("button", { name: "保存文件", exact: true }).click();
+  await saved(page);
+  await page.getByRole("button", { name: "编辑文件", exact: true }).click();
+  await input.fill("flowchart LR\n  A[开始] --> B[完成]");
+  await page.getByRole("combobox", { name: "文件类型", exact: true }).click();
+  await page
+    .getByRole("option", { name: "mermaid (.mmd)", exact: true })
+    .click();
+  await expect(filename).toHaveValue("draft.mmd");
+  await page.getByRole("button", { name: "预览文件", exact: true }).click();
+  await expect(
+    dialog.locator('.markdown-diagram[data-diagram-state="ready"] svg'),
+  ).toHaveCount(1, { timeout: 20000 });
+  await page.getByRole("button", { name: "保存文件", exact: true }).click();
+  await saved(page);
+  await page.getByRole("button", { name: "关闭详情" }).click();
+  await expect(
+    page.locator(
+      '.card-file .markdown-diagram[data-diagram-state="ready"] svg',
+    ),
+  ).toHaveCount(1, { timeout: 20000 });
+});
 for (const format of formats)
   test(`${format.name} text files edit in the detail dialog, preserve filename, BOM and CRLF, and undo without changing original bytes`, async ({
     page,

@@ -87,8 +87,8 @@ test("component sizes preserve natural dimensions, mask unmounts content, and re
   const scaled = await card
     .locator(".component-content")
     .evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
-  expect(scaled).toBeGreaterThan(0.49);
-  expect(scaled).toBeLessThanOrEqual(0.5);
+  // Medium text reflows inside the smaller frame at its declared font size.
+  expect(scaled).toBe(1);
   await cardMenu(page);
   await mode(page, "小");
   await expect(card).toHaveCSS("width", "56px");

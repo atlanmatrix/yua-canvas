@@ -99,6 +99,10 @@ export function normalizeLanguage(name: string) {
 }
 export function languageForFile(name: string): string | undefined {
   const base = name.split(/[\\/]/).pop()?.toLowerCase() || "";
+  if (base === "cmakelists.txt") return "cmake";
+  const extension = base.includes(".") ? base.split(".").pop() || "" : "";
+  const explicit = aliases.get(extension) || highlightLanguages[extension];
+  if (explicit) return explicit;
   if (/^(dockerfile)(\.|$)/.test(base)) return "dockerfile";
   if (/^(makefile|gnumakefile)$/.test(base)) return "makefile";
   if (/^(cmakelists\.txt|\.cmake)$/.test(base)) return "cmake";
@@ -108,8 +112,33 @@ export function languageForFile(name: string): string | undefined {
     )
   )
     return "ini";
-  const extension = base.split(".").pop() || "";
-  return aliases.get(extension) || highlightLanguages[extension];
+  return aliases.get(base) || highlightLanguages[base];
+}
+
+export const TEXT_FILE_TYPES = [
+  ...Object.entries(definitions).flatMap(([language, names]) =>
+    names.map((extension) => ({ extension, language })),
+  ),
+  ...Object.values(highlightLanguages)
+    .filter(
+      (language, index, all) =>
+        !definitions[language] && all.indexOf(language) === index,
+    )
+    .map((language) => ({ extension: language, language })),
+];
+
+export function fileExtension(name: string) {
+  const base = name.split(/[\\/]/).pop() || "";
+  return base.includes(".") ? base.split(".").pop()!.toLowerCase() : "";
+}
+
+export function withFileExtension(name: string, extension: string) {
+  const trimmed = name.trim();
+  const dot = trimmed.lastIndexOf(".");
+  const start =
+    Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\")) + 1;
+  const stem = dot > start ? trimmed.slice(0, dot) : trimmed;
+  return `${stem || "untitled"}${extension ? "." + extension : ""}`;
 }
 export type TextFormatDetection = {
   extension: string;

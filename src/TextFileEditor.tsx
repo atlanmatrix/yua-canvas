@@ -2,10 +2,15 @@ import { t as tr } from "./i18n";
 import { useEffect, useState, type ReactNode } from "react";
 import { Download, Pencil, Eye, Save } from "./icons";
 import type { Card } from "./storage";
-import { Markdown } from "./Markdown";
 import { fileMime } from "./files";
-import { CodePreview } from "./CodePreview";
-import { languageForFile } from "./textFormats";
+import { TextFilePreview } from "./TextFilePreview";
+import { SelectField } from "./SelectField";
+import {
+  fileExtension,
+  languageForFile,
+  TEXT_FILE_TYPES,
+  withFileExtension,
+} from "./textFormats";
 export type TextFormat = {
   encoding: "utf-8" | "utf-16le" | "utf-16be";
   bom: boolean;
@@ -94,17 +99,32 @@ export function TextFileEditor({
       active = false;
     };
   }, [card.blob]);
+  const extension = fileExtension(name.trim());
+  const types = TEXT_FILE_TYPES.map((type) => ({
+    value: type.extension,
+    label: `${type.language === "plaintext" ? tr("纯文本") : type.language} (.${type.extension})`,
+  }));
+  if (!types.some((type) => type.value === extension))
+    types.unshift({
+      value: extension,
+      label: extension ? `.${extension}` : tr("无后缀"),
+    });
+  const dirty = text !== original || name.trim() !== card.title;
   const save = () => {
-    if (!format || !name.trim() || (text === original && name === card.title))
-      return;
+    if (!format || !name.trim() || !dirty) return;
+    const declaredMime =
+      name.trim() !== card.title || card.editableFile
+        ? fileMime(name.trim())
+        : card.blob?.type || card.mime || "text/plain";
+    // A decoded text file remains editable when given a custom/no extension.
+    const mime =
+      name.trim() !== card.title && declaredMime === "application/octet-stream"
+        ? "text/plain"
+        : declaredMime;
     onSave(
-      encodeTextFile(
-        text,
-        format,
-        card.editableFile
-          ? fileMime(name.trim())
-          : card.blob?.type || card.mime || "text/plain",
-      ),
+      text === original
+        ? card.blob!.slice(0, card.blob!.size, mime)
+        : encodeTextFile(text, format, mime),
       name.trim(),
     );
     setOriginal(text);
@@ -112,13 +132,20 @@ export function TextFileEditor({
   return (
     <>
       <div className="file-edit-controls">
-        {card.editableFile && (
+        <label>
+          {tr("文件名")}
           <input
             aria-label={tr("文件名")}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
-        )}
+        </label>
+        <SelectField
+          label={tr("文件类型")}
+          value={extension}
+          options={types}
+          onChange={(extension) => setName(withFileExtension(name, extension))}
+        />
         <button
           className={!editing ? "active" : ""}
           aria-label={tr("预览文件")}
@@ -161,19 +188,18 @@ export function TextFileEditor({
               }
             }}
           />
-        ) : text !== original ? (
-          /\.(md|markdown|mdown)$/i.test(card.title) ||
-          card.mime === "text/markdown" ? (
-            <Markdown>{text}</Markdown>
-          ) : (
-            <CodePreview source={text} language={languageForFile(name)} />
-          )
+        ) : dirty && format ? (
+          <TextFilePreview
+            source={text}
+            name={name.trim()}
+            mime={fileMime(name.trim())}
+          />
         ) : (
           preview
         )}
       </div>
       <div className="modal-bottom file-edit-footer">
-        <small>{card.mime || tr("文件")}</small>
+        <small>{languageForFile(name) || card.mime || tr("文件")}</small>
         <div>
           <button className="button" onClick={onDownload}>
             <Download size={15} />
@@ -181,11 +207,7 @@ export function TextFileEditor({
           </button>
           <button
             className="primary"
-            disabled={
-              !format ||
-              !name.trim() ||
-              (text === original && name === card.title)
-            }
+            disabled={!format || !name.trim() || !dirty}
             onClick={save}
           >
             <Save size={15} />

@@ -1,0 +1,103 @@
+:root {
+  --text-font-size: 13px;
+}
+
+/* CSS pixels are independent of devicePixelRatio. Let the browser render DOM
+   text at native screen density, including Markdown, without inverse DPR scaling.
+   Explicit note formatting stays authoritative through its inline textCss style. */
+:root body :is(input, textarea, select, [contenteditable="true"]) {
+  font-size: var(--text-font-size);
+}
+
+.file-content-thumbnail,
+.file-text {
+  font-family: monospace;
+  font-size: var(--text-font-size);
+  line-height: 24px;
+  tab-size: 4;
+}
+
+.todo-list .todo-row,
+.agent-card,
+.app-terminal pre,
+.component-remark,
+.group-list-remark,
+.attachment-title,
+.text-file-card .attachment-title,
+.pin-bar > button {
+  font-size: var(--text-font-size);
+}
+
+.file-content-editor {
+  line-height: 24px;
+}
+
+.agent-card {
+  container: agent / size;
+}
+
+/* Keep the conversation reachable after removing miniature text scaling. */
+@container agent (max-height: 300px) {
+  .agent-header {
+    height: 36px;
+  }
+  .agent-messages {
+    padding: 8px;
+  }
+  .agent-composer {
+    padding: 8px;
+    gap: 4px;
+  }
+  .agent-composer textarea {
+    height: 44px;
+  }
+  .agent-composer .agent-retry {
+    margin-right: 0;
+  }
+}
+
+.detail-content > .mermaid-preview {
+  height: min(50dvh, 500px);
+  min-height: 240px;
+}
+
+.file-edit-controls {
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.file-edit-controls > label {
+  display: flex;
+  flex: 1 1 180px;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.file-edit-controls > label input {
+  width: 100%;
+  padding: 8px 12px;
+}
+
+.file-edit-controls .app-select {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.file-edit-controls .app-select button {
+  font-size: var(--text-font-size);
+}
+
+.file-edit-controls .app-select-options {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: min(320px, 45dvh);
+  overflow-y: auto;
+  background: var(--surface);
+  box-shadow: var(--panel-shadow);
+}

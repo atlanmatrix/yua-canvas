@@ -27,6 +27,10 @@ type CardGeometry = Pick<Card, "x" | "y" | "width" | "height"> &
       | "mime"
       | "title"
       | "contentAspectRatio"
+      | "textStyle"
+      | "text"
+      | "textMode"
+      | "textAutoHeight"
     >
   >;
 export const pdfGeometry = (c: Pick<CardGeometry, "kind" | "mime" | "title">) =>
@@ -42,6 +46,17 @@ export function contentCardSize(c: CardGeometry) {
       : (c.height || 250) * factor,
   };
 }
+const previewTextHeights = new WeakMap<
+  CardGeometry,
+  { width: number; height: number }
+>();
+function previewTextHeight(c: CardGeometry, width: number) {
+  const cached = previewTextHeights.get(c);
+  if (cached?.width === width) return cached.height;
+  const height = textSize(c.text || "", c.textMode, width, c.textStyle).height;
+  previewTextHeights.set(c, { width, height });
+  return height;
+}
 export const cardRect = (c: CardGeometry): Rect => {
   const { width, height } = contentCardSize(c);
   if (c.kind !== "canvas" && c.displayMode === "small")
@@ -52,10 +67,17 @@ export const cardRect = (c: CardGeometry): Rect => {
       : Math.min(1, 320 / width, 240 / height);
     const previewWidth = c.previewWidth || width * scale;
     const previewHeight =
-      c.previewHeight ||
-      (c.contentAspectRatio
-        ? previewWidth / c.contentAspectRatio
-        : height * scale);
+      c.kind === "text" && c.textAutoHeight && typeof c.text === "string"
+        ? previewTextHeight(c, previewWidth)
+        : c.previewHeight ||
+          Math.max(
+            c.kind === "text"
+              ? 26 + Math.max(24, (c.textStyle?.fontSize || 13) * 1.5)
+              : 0,
+            c.contentAspectRatio
+              ? previewWidth / c.contentAspectRatio
+              : height * scale,
+          );
     return {
       x: c.x,
       y: c.y,

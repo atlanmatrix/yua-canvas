@@ -1,14 +1,11 @@
 import { t as tr } from "./i18n";
 import { PreviewBoundary } from "./PreviewBoundary";
 import { usePreferences } from "./i18n";
-import { CodePreview } from "./CodePreview";
-import { Diagram } from "./Markdown";
-import { languageForFile } from "./textFormats";
+import { TextFilePreview } from "./TextFilePreview";
 import { readPreviewText } from "./previewCache";
 import { memo, useEffect, useRef, useState } from "react";
 import { FileText } from "./icons";
 import type { Card } from "./storage";
-import { Markdown } from "./Markdown";
 import { PdfPreview } from "./PdfPreview";
 import { isTextFile, isMarkdownFile, isPdfFile } from "./clipboard";
 const AttachmentContent = memo(function AttachmentContent({
@@ -85,53 +82,15 @@ const AttachmentContent = memo(function AttachmentContent({
         onAspectChange={onPdfAspectChange}
       />
     );
-  if (!large && isMarkdownFile(card))
+  if (card.kind === "file" && isTextFile(card))
     return (
-      <div
-        className="markdown-file-preview"
-        data-file-preview-state={
-          decoded?.source === card.blob ? "ready" : "loading"
-        }
-        onWheel={(e) => {
-          if (e.currentTarget.scrollHeight > e.currentTarget.clientHeight)
-            e.stopPropagation();
-        }}
-      >
-        <Markdown>{fileText}</Markdown>
-      </div>
-    );
-  if (!large && card.kind === "file" && isTextFile(card))
-    return languageForFile(card.title) === "mermaid" ? (
-      <div
-        className="mermaid-preview"
-        data-file-preview-state={
-          decoded?.source === card.blob ? "ready" : "loading"
-        }
-      >
-        <Diagram source={fileText} language="mermaid" standalone />
-      </div>
-    ) : (
-      <CodePreview
+      <TextFilePreview
         source={fileText}
-        language={languageForFile(card.title)}
-        className="file-content-thumbnail"
-        label={tr("{0} 内容预览", card.title)}
+        name={card.title}
+        mime={card.mime}
+        thumbnail={!large}
         loading={decoded?.source !== card.blob}
       />
-    );
-  if (
-    large &&
-    (/\.(md|markdown|mdown)$/i.test(card.title) ||
-      card.mime === "text/markdown")
-  )
-    return <Markdown>{fileText}</Markdown>;
-  if (large && fileText)
-    return languageForFile(card.title) === "mermaid" ? (
-      <div className="mermaid-preview">
-        <Diagram source={fileText} language="mermaid" standalone />
-      </div>
-    ) : (
-      <CodePreview source={fileText} language={languageForFile(card.title)} />
     );
   if (card.kind === "image")
     return (
