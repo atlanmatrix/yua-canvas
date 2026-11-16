@@ -1759,12 +1759,8 @@ main {
   min-height: 0 !important;
   background: var(--surface) !important;
 }
-.component-mask {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.component-mask,
+.component-locked {
   background: repeating-linear-gradient(
     135deg,
     #eeeef0 0px,
@@ -1772,6 +1768,13 @@ main {
     #e8e8eb 8px,
     #e8e8eb 16px
   );
+}
+.component-mask {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: #85858f;
   border-radius: inherit;
   z-index: 1;
