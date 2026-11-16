@@ -1786,10 +1786,13 @@ body .file-detail-modal .file-content-editor {
 .level-caption { position: absolute; left: 0; bottom: 100%; margin-bottom: 6px; max-width: 230px; padding: 5px 8px; border-radius: 6px; background: #fffffff2; color: #4b5563; font-size: 11px; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .help-button { position: absolute; right: 20px; bottom: 24px; z-index: 5; display: flex; align-items: center; justify-content: center; }
 .zoom-controls { right: 74px; }
-.help-dialog { width: 680px; }
+.help-dialog { width: 680px; display: flex; flex-direction: column; overflow: hidden; }
+.help-dialog > .modal-heading { flex-shrink: 0; margin-bottom: 16px; }
+.help-dialog > .modal-heading h2 { margin: 0; }
+.help-dialog-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .help-dialog p { line-height: 1.75; color: #525a69; }
 .help-dialog h3 { margin: 22px 0 8px; }
-.help-dialog .help-build-version { margin: -12px 0 20px; color: #7b8799; font-size: 11px; }
+.help-dialog .help-build-version { margin: 0 0 20px; color: #7b8799; font-size: 11px; }
 .help-build-version code { font-family: ui-monospace, SFMono-Regular, monospace; }
 .shortcut-list { margin: 12px 0 0; }
 .shortcut-list > div { display: grid; grid-template-columns: minmax(150px, 1.2fr) 1fr; gap: 14px; padding: 10px 0; border-bottom: 1px solid #eef0f3; }
