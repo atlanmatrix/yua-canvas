@@ -15,6 +15,30 @@ for (const viewport of [
     const close = dialog.getByRole("button", { name: "关闭使用说明" });
     const content = dialog.locator(".help-dialog-content");
     await expect(close).toBeFocused();
+    // Text must stay clear of an overlay scrollbar, which ignores stable gutters.
+    const clearance = await content.evaluate((el) => {
+      const style = getComputedStyle(el);
+      const bounds = el.getBoundingClientRect();
+      let rightmostText = bounds.left;
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        if (!walker.currentNode.textContent?.trim()) continue;
+        const range = document.createRange();
+        range.selectNodeContents(walker.currentNode);
+        for (const rect of range.getClientRects())
+          rightmostText = Math.max(rightmostText, rect.right);
+      }
+      return {
+        track: style.scrollbarColor,
+        padding: parseFloat(style.paddingInlineEnd),
+        textGap: bounds.left + el.clientWidth - rightmostText,
+        overflow: el.scrollWidth - el.clientWidth,
+      };
+    });
+    expect(clearance.track).toContain("rgba(0, 0, 0, 0)");
+    expect(clearance.padding).toBeGreaterThanOrEqual(12);
+    expect(clearance.textGap).toBeGreaterThanOrEqual(11);
+    expect(clearance.overflow).toBeLessThanOrEqual(1);
     const frame = await dialog.boundingBox();
     const headingFrame = await heading.boundingBox();
     const closeFrame = await close.boundingBox();

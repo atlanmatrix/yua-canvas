@@ -64,9 +64,6 @@
 :root[data-theme="dark"] .group-title::before {
   opacity: 0.25;
 }
-:root[data-theme="dark"] .component-content {
-  scrollbar-color: #667287 transparent;
-}
 :root[data-theme="dark"] input,
 :root[data-theme="dark"] textarea,
 :root[data-theme="dark"] select {

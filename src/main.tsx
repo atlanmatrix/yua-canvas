@@ -215,6 +215,7 @@ import "./cloud.css";
 import "./typography.css";
 import "./encryption.css";
 import "./card-surfaces.css";
+import "./scrollbars.css";
 import { installIconMotion } from "./iconMotion";
 import { registerPwa } from "./pwa";
 void registerPwa();

@@ -1,0 +1,74 @@
+:root {
+  --scrollbar-thumb: #94a3b8;
+  --scrollbar-thumb-hover: #64748b;
+  --scrollbar-clearance: 12px;
+}
+:root[data-theme="dark"] {
+  --scrollbar-thumb: #8290a5;
+  --scrollbar-thumb-hover: #a7b2c4;
+}
+
+/* Keep native scrolling and dragging, with no painted track over the surface. */
+:where(*) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+/* Fallback for browsers that use WebKit scrollbar styling. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-track-piece,
+::-webkit-scrollbar-corner {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* Reserve space on systems with classic scrollbars without adding a second
+   gutter to the fixed outer frames of help and file dialogs. */
+:where(
+  .modal:not(.help-dialog):not(.file-detail-modal),
+  .help-dialog-content,
+  .detail-content,
+  .cloud-panel,
+  .settings-popover,
+  .cloud-share-list,
+  .app-select-options
+) {
+  scrollbar-gutter: stable;
+}
+
+/* Overlay scrollbars ignore scrollbar-gutter. These unpadded content areas
+   also need real space between text and the scrollbar's hit area. Other
+   editors and card bodies already provide at least 12px of content padding. */
+.help-dialog-content,
+.detail-content,
+.file-text,
+.cloud-share-list {
+  padding-inline-end: var(--scrollbar-clearance);
+}
+.help-dialog-content,
+.file-text {
+  padding-block-end: var(--scrollbar-clearance);
+}
+
+@media (forced-colors: active) {
+  :where(*) {
+    scrollbar-color: auto;
+  }
+}
