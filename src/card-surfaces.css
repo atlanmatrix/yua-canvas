@@ -1,0 +1,163 @@
+:root {
+  --card-outline: rgba(15, 23, 42, 0.06);
+  --card-outline-hover: rgba(15, 23, 42, 0.1);
+  --card-rest-shadow: 0 2px 4px rgba(15, 23, 42, 0.04);
+  --card-hover-shadow:
+    0 3px 6px rgba(15, 23, 42, 0.04), 0 12px 28px rgba(15, 23, 42, 0.1);
+}
+:root[data-theme="dark"] {
+  --card-outline: rgba(226, 232, 240, 0.1);
+  --card-outline-hover: rgba(226, 232, 240, 0.18);
+  --card-rest-shadow: 0 2px 4px rgba(0, 0, 0, 0.14);
+  --card-hover-shadow:
+    0 3px 6px rgba(0, 0, 0, 0.16), 0 12px 28px rgba(0, 0, 0, 0.28);
+}
+
+/* Elevation changes without moving the card or its connection anchors. */
+:root[data-theme]
+  body
+  .card:not(:is(.card-canvas, .card-miniature, .card-vscode, .card-iterm2)) {
+  --element-radius: 28px;
+  border-color: var(--card-outline);
+  box-shadow: var(--card-rest-shadow);
+  transition:
+    border-color 180ms ease-out,
+    box-shadow 180ms ease-out,
+    opacity 160ms ease;
+}
+:root[data-theme]
+  body
+  .card:not(:is(.card-canvas, .card-miniature, .card-vscode, .card-iterm2)):is(
+    :hover,
+    :focus-within,
+    [data-menu-open]
+  ) {
+  border-color: var(--card-outline-hover);
+  box-shadow: var(--card-hover-shadow);
+}
+:root[data-theme] body .card.is-small {
+  --element-radius: 16px;
+}
+
+.card-toolbar {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--card-outline);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--control-shadow);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(3px);
+  transition:
+    opacity 140ms ease-out,
+    transform 140ms ease-out;
+}
+/* Bridge the gap so moving from the card to its toolbar keeps hover active. */
+.card-toolbar::after {
+  content: "";
+  position: absolute;
+  inset: 100% -1px auto;
+  height: 10px;
+}
+.card:is(:hover, :focus-within, [data-menu-open]) > .card-toolbar {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+/* Models retain their existing hidden chrome until hovered, selected or focused. */
+.card-miniature > .card-toolbar {
+  visibility: hidden;
+}
+.card-miniature:is(:hover, .selected, :focus-within, [data-menu-open])
+  > .card-toolbar {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+:root[data-theme] body .card-toolbar > button {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 12px !important;
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  color: var(--muted);
+  opacity: 1;
+  pointer-events: inherit;
+  transition:
+    background-color 140ms ease-out,
+    color 140ms ease-out,
+    transform 140ms ease-out;
+}
+:root[data-theme]
+  body
+  .card-toolbar
+  > button:is(:enabled:hover, :focus-visible, [aria-expanded="true"]) {
+  background: var(--surface-muted);
+  color: var(--ink);
+}
+body .card-toolbar > button:enabled:active {
+  transform: scale(0.94);
+}
+
+:root[data-theme] body .card > .connection-port {
+  width: 22px;
+  height: 22px;
+  background: var(--accent);
+  color: var(--surface);
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.12);
+  transition:
+    opacity 140ms ease-out,
+    transform 160ms cubic-bezier(0.22, 1.4, 0.36, 1),
+    box-shadow 140ms ease-out,
+    background-color 140ms ease-out;
+}
+:root[data-theme] body .card > .connection-port:is(:hover, :focus-visible) {
+  background: var(--accent-strong);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.18);
+}
+.card[data-menu-open] > .connection-port {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .card > .card-toolbar {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
+  :root[data-theme] body .card-toolbar > button {
+    width: 36px;
+    height: 36px;
+  }
+  :root[data-theme] body .card > .connection-port {
+    width: 28px;
+    height: 28px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme]
+    body
+    .card:not(:is(.card-canvas, .card-miniature, .card-vscode, .card-iterm2)),
+  :root[data-theme] body .card,
+  :root[data-theme] body .card > .connection-port,
+  .card-toolbar,
+  :root[data-theme] body .card-toolbar > button {
+    transition: none;
+  }
+}

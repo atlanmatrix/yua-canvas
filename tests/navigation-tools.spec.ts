@@ -357,7 +357,7 @@ test("JSON and ZIP preserve pin labels and colors, duplicate pins locate indepen
   await page
     .locator(".card-text")
     .first()
-    .click({ position: { x: 5, y: 5 } });
+    .click({ position: { x: 20, y: 20 } });
   await page
     .locator(".card-text")
     .last()

@@ -225,7 +225,7 @@ test("Pin list is vertical, ordinary cards share file borders and shadows, curve
       }),
     );
   for (const style of styles) expect(style).toEqual(styles[0]);
-  expect(styles[0][0]).toContain("rgb(207, 212, 223)");
+  expect(styles[0][0]).toContain("rgba(15, 23, 42, 0.06)");
   expect(styles[0][1]).not.toBe("none");
   await page.mouse.move(1200, 700);
   await expect(page.locator(".connection-path:not(.draft)")).toHaveCSS(

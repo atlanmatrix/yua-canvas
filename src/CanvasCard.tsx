@@ -76,6 +76,7 @@ const emptyOffsets: Record<string, { y: number; visible: boolean }> = {};
 export const CanvasCard = memo(function CanvasCard({
   card: c,
   selected,
+  menuOpen = false,
   touchMode = false,
   editing,
   editingTask,
@@ -93,6 +94,7 @@ export const CanvasCard = memo(function CanvasCard({
 }: {
   card: Card;
   selected: boolean;
+  menuOpen?: boolean;
   touchMode?: boolean;
   editing: boolean;
   editingTask?: string;
@@ -168,6 +170,7 @@ export const CanvasCard = memo(function CanvasCard({
       data-testid="card"
       data-card-id={c.id}
       data-connection-source={connectionSource || undefined}
+      data-menu-open={menuOpen || undefined}
       data-custom-color={customColor(c.color)}
       onContextMenu={(e) => {
         if ((e.target as HTMLElement).closest(".canvas-editor")) return;
@@ -707,31 +710,68 @@ export const CanvasCard = memo(function CanvasCard({
           )}
         </button>
       )}
-      {!c.masked && c.displayMode !== "small" && !isApplicationKind(c.kind) && (
-        <button
-          className="card-download"
-          aria-label={tr(
-            "下载 {0}",
-            c.title ||
-              (c.kind === "todo"
-                ? "任务"
-                : c.kind === "mermaid"
-                  ? "Mermaid"
-                  : "文本"),
+      <div
+        className="card-toolbar"
+        role="toolbar"
+        aria-label={tr("组件操作")}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        onDoubleClick={(e) => e.stopPropagation()}
+      >
+        {!c.masked &&
+          c.displayMode !== "small" &&
+          !isApplicationKind(c.kind) && (
+            <button
+              className="card-download"
+              aria-label={tr(
+                "下载 {0}",
+                c.title ||
+                  (c.kind === "todo"
+                    ? "任务"
+                    : c.kind === "mermaid"
+                      ? "Mermaid"
+                      : "文本"),
+              )}
+              title={tr("下载")}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+              }}
+              onDoubleClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                downloadCard(c);
+              }}
+            >
+              <Download size={17} />
+            </button>
           )}
-          title={tr("下载")}
-          onPointerDown={(e) => {
-            e.stopPropagation();
-          }}
-          onDoubleClick={(e) => e.stopPropagation()}
+        <button
+          className="card-more"
+          aria-label={tr("更多组件操作")}
+          title={tr("更多")}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
           onClick={(e) => {
             e.stopPropagation();
-            downloadCard(c);
+            if (menuOpen) {
+              setMenu(null);
+              return;
+            }
+            const bounds = e.currentTarget.getBoundingClientRect();
+            setSelectedGroup(undefined);
+            setSelectedConnection(undefined);
+            if (!selected) setSelection([c.id]);
+            setMenu({
+              x: bounds.left,
+              y: bounds.bottom + 8,
+              id: c.id,
+              kind: "card",
+            });
           }}
         >
-          <Download size={17} />
+          <MoreHorizontal size={17} />
         </button>
-      )}
+      </div>
       {c.displayMode !== "small" &&
         selected &&
         (touchMode

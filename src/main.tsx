@@ -214,6 +214,7 @@ import "./icon-motion.css";
 import "./cloud.css";
 import "./typography.css";
 import "./encryption.css";
+import "./card-surfaces.css";
 import { installIconMotion } from "./iconMotion";
 import { registerPwa } from "./pwa";
 void registerPwa();
@@ -3161,6 +3162,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 key={c.id}
                 card={c}
                 selected={selection.includes(c.id)}
+                menuOpen={menu?.kind === "card" && menu.id === c.id}
                 touchMode={touchMode}
                 editing={editingCard === c.id}
                 editingTask={editingCard === c.id ? editingTask : undefined}

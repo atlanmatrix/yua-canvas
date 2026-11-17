@@ -42,10 +42,7 @@ test("Markdown renders on the canvas; hovered downloads preserve originals", asy
   await expect(card.locator(".card-top,footer")).toHaveCount(0);
   await page.locator(".canvas").click({ position: { x: 20, y: 150 } });
   await page.mouse.move(100, 100);
-  await expect(card.getByRole("button", { name: "下载 03-run.md" })).toHaveCSS(
-    "opacity",
-    "0",
-  );
+  await expect(card.locator(".card-toolbar")).toHaveCSS("opacity", "0");
   await card.screenshot({ path: "/tmp/yua-file-card.png" });
   const original = await download(page, card, "下载 03-run.md");
   expect(original.name).toBe("03-run.md");

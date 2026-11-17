@@ -1,4 +1,7 @@
 export const english: Record<string, string> = {
+  组件操作: "Component actions",
+  更多组件操作: "More component actions",
+  更多: "More",
   主密码管理: "Master password management",
   未设置: "Not set",
   "已设置 · 已验证": "Set \u00b7 Verified",
