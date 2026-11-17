@@ -1,11 +1,13 @@
 import { useId, useRef, useState } from "react";
-import { Settings, Upload, X } from "./icons";
+import { Settings, Upload, X, LockKeyhole } from "./icons";
 import { CloudServers } from "./CloudServers";
 import { PreferencesControls } from "./PreferencesControls";
 import { PwaControls } from "./PwaControls";
 import { t as tr } from "./i18n";
 import type { Board } from "./storage";
 import { ExportMenu, type ExportFormat } from "./ExportMenu";
+import { findLockProfile } from "./encryption";
+import type { PasswordAction } from "./MasterPasswordDialog";
 import { MenuButton } from "./MenuShortcut";
 
 export function SettingsMenu({
@@ -17,6 +19,8 @@ export function SettingsMenu({
   onImport,
   onExport,
   exporting,
+  passwordVerified,
+  onPassword,
 }: {
   board: Board;
   ready: boolean;
@@ -26,11 +30,18 @@ export function SettingsMenu({
   onImport: () => void;
   onExport: (format: ExportFormat) => void;
   exporting?: boolean;
+  passwordVerified: boolean;
+  onPassword: (action: PasswordAction) => void;
 }) {
   const id = useId(),
     panel = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const close = () => panel.current?.hidePopover();
+  const configured = !!findLockProfile(board);
+  const passwordAction = (action: PasswordAction) => {
+    close();
+    onPassword(action);
+  };
   return (
     <div className="settings-menu save-indicator" data-state={saveStatus}>
       <button
@@ -75,6 +86,45 @@ export function SettingsMenu({
           </button>
         </div>
         <PreferencesControls showLabels />
+        <section className="settings-password" aria-label={tr("主密码管理")}>
+          <div className="settings-password-status">
+            <LockKeyhole size={16} />
+            <strong>{tr("主密码")}</strong>
+            <span>
+              {tr(
+                !configured
+                  ? "未设置"
+                  : passwordVerified
+                    ? "已设置 · 已验证"
+                    : "已设置 · 未验证",
+              )}
+            </span>
+          </div>
+          <div className="settings-password-actions">
+            {!configured ? (
+              <button disabled={!ready} onClick={() => passwordAction("setup")}>
+                {tr("设置主密码")}
+              </button>
+            ) : (
+              <>
+                <button
+                  disabled={!ready}
+                  onClick={() =>
+                    passwordAction(passwordVerified ? "clear" : "verify")
+                  }
+                >
+                  {tr(passwordVerified ? "清除会话授权" : "验证主密码")}
+                </button>
+                <button
+                  disabled={!ready}
+                  onClick={() => passwordAction("change")}
+                >
+                  {tr("修改主密码")}
+                </button>
+              </>
+            )}
+          </div>
+        </section>
         <CloudServers
           board={board}
           ready={ready}

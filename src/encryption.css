@@ -42,3 +42,31 @@
 .component-lock-dialog [role="alert"] {
   color: #b42318;
 }
+
+.settings-password {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.settings-password-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.settings-password-status span {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+.settings-password-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.settings-password-actions button {
+  padding: 6px 10px;
+  background: var(--surface-muted);
+  color: var(--ink);
+  font-size: 12px;
+}

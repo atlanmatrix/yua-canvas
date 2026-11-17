@@ -10,6 +10,25 @@ import {
 const utf8 = new TextEncoder();
 const CHECK = utf8.encode("yua-canvas-key-1"); // 16 bytes, plus the GCM tag.
 const sessions = new Map<string, { key: CryptoKey; kek: CryptoKey }>();
+// Encryption authorization is separate from keys needed to save open content.
+const authorizedMasters = new Map<string, CryptoKey>();
+const profileId = (profile: LockProfile) => JSON.stringify(profile);
+export const hasMasterAuthorization = (profile?: LockProfile) =>
+  !!profile && authorizedMasters.has(profileId(profile));
+export function clearMasterAuthorization(except?: LockProfile) {
+  const id = except && profileId(except);
+  for (const key of authorizedMasters.keys())
+    if (key !== id) authorizedMasters.delete(key);
+}
+export function clearEncryptionSession(keepProfile?: LockProfile) {
+  clearMasterAuthorization(keepProfile);
+  sessions.clear();
+}
+export async function authorizeMaster(password: string, profile: LockProfile) {
+  const key = await master(password, profile);
+  authorizedMasters.set(profileId(profile), key);
+  return key;
+}
 const sealed = new WeakMap<Card, Promise<Card>>();
 const sealedScopes = new WeakMap<object, Promise<Board>>();
 const b64 = (bytes: Uint8Array) => {
@@ -127,6 +146,87 @@ export function findLockProfile(board: Board): LockProfile | undefined {
     }
   }
 }
+// Build a complete replacement before saving. Nested envelopes inside a locked
+// canvas must also be migrated; only changing the outer profile loses access.
+export async function changeMasterPassword(
+  board: Board,
+  oldPassword: string,
+  newPassword: string,
+): Promise<Board> {
+  const current = findLockProfile(board);
+  if (!current) throw Error("尚未设置主密码");
+  const oldKeys = new Map<string, Promise<CryptoKey>>();
+  const oldKey = async (profile: LockProfile) => {
+    const id = profileId(profile);
+    if (!oldKeys.has(id)) oldKeys.set(id, master(oldPassword, profile));
+    return oldKeys.get(id)!;
+  };
+  await oldKey(current);
+  const profile = await createLockProfile(newPassword);
+  const kek = await derive(newPassword, profile);
+  const snapshot = await sealBoard(board);
+  async function migrateBoard(value: Board): Promise<Board> {
+    return {
+      ...value,
+      ...(value.lockProfile ? { lockProfile: profile } : {}),
+      cards: await Promise.all(value.cards.map(migrateCard)),
+    };
+  }
+  async function migrateCard(card: Card): Promise<Card> {
+    if (!card.lock)
+      return card.canvas
+        ? { ...card, canvas: await migrateBoard(card.canvas) }
+        : card;
+    const lock = card.lock;
+    try {
+      const raw = await decrypt(
+        lock.wrappedKey,
+        await oldKey(lock.profile),
+        "key:" + lock.id,
+      );
+      const key = await crypto.subtle.importKey("raw", raw, "AES-GCM", false, [
+        "encrypt",
+        "decrypt",
+      ]);
+      const data = await crypto.subtle.decrypt(
+        {
+          name: "AES-GCM",
+          iv: bytes(lock.dataIV),
+          additionalData: aad("content:" + lock.id),
+        },
+        key,
+        await card.blob!.arrayBuffer(),
+      );
+      const { importBoard } = await import("./storage");
+      const original = (await importBoard(new TextDecoder().decode(data)))
+        .cards[0];
+      if (!original || original.lock) throw Error();
+      const plain = {
+        ...original,
+        id: card.id,
+        x: card.x,
+        y: card.y,
+        group: card.group,
+        color: card.color,
+        ...(original.canvas
+          ? { canvas: await migrateBoard(original.canvas) }
+          : {}),
+      };
+      return encryptContent(
+        plain,
+        {
+          ...lock,
+          profile,
+          wrappedKey: await encrypt(raw, kek, "key:" + lock.id),
+        },
+        key,
+      );
+    } catch {
+      throw Error("原密码不匹配或加密数据已损坏，未修改任何组件");
+    }
+  }
+  return { ...(await migrateBoard(snapshot)), lockProfile: profile };
+}
 export function hasProtected(
   board: Pick<Board, "cards"> & { protection?: Envelope },
 ): boolean {
@@ -210,9 +310,13 @@ async function encryptContent(card: Card, lock: Envelope, key: CryptoKey) {
 export async function lockCard(
   card: Card,
   profile: LockProfile,
-  password: string,
+  password?: string,
 ): Promise<Card> {
-  const kek = await master(password, profile);
+  const kek =
+    password === undefined
+      ? authorizedMasters.get(profileId(profile))
+      : await authorizeMaster(password, profile);
+  if (!kek) throw Error("请先验证主密码");
   await protectPreviewCaches();
   if (card.lock && !card.locked) return sealCard(card);
   return lockWithKey(card, profile, kek);
@@ -244,7 +348,7 @@ export async function unlockCard(card: Card, password: string): Promise<Card> {
   if (!card.locked || !validEnvelope(card.lock) || !card.blob)
     throw Error("加密组件数据无效");
   const lock = card.lock;
-  const kek = await master(password, lock.profile);
+  const kek = await authorizeMaster(password, lock.profile);
   await protectPreviewCaches();
   try {
     const raw = await decrypt(lock.wrappedKey, kek, "key:" + lock.id);

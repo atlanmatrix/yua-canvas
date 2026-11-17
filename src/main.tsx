@@ -2,9 +2,17 @@ import { useCanvasTouch } from "./useCanvasTouch";
 import { useCanvasWheelGuard } from "./useCanvasWheelGuard";
 import { defaultAgent } from "./agent";
 import { CanvasCard } from "./CanvasCard";
+import {
+  MasterPasswordDialog,
+  type PasswordAction,
+} from "./MasterPasswordDialog";
 import { ComponentLockDialog } from "./ComponentLock";
 import {
   createLockProfile,
+  hasMasterAuthorization,
+  authorizeMaster,
+  clearEncryptionSession,
+  changeMasterPassword,
   findLockProfile,
   lockCard,
   unlockIsolated,
@@ -248,6 +256,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   } | null>(null);
   const currentLockRequest = useRef(lockRequest);
   const [lockBusy, setLockBusy] = useState(false);
+  const [passwordAction, setPasswordAction] = useState<Exclude<
+    PasswordAction,
+    "clear"
+  > | null>(null);
+  const [, updateAuthorization] = useState(0);
   currentLockRequest.current = lockRequest;
   const [dragCursor, setDragCursor] = useState(false);
   const [touchMode, setTouchMode] = useState(
@@ -2536,6 +2549,60 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setMenu(null);
   };
   const cardPath = useMemo(() => path, [JSON.stringify(path)]);
+  async function managePassword(
+    action: PasswordAction,
+    password = "",
+    newPassword = "",
+  ) {
+    if (lockBusy) return;
+    setLockBusy(true);
+    try {
+      const snapshot = latestWorkspace.current;
+      const profile = findLockProfile(snapshot.root);
+      if (action === "verify") {
+        if (!profile) throw Error("尚未设置主密码");
+        await authorizeMaster(password, profile);
+        updateAuthorization((value) => value + 1);
+      } else {
+        let updated: Board;
+        if (action === "setup") {
+          if (profile) throw Error("已设置主密码");
+          updated = {
+            ...snapshot.root,
+            lockProfile: await createLockProfile(newPassword),
+          };
+        } else if (action === "change") {
+          updated = await changeMasterPassword(
+            snapshot.root,
+            password,
+            newPassword,
+          );
+        } else updated = await sealBoard(snapshot.root);
+        if (latestWorkspace.current.root !== snapshot.root)
+          throw Error("组件已更改，请重试");
+        if (action !== "clear")
+          await authorizeMaster(newPassword, updated.lockProfile!);
+        if (action !== "setup") await clearCanvasClipboard();
+        if (latestWorkspace.current.root !== snapshot.root)
+          throw Error("组件已更改，请重试");
+        await saveBoard(updated, snapshot.view, snapshot.navigation);
+        if (latestWorkspace.current.root !== snapshot.root)
+          throw Error("组件已更改，请重试");
+        if (action !== "setup") {
+          clearEncryptionSession(
+            action === "change" ? updated.lockProfile : undefined,
+          );
+          internalCopy.current = null;
+          setCopyFiles([]);
+        }
+        clearCanvasUI();
+        restore(updated, snapshot.view, snapshot.navigation);
+      }
+      setPasswordAction(null);
+    } finally {
+      setLockBusy(false);
+    }
+  }
   const cardActions = useLatestActions(
     {
       setBoard,
@@ -2619,7 +2686,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         if (gesture.current) cancelGesture();
       }}
     >
-      <main>
+      <main inert={lockBusy}>
         <div className="floating-top">
           {path.length > 0 && (
             <nav className="canvas-navigation" aria-label={tr("画布路径")}>
@@ -2661,7 +2728,19 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           <div className="floating-actions">
             <SettingsMenu
               board={root}
-              ready={ready}
+              ready={ready && !lockBusy}
+              passwordVerified={hasMasterAuthorization(findLockProfile(root))}
+              onPassword={(action) => {
+                if (action === "clear") {
+                  void managePassword("clear").catch((error) =>
+                    setToast(
+                      error instanceof Error
+                        ? error.message
+                        : "加密操作失败，请重试",
+                    ),
+                  );
+                } else setPasswordAction(action);
+              }}
               restore={restore}
               saveStatus={saveStatus}
               onImport={() => importInput.current?.click()}
@@ -4113,10 +4192,27 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           </form>
         </div>
       )}
+      {passwordAction && (
+        <MasterPasswordDialog
+          mode={passwordAction}
+          onClose={() => setPasswordAction(null)}
+          onSubmit={(password, next) =>
+            managePassword(passwordAction, password, next)
+          }
+        />
+      )}
       {lockRequest && (
         <ComponentLockDialog
           key={lockRequest.mode + ":" + (lockRequest.id || "copy")}
           mode={lockRequest.mode}
+          automatic={
+            (lockRequest.mode === "lock" || lockRequest.mode === "relock") &&
+            hasMasterAuthorization(
+              locateBoard(root, lockRequest.path).board.cards.find(
+                (c) => c.id === lockRequest.id,
+              )?.lock?.profile || findLockProfile(root),
+            )
+          }
           inherited={!!locateBoard(root, lockRequest.path).board.protection}
           first={lockRequest.mode === "lock" && !findLockProfile(root)}
           onClose={() => setLockRequest(null)}
@@ -4154,7 +4250,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     ? await removeEncryption(old, password, snapshot.root)
                     : request.mode === "unlock"
                       ? await unlockIsolated(old, password, snapshot.root)
-                      : await lockCard(old, profile, password);
+                      : await lockCard(old, profile, password || undefined);
                 updated = replaceBoard(snapshot.root, request.path, (b) => {
                   const nextBoard = {
                     ...b,

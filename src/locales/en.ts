@@ -1,4 +1,27 @@
 export const english: Record<string, string> = {
+  主密码管理: "Master password management",
+  未设置: "Not set",
+  "已设置 · 已验证": "Set \u00b7 Verified",
+  "已设置 · 未验证": "Set \u00b7 Not verified",
+  设置主密码: "Set master password",
+  修改主密码: "Change master password",
+  验证主密码: "Verify master password",
+  清除会话授权: "Clear session authorization",
+  原密码: "Current password",
+  新密码: "New password",
+  确认新密码: "Confirm new password",
+  尚未设置主密码: "No master password has been set",
+  已设置主密码: "A master password is already set",
+  请先验证主密码: "Verify the master password first",
+  "验证主密码后，本次会话可直接加密。":
+    "Verify the master password once to encrypt directly for the rest of this session.",
+  "验证后，本次会话可直接加密；刷新页面后需要重新验证。":
+    "After verification, encrypt directly for this session. Refreshing requires verification again.",
+  "修改后当前工作区将使用新密码，并重新锁定加密组件。旧备份和旧分享仍需原密码。":
+    "The current workspace will use the new password and encrypted components will lock again. Old backups and shares still require their original password.",
+  "原密码不匹配或加密数据已损坏，未修改任何组件":
+    "The current password does not match or encrypted data is damaged. No components were changed.",
+
   取消加密: "Remove encryption",
   组件未单独加密: "This component has no encryption of its own",
   "请输入主密码。取消加密后，组件将恢复普通状态，后续保存、导出和同步会包含明文内容。":

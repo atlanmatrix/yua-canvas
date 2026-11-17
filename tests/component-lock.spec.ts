@@ -264,7 +264,6 @@ test("password locks are encrypted at rest, reject a wrong password, edit only i
   await submit(page);
   await expect(page.locator(".note-body")).toHaveText("解锁后修改的秘密");
   await menu(page, "重新锁定");
-  await submit(page);
   await expect(page.locator(".component-locked")).toBeVisible();
   await page.keyboard.press("ControlOrMeta+z");
   await expect(page.locator(".component-locked")).toBeVisible();
@@ -301,6 +300,9 @@ test("one master password wraps independent component keys; cloning requires aut
   await submit(page);
   await expect(page.locator(".note-body")).toHaveText("第一个秘密");
   await note(page, "第二个秘密");
+  await stored(page);
+  await page.reload();
+  await saved(page);
   await page
     .getByTestId("card")
     .last()

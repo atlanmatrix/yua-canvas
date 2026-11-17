@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LockKeyhole, X } from "./icons";
 import { t as tr } from "./i18n";
 export function LockedContent({ onUnlock }: { onUnlock?: () => void }) {
@@ -25,12 +25,14 @@ export function ComponentLockDialog({
   mode,
   first = false,
   inherited = false,
+  automatic = false,
   onSubmit,
   onClose,
 }: {
   mode: "lock" | "unlock" | "relock" | "copy" | "remove";
   first?: boolean;
   inherited?: boolean;
+  automatic?: boolean;
   onSubmit: (password: string) => Promise<void>;
   onClose: () => void;
 }) {
@@ -38,25 +40,43 @@ export function ComponentLockDialog({
     [confirmation, setConfirmation] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  // Keep this decision fixed: successful manual verification must not start
+  // a second operation when it grants authorization during the same submit.
+  const auto = useRef(automatic).current;
+  const started = useRef(false);
+  useEffect(() => {
+    if (!auto || started.current) return;
+    started.current = true;
+    setBusy(true);
+    void onSubmit("")
+      .catch((error) => {
+        setError(
+          error instanceof Error ? error.message : "加密操作失败，请重试",
+        );
+      })
+      .finally(() => setBusy(false));
+  }, [auto, onSubmit]);
   useEffect(() => {
     const close = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
-        onClose();
+        if (!busy) onClose();
       }
     };
     window.addEventListener("keydown", close, true);
     return () => window.removeEventListener("keydown", close, true);
-  }, [onClose]);
-  const label =
-    mode === "remove"
+  }, [onClose, busy]);
+  const label = first
+    ? tr("设置主密码")
+    : mode === "remove"
       ? tr("取消加密")
       : mode === "unlock"
         ? tr("解锁组件")
         : mode === "copy"
           ? tr("复制加密组件")
           : tr("锁定组件");
+  if (auto && !error) return null;
   return (
     <div className="modal-backdrop">
       <form
@@ -87,7 +107,12 @@ export function ComponentLockDialog({
             <LockKeyhole size={18} />
             {label}
           </span>
-          <button type="button" aria-label={tr("关闭")} onClick={onClose}>
+          <button
+            type="button"
+            aria-label={tr("关闭")}
+            disabled={busy}
+            onClick={onClose}
+          >
             <X size={18} />
           </button>
         </div>
@@ -97,7 +122,9 @@ export function ComponentLockDialog({
               ? "请输入主密码。取消加密后，组件将恢复普通状态，后续保存、导出和同步会包含明文内容。"
               : first
                 ? "设置工作区主密码。所有组件共用此密码，每个组件使用独立的加密密钥。"
-                : "请输入工作区主密码。解锁仅在当前会话有效，保存与同步仍保持加密。",
+                : mode === "lock" || mode === "relock"
+                  ? "验证主密码后，本次会话可直接加密。"
+                  : "请输入工作区主密码。解锁仅在当前会话有效，保存与同步仍保持加密。",
           )}
         </p>
         {mode === "remove" && inherited && (
@@ -143,7 +170,7 @@ export function ComponentLockDialog({
         )}
         {error && <p role="alert">{tr(error)}</p>}
         <div className="modal-bottom">
-          <button type="button" onClick={onClose}>
+          <button type="button" disabled={busy} onClick={onClose}>
             {tr("取消")}
           </button>
           <button className="primary" disabled={busy}>
