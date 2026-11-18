@@ -1,7 +1,106 @@
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { LockKeyhole, X } from "./icons";
 import { t as tr } from "./i18n";
 export type PasswordAction = "setup" | "verify" | "change" | "clear";
+
+export function MasterPasswordSettingsDialog({
+  configured,
+  verified,
+  onAction,
+  onClear,
+  onClose,
+}: {
+  configured: boolean;
+  verified: boolean;
+  onAction: (action: Exclude<PasswordAction, "clear">) => void;
+  onClear: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useLayoutEffect(() => {
+    const node = dialog.current!;
+    node.showModal();
+    return () => node.close();
+  }, []);
+  return (
+    <dialog
+      ref={dialog}
+      className="modal compact component-lock-dialog master-password-dialog"
+      role="dialog"
+      aria-label={tr("主密码管理")}
+      aria-modal="true"
+      onKeyDown={(event) => event.stopPropagation()}
+      onCancel={(event) => {
+        event.preventDefault();
+        if (!busy) onClose();
+      }}
+    >
+      <div className="modal-heading">
+        <h2>{tr("主密码")}</h2>
+        <button disabled={busy} aria-label={tr("关闭")} onClick={onClose}>
+          <X size={18} />
+        </button>
+      </div>
+      <div className="master-password-status" role="status">
+        <LockKeyhole size={18} />
+        {tr(
+          !configured
+            ? "未设置"
+            : verified
+              ? "已设置 · 已验证"
+              : "已设置 · 未验证",
+        )}
+      </div>
+      <div className="master-password-actions">
+        {!configured ? (
+          <button autoFocus onClick={() => onAction("setup")}>
+            {tr("设置主密码")}
+          </button>
+        ) : (
+          <>
+            <button
+              autoFocus
+              disabled={busy}
+              onClick={async () => {
+                if (!verified) {
+                  onAction("verify");
+                  return;
+                }
+                setBusy(true);
+                setError("");
+                try {
+                  await onClear();
+                } catch (error) {
+                  setError(
+                    error instanceof Error
+                      ? error.message
+                      : "加密操作失败，请重试",
+                  );
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {tr(verified ? "清除会话授权" : "验证主密码")}
+            </button>
+            <button disabled={busy} onClick={() => onAction("change")}>
+              {tr("修改主密码")}
+            </button>
+          </>
+        )}
+      </div>
+      {error && <p role="alert">{tr(error)}</p>}
+      <div className="modal-bottom">
+        <button disabled={busy} onClick={onClose}>
+          {tr("关闭")}
+        </button>
+      </div>
+    </dialog>
+  );
+}
+
 export function MasterPasswordDialog({
   mode,
   onSubmit,
@@ -22,24 +121,32 @@ export function MasterPasswordDialog({
       : mode === "change"
         ? "修改主密码"
         : "验证主密码";
-  useEffect(() => {
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (!busy) onClose();
-      }
-    };
-    window.addEventListener("keydown", escape, true);
-    return () => window.removeEventListener("keydown", escape, true);
-  }, [busy, onClose]);
+  const dialog = useRef<HTMLDialogElement>(null);
+  useLayoutEffect(() => {
+    const node = dialog.current!;
+    node.showModal();
+    return () => node.close();
+  }, []);
   return (
-    <div className="modal-backdrop">
+    <dialog
+      ref={dialog}
+      className="modal compact component-lock-dialog master-password-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label={tr(label)}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+          event.preventDefault();
+          dialog.current?.querySelector("form")?.requestSubmit();
+        }
+      }}
+      onCancel={(event) => {
+        event.preventDefault();
+        if (!busy) onClose();
+      }}
+    >
       <form
-        className="modal compact component-lock-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={tr(label)}
         onSubmit={async (event) => {
           event.preventDefault();
           if (busy) return;
@@ -61,10 +168,7 @@ export function MasterPasswordDialog({
         }}
       >
         <div className="modal-heading">
-          <span>
-            <LockKeyhole size={18} />
-            {tr(label)}
-          </span>
+          <h2>{tr(label)}</h2>
           <button
             type="button"
             aria-label={tr("关闭")}
@@ -136,6 +240,6 @@ export function MasterPasswordDialog({
           </button>
         </div>
       </form>
-    </div>
+    </dialog>
   );
 }

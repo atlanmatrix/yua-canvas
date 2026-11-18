@@ -5,6 +5,7 @@ import { defaultAgent } from "./agent";
 import { CanvasCard } from "./CanvasCard";
 import {
   MasterPasswordDialog,
+  MasterPasswordSettingsDialog,
   type PasswordAction,
 } from "./MasterPasswordDialog";
 import { ComponentLockDialog } from "./ComponentLock";
@@ -109,6 +110,7 @@ import { TodoEditor } from "./TodoEditor";
 import { TextFileEditor } from "./TextFileEditor";
 import { MermaidEditor } from "./MermaidEditor";
 import { Attachment } from "./Attachment";
+import { ImagePreview, canvasImages } from "./ImagePreview";
 import { PaintLayer } from "./PaintLayer";
 import { PaintControls } from "./PaintControls";
 import { usePaintActions } from "./usePaintActions";
@@ -252,10 +254,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   } | null>(null);
   const currentLockRequest = useRef(lockRequest);
   const [lockBusy, setLockBusy] = useState(false);
-  const [passwordAction, setPasswordAction] = useState<Exclude<
-    PasswordAction,
-    "clear"
-  > | null>(null);
+  const [passwordAction, setPasswordAction] = useState<
+    Exclude<PasswordAction, "clear"> | "manage" | null
+  >(null);
   const [, updateAuthorization] = useState(0);
   currentLockRequest.current = lockRequest;
   const [dragCursor, setDragCursor] = useState(false);
@@ -2318,6 +2319,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     (c) =>
       c.id === detail &&
       !c.masked &&
+      !c.locked &&
       (c.kind === "text" ||
         c.kind === "todo" ||
         c.kind === "image" ||
@@ -2650,18 +2652,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             <SettingsMenu
               board={root}
               ready={ready && !lockBusy}
-              passwordVerified={hasMasterAuthorization(findLockProfile(root))}
-              onPassword={(action) => {
-                if (action === "clear") {
-                  void managePassword("clear").catch((error) =>
-                    setToast(
-                      error instanceof Error
-                        ? error.message
-                        : "加密操作失败，请重试",
-                    ),
-                  );
-                } else setPasswordAction(action);
-              }}
+              onPassword={() => setPasswordAction("manage")}
               restore={restore}
               saveStatus={saveStatus}
               onImport={() => importInput.current?.click()}
@@ -3712,8 +3703,18 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           </form>
         </div>
       )}
-      {passwordAction && (
+      {passwordAction === "manage" && (
+        <MasterPasswordSettingsDialog
+          configured={!!findLockProfile(root)}
+          verified={hasMasterAuthorization(findLockProfile(root))}
+          onAction={setPasswordAction}
+          onClear={() => managePassword("clear")}
+          onClose={() => setPasswordAction(null)}
+        />
+      )}
+      {passwordAction && passwordAction !== "manage" && (
         <MasterPasswordDialog
+          key={passwordAction}
           mode={passwordAction}
           onClose={() => setPasswordAction(null)}
           onSubmit={(password, next) =>
@@ -3813,7 +3814,16 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           }}
         />
       )}
-      {current && (
+      {current?.kind === "image" && (
+        <ImagePreview
+          images={canvasImages(board)}
+          current={current}
+          onChange={setDetail}
+          onClose={() => setDetail(undefined)}
+          onDownload={(card) => void downloadCard(card)}
+        />
+      )}
+      {current && current.kind !== "image" && (
         <div className="modal-backdrop">
           <div
             className={`modal detail-modal${current.kind === "file" ? " file-detail-modal" : ""}`}

@@ -371,7 +371,11 @@ test("Markdown files open only on double-click and render safe GFM", async ({
   await image.click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await image.dblclick();
-  await expect(page.locator(".detail-image")).toBeVisible();
+  await expect(
+    page
+      .getByRole("dialog", { name: "图片预览", exact: true })
+      .locator(".image-preview-stage img"),
+  ).toBeVisible();
 });
 
 test("moving a migrated canvas at current zoom preserves member spacing", async ({

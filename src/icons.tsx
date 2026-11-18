@@ -33,6 +33,7 @@ import {
   Highlighter as BaseHighlighter,
   Image as BaseImage,
   ImagePlus as BaseImagePlus,
+  Info as BaseInfo,
   Italic as BaseItalic,
   Layers as BaseLayers,
   LayoutGrid as BaseLayoutGrid,
@@ -121,6 +122,7 @@ export const FolderUp = animatedIcon("FolderUp", BaseFolderUp);
 export const Highlighter = animatedIcon("Highlighter", BaseHighlighter);
 export const Image = animatedIcon("Image", BaseImage);
 export const ImagePlus = animatedIcon("ImagePlus", BaseImagePlus);
+export const Info = animatedIcon("Info", BaseInfo);
 export const Italic = animatedIcon("Italic", BaseItalic);
 export const Layers = animatedIcon("Layers", BaseLayers);
 export const LayoutGrid = animatedIcon("LayoutGrid", BaseLayoutGrid);

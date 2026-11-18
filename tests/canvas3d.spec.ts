@@ -307,7 +307,11 @@ for (const id of ["深层文本", "todo", "file", "image", "miniature", "nested"
     if (id === "file")
       await expect(page.locator(".detail-content")).toContainText("Hello 3D");
     if (id === "image")
-      await expect(page.locator(".detail-image")).toBeVisible();
+      await expect(
+        page
+          .getByRole("dialog", { name: "图片预览", exact: true })
+          .locator(".image-preview-stage img"),
+      ).toBeVisible();
   });
 }
 

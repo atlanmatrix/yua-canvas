@@ -48,31 +48,35 @@
   color: #b42318;
 }
 
-.settings-password {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-}
-.settings-password-status {
+.master-password-status {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 14px;
+  margin-bottom: 16px;
+  color: var(--muted);
+  background: var(--surface-muted);
+  border-radius: 12px;
   font-size: 13px;
 }
-.settings-password-status span {
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 12px;
-}
-.settings-password-actions {
+.master-password-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--action-gap);
-  margin-top: 6px;
 }
-.settings-password-actions button {
+.master-password-actions button {
   min-height: var(--action-height);
   padding: 4px var(--action-pad-x);
   background: var(--surface-muted);
   color: var(--ink);
-  font-size: 12px;
+  font-size: 13px;
+}
+
+.master-password-dialog {
+  max-width: calc(100% - 44px);
+  color: var(--ink);
+}
+.master-password-dialog::backdrop {
+  background: #30343c40;
+  backdrop-filter: blur(4px);
 }

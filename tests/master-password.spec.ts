@@ -18,8 +18,20 @@ async function menu(page: Page, name: string, index = 0) {
     .dispatchEvent("contextmenu", { clientX: 400, clientY: 200 });
   await page.getByRole("menuitem", { name, exact: true }).click();
 }
-async function action(page: Page, name: string) {
+async function openManagement(page: Page) {
   await openSettings(page);
+  const settings = page.getByRole("dialog", { name: "设置", exact: true });
+  await expect(
+    settings.getByRole("button", { name: "设置主密码", exact: true }),
+  ).toHaveCount(0);
+  await settings.getByRole("button", { name: "主密码", exact: true }).click();
+  await expect(settings).not.toBeVisible();
+  await expect(
+    page.getByRole("dialog", { name: "主密码管理", exact: true }),
+  ).toBeVisible();
+}
+async function action(page: Page, name: string) {
+  await openManagement(page);
   await page.getByRole("button", { name, exact: true }).click();
 }
 async function submit(page: Page, values: Record<string, string>) {
@@ -44,14 +56,14 @@ test("settings configures and verifies a session, encrypts directly, and revokes
   page,
 }) => {
   await page.goto("/");
-  await openSettings(page);
+  await openManagement(page);
   await expect(page.getByLabel("主密码管理")).toContainText("未设置");
   await page.getByRole("button", { name: "设置主密码", exact: true }).click();
   await submit(page, { 新密码: password, 确认新密码: "not-the-same" });
   await expect(page.getByRole("alert")).toHaveText("两次输入的密码不一致");
   await submit(page, { 确认新密码: password });
   await noDialog(page);
-  await openSettings(page);
+  await openManagement(page);
   await expect(page.getByLabel("主密码管理")).toContainText("已设置 · 已验证");
   await page.keyboard.press("Escape");
   await note(page, "会话秘密");
@@ -60,7 +72,7 @@ test("settings configures and verifies a session, encrypts directly, and revokes
   await noDialog(page);
   expect(await persisted(page)).not.toContain(password);
   await page.reload();
-  await openSettings(page);
+  await openManagement(page);
   await expect(page.getByLabel("主密码管理")).toContainText("已设置 · 未验证");
   await page.getByRole("button", { name: "验证主密码", exact: true }).click();
   await submit(page, { 主密码: "wrong-password" });
@@ -76,7 +88,7 @@ test("settings configures and verifies a session, encrypts directly, and revokes
   await expect(page.locator(".note-body")).toHaveText("会话秘密");
   await action(page, "清除会话授权");
   await expect(page.locator(".component-locked")).toHaveCount(2);
-  await openSettings(page);
+  await openManagement(page);
   await expect(page.getByLabel("主密码管理")).toContainText("已设置 · 未验证");
   await page.keyboard.press("Escape");
   await page.keyboard.press("ControlOrMeta+z");
