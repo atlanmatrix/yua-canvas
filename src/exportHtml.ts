@@ -174,10 +174,27 @@ export function exportHtml(board: Board) {
       layout.append(article);
     }
     canvas.append(layout);
+    const zoomMenu = doc.createElement("div");
+    zoomMenu.id = "zoom-menu";
+    zoomMenu.setAttribute("popover", "auto");
+    zoomMenu.setAttribute("role", "menu");
+    zoomMenu.setAttribute("aria-label", tr("画布缩放"));
+    for (const [action, label] of [
+      ["in", tr("放大")],
+      ["out", tr("缩小")],
+      ["fit", tr("适应宽度")],
+    ]) {
+      const item = doc.createElement("button");
+      item.type = "button";
+      item.dataset.zoom = action;
+      item.setAttribute("role", "menuitem");
+      item.textContent = label;
+      zoomMenu.append(item);
+    }
     const script = doc.createElement("script");
     script.setAttribute("nonce", nonce);
     script.textContent = runtime;
-    doc.body.append(canvas, script);
+    doc.body.append(canvas, zoomMenu, script);
     return new Blob(["<!doctype html>\n", doc.documentElement.outerHTML], {
       type: "text/html;charset=utf-8",
     });

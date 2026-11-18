@@ -286,6 +286,8 @@ export const english: Record<string, string> = {
     "(double-click to rename; right-click for color)",
   视图: "View",
   放大: "Zoom in",
+  画布缩放: "Canvas zoom",
+  适应宽度: "Fit to width",
   "放大 (+)": "Zoom in (+)",
   缩小: "Zoom out",
   "缩小 (-)": "Zoom out (-)",

@@ -472,6 +472,7 @@ test("HTML selection opens offline with editable text, persistent checkboxes and
     html,
   );
   const file = await context.newPage();
+  await file.setViewportSize({ width: 520, height: 480 });
   const remoteRequests: string[] = [];
   file.on("request", (req) => {
     if (/^https?:/.test(req.url())) remoteRequests.push(req.url());
@@ -480,16 +481,43 @@ test("HTML selection opens offline with editable text, persistent checkboxes and
   await file.goto(url);
   await expect(file.locator("article")).toHaveCount(5);
   await expect(file.getByText("inside link")).toBeVisible();
-  await expect(file.locator("button,nav,iframe,form")).toHaveCount(0);
+  await expect(file.locator("button:visible,nav,iframe,form")).toHaveCount(0);
   const first = file.getByRole("textbox").first();
   await expect(first).toHaveText("a");
   const before = await file
     .locator("article")
     .evaluateAll((els) => els.map((el) => parseFloat(el.style.left)));
   expect(before[1] - before[0]).toBe(400);
+  const canvas = file.locator("main");
+  const fitted = (await canvas.boundingBox())!;
+  const cursor = { x: 180, y: 60 };
+  const zoomMenu = file.getByRole("menu", { name: "画布缩放" });
+  await file.mouse.click(cursor.x, cursor.y, { button: "right" });
+  await zoomMenu.getByRole("menuitem", { name: "放大" }).click();
+  await expect(zoomMenu).toBeHidden();
+  const enlarged = (await canvas.boundingBox())!;
+  expect(enlarged.width / fitted.width).toBeCloseTo(1.25);
+  expect(enlarged.x + (cursor.x - fitted.x) * 1.25).toBeCloseTo(cursor.x, 0);
   await first.fill("修订后的内容");
   const check = file.getByRole("checkbox", { name: "准备资料" });
   await check.check();
+  const openZoomMenu = () => file.mouse.click(515, 475, { button: "right" });
+  await openZoomMenu();
+  const menuBounds = (await zoomMenu.boundingBox())!;
+  expect(menuBounds.x + menuBounds.width).toBeLessThan(520);
+  expect(menuBounds.y + menuBounds.height).toBeLessThan(480);
+  await file.keyboard.press("ArrowDown");
+  await expect(zoomMenu.getByRole("menuitem", { name: "缩小" })).toBeFocused();
+  await file.keyboard.press("Enter");
+  expect((await canvas.boundingBox())!.width).toBeCloseTo(fitted.width, 0);
+  await openZoomMenu();
+  await file.keyboard.press("Escape");
+  await expect(zoomMenu).toBeHidden();
+  await openZoomMenu();
+  await zoomMenu.getByRole("menuitem", { name: "放大" }).click();
+  await openZoomMenu();
+  await zoomMenu.getByRole("menuitem", { name: "适应宽度" }).click();
+  expect((await canvas.boundingBox())!.width).toBeCloseTo(fitted.width, 0);
   await file.reload();
   await expect(first).toHaveText("修订后的内容");
   await expect(check).toBeChecked();

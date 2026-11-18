@@ -1,14 +1,60 @@
 // This script runs in the standalone file. Only text and checkbox state are stored.
 (() => {
   const canvas = document.querySelector("main");
-  const fit = () => {
-    canvas.style.zoom = Math.min(
-      1,
-      document.documentElement.clientWidth / canvas.offsetWidth,
-    );
+  const menu = document.querySelector("#zoom-menu");
+  const items = [...menu.querySelectorAll("button")];
+  const fitScale = () =>
+    Math.min(1, document.documentElement.clientWidth / canvas.offsetWidth);
+  let zoom = fitScale();
+  let fitting = true;
+  let anchor;
+  const setZoom = (scale) => {
+    zoom = scale;
+    canvas.style.zoom = scale;
   };
-  fit();
-  window.addEventListener("resize", fit);
+  setZoom(zoom);
+
+  window.addEventListener("resize", () => {
+    menu.hidePopover();
+    if (fitting) setZoom(fitScale());
+  });
+  document.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    anchor = { x: event.clientX, y: event.clientY };
+    menu.showPopover();
+    const { clientWidth, clientHeight } = document.documentElement;
+    menu.style.left = `${Math.max(4, Math.min(anchor.x, clientWidth - menu.offsetWidth - 4))}px`;
+    menu.style.top = `${Math.max(4, Math.min(anchor.y, clientHeight - menu.offsetHeight - 4))}px`;
+    items[0].focus({ preventScroll: true });
+  });
+  menu.addEventListener("click", (event) => {
+    const action = event.target.closest("button")?.dataset.zoom;
+    if (!action) return;
+    menu.hidePopover();
+    fitting = action === "fit";
+    if (fitting) {
+      setZoom(fitScale());
+      window.scrollTo(0, 0);
+      return;
+    }
+    const before = canvas.getBoundingClientRect();
+    const scale = zoom * (action === "in" ? 1.25 : 0.8);
+    const previousZoom = zoom;
+    setZoom(Math.max(Math.min(0.1, fitScale()), Math.min(4, scale)));
+    const after = canvas.getBoundingClientRect();
+    window.scrollBy(
+      after.left + ((anchor.x - before.left) * zoom) / previousZoom - anchor.x,
+      after.top + ((anchor.y - before.top) * zoom) / previousZoom - anchor.y,
+    );
+  });
+  menu.addEventListener("keydown", (event) => {
+    const index = items.indexOf(document.activeElement);
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      items[(index + step + items.length) % items.length].focus();
+    }
+  });
 
   canvas
     .querySelectorAll(".note,input[type=checkbox]")

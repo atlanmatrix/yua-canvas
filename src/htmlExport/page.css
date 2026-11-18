@@ -1,6 +1,9 @@
 * {
   box-sizing: border-box;
 }
+html {
+  overflow-anchor: none;
+}
 body {
   margin: 0;
   background: var(--canvas-bg);
@@ -88,4 +91,35 @@ aside {
   background: var(--surface);
   border-left: 2px solid var(--border);
   font: 12px/1.7 system-ui;
+}
+#zoom-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 4px;
+  min-width: min(136px, calc(100vw - 8px));
+  max-width: calc(100vw - 8px);
+  max-height: calc(100dvh - 8px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 4px 16px #0002;
+}
+#zoom-menu button {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+#zoom-menu button:is(:hover, :focus-visible) {
+  background: var(--canvas-bg);
+  outline: 1px solid var(--accent);
 }
