@@ -225,13 +225,22 @@ test("removing a canvas lock preserves independently encrypted descendants, sibl
 test("password locks are encrypted at rest, reject a wrong password, edit only in session and relock on refresh", async ({
   page,
 }) => {
+  await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/");
   await saved(page);
   await note(page, "私密文本-绝不能保存明文");
   await menu(page, "密码锁定");
   await submit(page, true);
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.locator(".component-locked")).toBeVisible();
+  const card = page.getByTestId("card");
+  const placeholder = card.locator(".component-locked");
+  await placeholder.click({ position: { x: 24, y: 14 } });
+  await expect(card).toHaveClass(/\bselected\b/);
+  await expect(card).toHaveCSS("border-top-color", "rgb(37, 99, 235)");
+  await expect(placeholder).toHaveCSS(
+    "border-radius",
+    await card.evaluate((el) => getComputedStyle(el).borderRadius),
+  );
   await expect(
     page.getByText("私密文本-绝不能保存明文", { exact: true }),
   ).toHaveCount(0);
@@ -396,7 +405,7 @@ test("copying through the system clipboard never writes plaintext and pasting us
   await menu(page, "密码锁定");
   await submit(page, true);
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.getByTestId("card").click({ position: { x: 4, y: 4 } });
+  await page.getByTestId("card").click({ position: { x: 24, y: 14 } });
   await page.keyboard.press("ControlOrMeta+c");
   await expect(page.getByRole("status")).toContainText("已复制");
   expect(
