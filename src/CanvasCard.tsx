@@ -45,6 +45,7 @@ export type CanvasCardActions = {
       y: number;
       id: string;
       kind: "card" | "group" | "canvas";
+      noteLinkIcon?: boolean;
     } | null,
   ) => void;
   setSelectedGroup: (id?: string) => void;
@@ -185,6 +186,7 @@ export const CanvasCard = memo(function CanvasCard({
           y: e.clientY,
           id: c.id,
           kind: "card",
+          noteLinkIcon: !!(e.target as Element).closest(".note-link-icon"),
         });
       }}
       className={
@@ -527,6 +529,8 @@ export const CanvasCard = memo(function CanvasCard({
             ) : (
               <NoteText
                 text={c.text}
+                linkDisabled={c.linkDisabled}
+                showLinkIcon
                 mode={c.textMode}
                 textStyle={c.textStyle}
                 textRuns={c.textRuns}
@@ -676,48 +680,6 @@ export const CanvasCard = memo(function CanvasCard({
             );
           }),
         )}
-      {!c.masked && c.displayMode !== "small" && c.kind === "text" && (
-        <button
-          className="text-display-toggle"
-          aria-label={
-            c.textMode === "scroll"
-              ? tr("切换为换行模式")
-              : tr("切换为滚动模式")
-          }
-          title={c.textMode === "scroll" ? tr("换行") : tr("滚动")}
-          aria-pressed={c.textMode === "scroll"}
-          onPointerDown={(e) => e.stopPropagation()}
-          onDoubleClick={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            const textMode = c.textMode === "scroll" ? "wrap" : "scroll";
-            updateCards((cards) =>
-              cards.map((card) =>
-                card.id === c.id
-                  ? {
-                      ...card,
-                      textMode,
-                      textAutoHeight: true,
-                      ...textSize(
-                        card.text,
-                        textMode,
-                        card.width || TEXT_MAX_WIDTH,
-                        card.textStyle,
-                        card.textRuns,
-                      ),
-                    }
-                  : card,
-              ),
-            );
-          }}
-        >
-          {c.textMode === "scroll" ? (
-            <WrapText size={17} />
-          ) : (
-            <ArrowLeftRight size={17} />
-          )}
-        </button>
-      )}
       <div
         className="card-toolbar"
         role="toolbar"
@@ -726,6 +688,49 @@ export const CanvasCard = memo(function CanvasCard({
         onClick={(e) => e.stopPropagation()}
         onDoubleClick={(e) => e.stopPropagation()}
       >
+        {!c.masked &&
+          !c.locked &&
+          c.displayMode !== "small" &&
+          c.kind === "text" && (
+            <button
+              className="text-display-toggle"
+              aria-label={
+                c.textMode === "scroll"
+                  ? tr("切换为换行模式")
+                  : tr("切换为滚动模式")
+              }
+              title={c.textMode === "scroll" ? tr("换行") : tr("滚动")}
+              aria-pressed={c.textMode === "scroll"}
+              onClick={() => {
+                const textMode = c.textMode === "scroll" ? "wrap" : "scroll";
+                updateCards((cards) =>
+                  cards.map((card) =>
+                    card.id === c.id
+                      ? {
+                          ...card,
+                          textMode,
+                          textAutoHeight: true,
+                          ...textSize(
+                            card.text,
+                            textMode,
+                            card.width || TEXT_MAX_WIDTH,
+                            card.textStyle,
+                            card.textRuns,
+                            card.linkDisabled,
+                          ),
+                        }
+                      : card,
+                  ),
+                );
+              }}
+            >
+              {c.textMode === "scroll" ? (
+                <WrapText size={17} />
+              ) : (
+                <ArrowLeftRight size={17} />
+              )}
+            </button>
+          )}
         {!c.masked &&
           c.displayMode !== "small" &&
           !isApplicationKind(c.kind) && (

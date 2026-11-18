@@ -78,6 +78,8 @@ import {
   List,
   LayoutGrid,
   Paintbrush,
+  Link2,
+  Unlink,
 } from "./icons";
 import {
   type Board,
@@ -102,7 +104,7 @@ import {
   workspaceCounts,
   type CanvasImport,
 } from "./workspaceBackup";
-import { linkTarget } from "./NoteText";
+import { linkTarget, openLink } from "./noteLinks";
 import { TodoEditor } from "./TodoEditor";
 import { TextFileEditor } from "./TextFileEditor";
 import { MermaidEditor } from "./MermaidEditor";
@@ -279,6 +281,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       y: number;
       id: string;
       kind: "card" | "group" | "canvas";
+      noteLinkIcon?: boolean;
     } | null>(null);
   const [applicationDraft, setApplicationDraft] = useState<ApplicationDraft>();
   const [launcherSetup, setLauncherSetup] = useState<{ commands?: string }>();
@@ -709,8 +712,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     }
     const text = clipboard.getData("text/plain");
     if (!text.trim()) return false;
-    const diagram = mermaidSource(text);
-    const format = diagram === undefined ? detectTextFormat(text) : undefined;
+    const address = linkTarget(text);
+    const diagram = address ? undefined : mermaidSource(text);
+    const format =
+      !address && diagram === undefined ? detectTextFormat(text) : undefined;
     const id = uid();
     setBoard((b) => ({
       ...b,
@@ -910,6 +915,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 card.width || TEXT_MAX_WIDTH,
                 undefined,
                 runs,
+                card.linkDisabled,
               ),
               textAutoHeight: true,
             }
@@ -1608,6 +1614,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           rect.width,
           original.textStyle,
           original.textRuns,
+          original.linkDisabled,
         ).height;
       const factor = pdfGeometry(original) ? 1.5 : 1;
       const next = {
@@ -1681,7 +1688,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       e.type !== "pointercancel" &&
       Math.abs(e.clientX - g.x) + Math.abs(e.clientY - g.y) <= 4
     ) {
-      window.open(g.link, "_blank", "noopener,noreferrer");
+      openLink(g.link);
     }
     if (
       g?.toggleCard &&
@@ -2368,6 +2375,32 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     menu?.kind === "group"
       ? board.groups.find((group) => group.id === menu.id)
       : undefined;
+  const menuAddress =
+    menuCard?.kind === "text" && !menuCard.masked && !menuCard.locked
+      ? linkTarget(menuCard.text)
+      : undefined;
+  const setNoteLink = (id: string, enabled: boolean) => {
+    setMenu(null);
+    updateCards((cards) =>
+      cards.map((card) =>
+        card.id === id
+          ? {
+              ...card,
+              linkDisabled: enabled ? undefined : true,
+              ...(card.textAutoHeight &&
+                textSize(
+                  card.text,
+                  card.textMode,
+                  card.width || TEXT_MAX_WIDTH,
+                  card.textStyle,
+                  card.textRuns,
+                  !enabled,
+                )),
+            }
+          : card,
+      ),
+    );
+  };
   const menuCardIds = menuCard
     ? selection.includes(menuCard.id)
       ? selection
@@ -2662,7 +2695,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           onDoubleClickCapture={touch.doubleClick}
           onPointerDownCapture={(e) => {
             if (touch.down(e)) return;
-            if ((e.target as HTMLElement).closest(".canvas-editor")) return;
+            if ((e.target as Element).closest(".canvas-editor,.note-link-icon"))
+              return;
             if (
               e.button === 2 ||
               (e.button === 0 && (e.ctrlKey || e.metaKey))
@@ -2677,7 +2711,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             if (touch.context(e)) return;
             if (
               e.button === 2 &&
-              !(e.target as HTMLElement).closest(".canvas-editor")
+              !(e.target as Element).closest(".canvas-editor,.note-link-icon")
             ) {
               e.preventDefault();
               e.stopPropagation();
@@ -3138,7 +3172,15 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       />
       {menu && (
         <CanvasContextMenu x={menu.x} y={menu.y}>
-          {menu.kind === "canvas" ? (
+          {menu.noteLinkIcon && menuCard ? (
+            <button
+              role="menuitem"
+              onClick={() => setNoteLink(menuCard.id, false)}
+            >
+              <Unlink size={14} />
+              {tr("取消链接")}
+            </button>
+          ) : menu.kind === "canvas" ? (
             <>
               <MenuSection label={tr("新建内容")}>
                 <ContextSubmenu key={`${menu.x}:${menu.y}`} label={tr("新建")}>
@@ -3320,13 +3362,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       }
                       role="menuitem"
                       onClick={() => {
-                        const href =
-                          menuCard.kind === "text"
-                            ? linkTarget(menuCard.text)
-                            : undefined;
                         setMenu(null);
-                        if (href)
-                          window.open(href, "_blank", "noopener,noreferrer");
+                        if (menuAddress && !menuCard.linkDisabled)
+                          openLink(menuAddress);
                         else openCard(menuCard);
                       }}
                     >
@@ -3335,6 +3373,15 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                         ? tr("配置关联")
                         : tr("打开")}
                     </MenuButton>
+                  )}
+                  {menuAddress && menuCard.linkDisabled && (
+                    <button
+                      role="menuitem"
+                      onClick={() => setNoteLink(menuCard.id, true)}
+                    >
+                      <Link2 size={14} />
+                      {tr("设为链接")}
+                    </button>
                   )}
                   <MenuButton
                     shortcut="copy"

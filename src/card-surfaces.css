@@ -109,6 +109,13 @@
   background: var(--surface-muted);
   color: var(--ink);
 }
+:root[data-theme]
+  body
+  .card-toolbar
+  > .text-display-toggle[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
 body .card-toolbar > button:enabled:active {
   transform: scale(0.94);
 }

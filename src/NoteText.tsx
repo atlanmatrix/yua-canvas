@@ -4,17 +4,9 @@ import {
   type TextRun,
   type TextStyle,
 } from "./presentation";
-export function linkTarget(text: string): string | undefined {
-  const value = text.trim();
-  if (!value || /[\s<>]/u.test(value)) return;
-  try {
-    const url = new URL(/^www\./i.test(value) ? `https://${value}` : value);
-    if ((url.protocol === "https:" || url.protocol === "http:") && url.hostname)
-      return url.href;
-  } catch {
-    /* Non-URL notes retain their ordinary text presentation. */
-  }
-}
+import { linkTarget } from "./noteLinks";
+import { Link2 } from "./icons";
+import { t as tr } from "./i18n";
 
 export function StyledNoteText({
   text,
@@ -38,16 +30,20 @@ export function NoteText({
   mode = "wrap",
   textStyle,
   textRuns,
+  linkDisabled,
+  showLinkIcon,
 }: {
   text: string;
   mode?: "wrap" | "scroll";
   textStyle?: TextStyle;
   textRuns?: TextRun[];
+  linkDisabled?: boolean;
+  showLinkIcon?: boolean;
 }) {
   const content = (
     <StyledNoteText text={text} textRuns={textRuns} textStyle={textStyle} />
   );
-  const href = linkTarget(text);
+  const href = linkTarget(text, linkDisabled);
   return (
     <div
       className={`note-body text-${mode}`}
@@ -73,11 +69,23 @@ export function NoteText({
       }}
     >
       <p style={textCss(textRuns?.length ? undefined : textStyle)}>
+        {href && showLinkIcon && (
+          <button
+            type="button"
+            className="note-link-icon"
+            aria-label={tr("链接选项")}
+            aria-haspopup="menu"
+            onPointerDown={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+          >
+            <Link2 size={13} />
+          </button>
+        )}
         {href ? (
           <a
             className="note-link"
             href={href}
-            target="_blank"
+            target={href.startsWith("mailto:") ? undefined : "_blank"}
             rel="noopener noreferrer"
             draggable={false}
             onClick={(e) => {

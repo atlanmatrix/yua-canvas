@@ -144,6 +144,7 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
           width: card.width,
           height: card.height,
           textMode: card.textMode,
+          linkDisabled: card.linkDisabled,
           textAutoHeight: card.textAutoHeight,
           color: card.color,
           group: card.group,

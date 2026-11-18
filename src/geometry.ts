@@ -1,3 +1,4 @@
+import { linkTarget, NOTE_LINK_PREFIX_WIDTH } from "./noteLinks";
 import {
   textCss,
   textSegments,
@@ -32,6 +33,7 @@ type CardGeometry = Pick<Card, "x" | "y" | "width" | "height"> &
       | "mime"
       | "title"
       | "contentAspectRatio"
+      | "linkDisabled"
       | "textRuns"
       | "textStyle"
       | "text"
@@ -65,6 +67,7 @@ function previewTextHeight(c: CardGeometry, width: number) {
     width,
     c.textStyle,
     c.textRuns,
+    c.linkDisabled,
   ).height;
   previewTextHeights.set(c, { width, height });
   return height;
@@ -208,6 +211,7 @@ export function textSize(
   requestedWidth = TEXT_MAX_WIDTH,
   style?: TextStyle,
   runs?: TextRun[],
+  linkDisabled?: boolean,
 ) {
   const css = textCss(style);
   textContext.font = `${css.fontStyle} ${css.fontWeight} ${css.fontSize}px ${css.fontFamily}`;
@@ -215,8 +219,8 @@ export function textSize(
     inset = 26;
   const width = Math.max(64, Math.min(TEXT_MAX_WIDTH, requestedWidth));
   const contentWidth = width - inset;
-  let used = 0,
-    longest = 0,
+  let used = linkTarget(text, linkDisabled) ? NOTE_LINK_PREFIX_WIDTH : 0,
+    longest = used,
     row = 1,
     height = 0;
   let rowHeight = parseFloat(css.lineHeight);

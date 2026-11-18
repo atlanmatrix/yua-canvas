@@ -57,6 +57,7 @@ export type Card = {
   textStyle?: TextStyle;
   textRuns?: TextRun[];
   textMode?: "wrap" | "scroll";
+  linkDisabled?: boolean;
   textAutoHeight?: boolean;
   blob?: Blob;
   mime?: string;
@@ -454,7 +455,8 @@ export async function importBoard(
           c.remark !== undefined ||
           c.pin !== undefined ||
           c.mime !== undefined ||
-          c.textStyle !== undefined
+          c.textStyle !== undefined ||
+          c.linkDisabled !== undefined
         )
           throw Error("加密组件数据无效");
       }
@@ -503,6 +505,8 @@ export async function importBoard(
       if (
         (c.textMode !== undefined &&
           !["wrap", "scroll"].includes(c.textMode as string)) ||
+        (c.linkDisabled !== undefined &&
+          (c.kind !== "text" || typeof c.linkDisabled !== "boolean")) ||
         (c.textAutoHeight !== undefined &&
           typeof c.textAutoHeight !== "boolean")
       )
@@ -600,6 +604,7 @@ export async function importBoard(
         canvas,
         tasks,
         textMode: c.textMode as Card["textMode"],
+        linkDisabled: c.linkDisabled as Card["linkDisabled"],
         textAutoHeight: c.textAutoHeight as boolean | undefined,
         width: c.width as number | undefined,
         height: c.height as number | undefined,

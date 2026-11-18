@@ -201,3 +201,67 @@ test("short and wrapped URLs fit their generated block without cutting off link 
     ).toBeLessThanOrEqual(await textWidth80(page));
   }
 });
+
+test("link icons only offer unlink, and pasted email and web addresses can be restored from plain text", async ({
+  page,
+  context,
+}) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/");
+  await expect(
+    page.getByRole("button", { name: "添加任务", exact: true }),
+  ).toBeEnabled();
+  for (const [address, href] of [
+    ["https://example.com/guide", "https://example.com/guide"],
+    ["name+tag@example.org", "mailto:name+tag@example.org"],
+  ]) {
+    await paste(page, address);
+    const card = page.getByTestId("card").last();
+    const text = card.locator(".note-body p");
+    const addressLink = text.getByRole("link");
+    const icon = card.getByRole("button", { name: "链接选项" });
+    const tabs = context.pages().length;
+    await expect(addressLink).toHaveAttribute("href", href);
+    await expect(icon).toHaveCSS("border-radius", "999px");
+    await expect(icon).toHaveCSS("width", "20px");
+    await expect(icon).toHaveCSS("height", "20px");
+    await expect(icon).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await icon.hover();
+    await expect(icon).toHaveCSS("background-color", "rgb(237, 240, 244)");
+    await icon.click({ modifiers: ["Control"] });
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    expect(context.pages()).toHaveLength(tabs);
+
+    await icon.click({ button: "right" });
+    const menu = page.getByRole("menu");
+    await expect(menu.getByRole("menuitem")).toHaveText(["取消链接"]);
+    await menu.getByRole("menuitem", { name: "取消链接" }).click();
+    await expect(text).toHaveText(address);
+    await expect(addressLink).toHaveCount(0);
+    await expect(icon).toHaveCount(0);
+    await text.click({ modifiers: ["Control"] });
+    expect(context.pages()).toHaveLength(tabs);
+
+    await expect(
+      page.locator('.save-indicator[data-state="已保存至本地"]'),
+    ).toBeVisible();
+    await page.reload();
+    await expect(text).toHaveText(address);
+    await expect(addressLink).toHaveCount(0);
+    const archived = await page.evaluate(async () => {
+      const { readBoard } = await import("/src/storage.ts");
+      const { createArchive, readArchive } = await import("/src/archive.ts");
+      const card = (await readBoard())!.cards.at(-1)!;
+      const blob = await createArchive({ cards: [card], groups: [] });
+      const copy = await readArchive(new File([blob], "note.zip"), {
+        x: 0,
+        y: 0,
+      });
+      return copy.cards[0].linkDisabled;
+    });
+    expect(archived).toBe(true);
+    await text.click({ button: "right" });
+    await menu.getByRole("menuitem", { name: "设为链接" }).click();
+    await expect(addressLink).toHaveAttribute("href", href);
+  }
+});

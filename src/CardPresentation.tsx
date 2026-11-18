@@ -192,6 +192,7 @@ export function StaticContent({
         mode={card.textMode}
         textStyle={card.textStyle}
         textRuns={card.textRuns}
+        linkDisabled={card.linkDisabled}
       />
     );
   if (card.kind === "mermaid")

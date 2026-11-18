@@ -147,7 +147,11 @@ test("scroll mode preserves original lines, fits short content and survives undo
     parseFloat((el as HTMLElement).style.height),
   );
   await card.hover();
-  await card.getByRole("button", { name: "切换为滚动模式" }).click();
+  await card.hover();
+  await card
+    .getByRole("toolbar", { name: "组件操作" })
+    .getByRole("button", { name: "切换为滚动模式" })
+    .click();
   await expect(body).toHaveClass(/text-scroll/);
   const sizes = await body.evaluate((el) => ({
     width: el.clientWidth,

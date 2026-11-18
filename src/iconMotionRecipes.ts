@@ -38,7 +38,7 @@ for (const [family, names] of Object.entries({
   document: "Copy ClipboardPaste Scissors Save Package",
   viewport: "Plus Minus Maximize Square",
   navigation:
-    "ArrowLeft ArrowUpRight LogOut ChevronUp ChevronDown ChevronLeft ChevronRight",
+    "ArrowLeft ArrowUpRight Link2 LogOut ChevronUp ChevronDown ChevronLeft ChevronRight",
   history: "Undo2 RotateCcw RotateCw RefreshCw",
   visibility: "Eye EyeOff LockKeyhole",
   remove: "Trash2 Delete X Unlink",

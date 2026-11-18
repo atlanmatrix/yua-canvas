@@ -1516,28 +1516,23 @@ body .file-detail-modal .file-content-editor {
   overflow-wrap: normal;
   word-break: normal;
 }
-.text-display-toggle {
-  position: absolute;
-  right: 42px;
-  top: 8px;
-  width: 28px;
-  height: 28px;
+body .card-text .note-body .note-link-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  margin: 0 4px 0 0;
   padding: 0;
-  border: 1px solid #e2e6ec;
-  border-radius: 7px;
-  background: var(--surface);
-  color: var(--ink);
-  opacity: 0;
-  z-index: 5;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+  cursor: context-menu;
 }
-.card:hover .text-display-toggle,
-.text-display-toggle:focus-visible {
-  opacity: 1;
-}
-
-.text-display-toggle[aria-pressed="true"] {
-  color: var(--accent);
-  background: var(--accent-soft);
+body .card-text .note-body .note-link-icon:is(:hover, :focus-visible) {
+  background: var(--surface-muted);
 }
 
 .minimap-card image {
@@ -1590,7 +1585,7 @@ body .file-detail-modal .file-content-editor {
   cursor: text;
 }
 .card.canvas-editing
-  :is(.connection-port, .card-download, .text-display-toggle, .card-resize) {
+  :is(.connection-port, .card-download, .card-resize) {
   visibility: hidden;
   pointer-events: none;
 }
@@ -2467,7 +2462,7 @@ body .file-detail-modal .file-content-editor {
 .cloud-panel .cloud-sync-option { display: flex; align-items: center; gap: 6px; margin: 0; }
 
 .card.canvas-editing
-  > :is(.card-toolbar, .connection-port, .text-display-toggle, .card-resize),
+  > :is(.card-toolbar, .connection-port, .card-resize),
 .card:has(
     .component-content
       :is(
@@ -2476,7 +2471,7 @@ body .file-detail-modal .file-content-editor {
         [contenteditable="true"]
       ):focus
   )
-  > :is(.card-toolbar, .connection-port, .text-display-toggle, .card-resize) {
+  > :is(.card-toolbar, .connection-port, .card-resize) {
   display: none;
 }
 .card[data-drop-target="true"] {
