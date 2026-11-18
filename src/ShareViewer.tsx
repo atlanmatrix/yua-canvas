@@ -389,6 +389,7 @@ export function ShareViewer({ token }: { token: string }) {
                             text={c.text}
                             mode={c.textMode}
                             textStyle={c.textStyle}
+                            textRuns={c.textRuns}
                           />
                         ) : c.kind === "mermaid" ? (
                           <div className="mermaid-preview">

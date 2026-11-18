@@ -57,9 +57,8 @@ export async function readCanvasImport(raw: string): Promise<CanvasImport> {
     Array.isArray(navigation.views)
   )
     throw Error("工作区导航数据无效");
-  if (
-    locateBoard(board, navigation.path).path.length !== navigation.path.length
-  )
+  const active = locateBoard(board, navigation.path);
+  if (active.matched !== navigation.path.length)
     throw Error("工作区导航引用了不存在的画布");
   const views: Record<string, View> = Object.create(null);
   for (const [id, view] of Object.entries(navigation.views)) {
@@ -67,11 +66,13 @@ export async function readCanvasImport(raw: string): Promise<CanvasImport> {
     views[id] = { x: view.x, y: view.y, z: view.z };
   }
   const view = { x: state.view.x, y: state.view.y, z: state.view.z };
-  const active = locateBoard(board, navigation.path).board;
-  views[active.id || ""] = view;
+  views[active.board.id || ""] = view;
   return {
     board,
-    workspace: { view, navigation: { path: [...navigation.path], views } },
+    workspace: {
+      view,
+      navigation: { path: active.path, views },
+    },
   };
 }
 

@@ -47,7 +47,7 @@ async function setup(page: Page) {
     ),
   });
   await page.getByRole("button", { name: "确认替换" }).click();
-  await expect(page.getByTestId("card")).toHaveCount(2);
+  await expect(page.getByTestId("card")).toHaveCount(3);
 }
 async function pin(page: Page, id: string) {
   await page
@@ -95,7 +95,7 @@ test("idle overview fades, hover and zoom restore opacity, hierarchy previews wi
   await root.click();
   await expect(page.locator('[data-card-id="根级内容"]')).toHaveCount(1);
 });
-test("pins persist, rename directly, stay on the current canvas and locate groups", async ({
+test("pins persist, rename directly, stay on the current canvas and locate migrated canvases", async ({
   page,
 }) => {
   await setup(page);
@@ -126,7 +126,7 @@ test("pins persist, rename directly, stay on the current canvas and locate group
     /selected/,
   );
   await page
-    .getByRole("button", { name: "拖动分组 空分组", exact: true })
+    .locator('[data-card-id="g"]')
     .click({ button: "right", position: { x: 30, y: 10 } });
   await page.getByRole("menuitem", { name: "Pin", exact: true }).click();
   await saved(page);
@@ -145,7 +145,7 @@ test("pins persist, rename directly, stay on the current canvas and locate group
   expect(rect!.x + rect!.width).toBeLessThan(1280);
   await page.getByRole("button", { name: "返回父画布", exact: true }).click();
   await rail.getByRole("button", { name: "空分组", exact: true }).click();
-  await expect(page.locator(".group-selected")).toHaveCount(1);
+  await expect(page.locator('[data-card-id="g"]')).toHaveClass(/selected/);
   await page
     .locator('[data-card-id="根级内容"]')
     .click({ button: "right", position: { x: 30, y: 30 } });
@@ -154,7 +154,7 @@ test("pins persist, rename directly, stay on the current canvas and locate group
     rail.getByRole("button", { name: "重点", exact: true }),
   ).toHaveCount(0);
 });
-test("pin colors support all states, dismissal, undo and persistence for cards and groups", async ({
+test("pin colors support all states, dismissal, undo and persistence for cards and migrated canvases", async ({
   page,
 }) => {
   await setup(page);
@@ -204,7 +204,7 @@ test("pin colors support all states, dismissal, undo and persistence for cards a
   const renamed = rail.getByRole("button", { name: "彩色 Pin", exact: true });
   await expect(renamed).toHaveAttribute("data-pin-color", "info");
   await page
-    .getByRole("button", { name: "拖动分组 空分组", exact: true })
+    .locator('[data-card-id="g"]')
     .click({ button: "right", position: { x: 30, y: 10 } });
   await page.getByRole("menuitem", { name: "Pin", exact: true }).click();
   const group = rail.getByRole("button", { name: "空分组", exact: true });

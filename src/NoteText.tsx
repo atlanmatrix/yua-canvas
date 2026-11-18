@@ -1,4 +1,9 @@
-import { textCss, type TextStyle } from "./presentation";
+import {
+  textCss,
+  textSegments,
+  type TextRun,
+  type TextStyle,
+} from "./presentation";
 export function linkTarget(text: string): string | undefined {
   const value = text.trim();
   if (!value || /[\s<>]/u.test(value)) return;
@@ -11,15 +16,37 @@ export function linkTarget(text: string): string | undefined {
   }
 }
 
+export function StyledNoteText({
+  text,
+  textStyle,
+  textRuns,
+}: {
+  text: string;
+  textStyle?: TextStyle;
+  textRuns?: TextRun[];
+}) {
+  return textRuns?.length
+    ? textSegments(text, textRuns, textStyle).map((s, i) => (
+        <span key={i} style={textCss(s.style)}>
+          {s.text}
+        </span>
+      ))
+    : text;
+}
 export function NoteText({
   text,
   mode = "wrap",
   textStyle,
+  textRuns,
 }: {
   text: string;
   mode?: "wrap" | "scroll";
   textStyle?: TextStyle;
+  textRuns?: TextRun[];
 }) {
+  const content = (
+    <StyledNoteText text={text} textRuns={textRuns} textStyle={textStyle} />
+  );
   const href = linkTarget(text);
   return (
     <div
@@ -45,7 +72,7 @@ export function NoteText({
           e.stopPropagation();
       }}
     >
-      <p style={textCss(textStyle)}>
+      <p style={textCss(textRuns?.length ? undefined : textStyle)}>
         {href ? (
           <a
             className="note-link"
@@ -60,10 +87,10 @@ export function NoteText({
             }}
             onAuxClick={(e) => e.preventDefault()}
           >
-            {text}
+            {content}
           </a>
         ) : (
-          text
+          content
         )}
       </p>
     </div>

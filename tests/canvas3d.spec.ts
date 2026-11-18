@@ -139,7 +139,7 @@ async function saved(page: Page) {
   );
 }
 
-test("minimap context menu opens an exploded hierarchy with static components, groups and links", async ({
+test("minimap context menu opens an exploded hierarchy with static components, migrated canvases and links", async ({
   page,
 }) => {
   await setup(page);
@@ -152,15 +152,15 @@ test("minimap context menu opens an exploded hierarchy with static components, g
   await page.getByTestId("minimap").focus();
   await page.keyboard.press("Shift+F10");
   await page.getByRole("menuitem", { name: "分层视图" }).click();
-  await expect(page.locator(".canvas3d-layer")).toHaveCount(4);
+  await expect(page.locator(".canvas3d-layer")).toHaveCount(5);
   expect(
     await page
       .locator(".canvas3d-layer")
       .evaluateAll((els) => els.map((e) => e.getAttribute("data-depth"))),
-  ).toEqual(["0", "1", "2", "1"]);
-  await expect(page.locator(".canvas3d-component")).toHaveCount(11);
-  await expect(page.locator(".canvas3d-group")).toHaveCount(1);
-  await expect(page.locator(".canvas3d-hierarchy-link")).toHaveCount(3);
+  ).toEqual(["0", "1", "2", "2", "1"]);
+  await expect(page.locator(".canvas3d-component")).toHaveCount(12);
+  await expect(page.locator(".canvas3d-group")).toHaveCount(0);
+  await expect(page.locator(".canvas3d-hierarchy-link")).toHaveCount(4);
   await expect(page.locator(".canvas3d-connections text")).toHaveText(
     "相关资料",
   );
@@ -216,7 +216,7 @@ test("orbit follows mouse axes, clamps pitch to 180 degrees, and keeps only two 
     initial = await sceneView.getAttribute("style");
   const root = page.locator('[data-depth="0"]'),
     child = page.locator('[data-depth="1"]').first(),
-    grandchild = page.locator('[data-depth="2"]');
+    grandchild = page.locator('[data-depth="2"]').first();
   const center = async (node: typeof root) => {
     const box = (await node.boundingBox())!;
     return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
@@ -287,7 +287,7 @@ for (const id of ["深层文本", "todo", "file", "image", "miniature", "nested"
       id === "nested" ? "下一层" : "项目",
     );
     if (id === "深层文本") {
-      await expect(page.getByRole("textbox", { name: "文本内容" })).toHaveValue(
+      await expect(page.getByRole("textbox", { name: "文本内容" })).toHaveText(
         "深层文本内容",
       );
       await expect(
@@ -320,14 +320,14 @@ test("direct route reloads from local storage, browser Back and keyboard compone
   await page.goBack();
   await expect(page.locator(".canvas3d-page")).toHaveCount(0);
   await page.goForward();
-  await expect(page.locator(".canvas3d-layer")).toHaveCount(4);
+  await expect(page.locator(".canvas3d-layer")).toHaveCount(5);
   await page.reload();
-  await expect(page.locator(".canvas3d-layer")).toHaveCount(4);
+  await expect(page.locator(".canvas3d-layer")).toHaveCount(5);
   const component = page.locator('[data-3d-card="同级内容"]');
   await component.focus();
   await component.press("Enter");
   await expect(page.locator(".canvas-navigation")).toHaveText("另一个项目");
-  await expect(page.getByRole("textbox", { name: "文本内容" })).toHaveValue(
+  await expect(page.getByRole("textbox", { name: "文本内容" })).toHaveText(
     "同级内容",
   );
 });

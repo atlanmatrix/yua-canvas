@@ -14,7 +14,7 @@ const note = (id: string, x: number, y: number, group?: string) => ({
 });
 const pixel =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=";
-async function setup(page: Page) {
+async function setup(page: Page, legacy = false) {
   await page.goto("/");
   await page.getByTestId("import").setInputFiles({
     name: "menu.json",
@@ -73,21 +73,23 @@ async function setup(page: Page) {
           },
           note("outside", 1200, 150),
         ],
-        groups: [
-          {
-            id: "outer",
-            name: "整组",
-            pin: "整组 Pin",
-            pinColor: "danger",
-            bounds: { x: 40, y: 90, width: 1050, height: 600 },
-          },
-          {
-            id: "inner",
-            name: "子组",
-            parent: "outer",
-            bounds: { x: 60, y: 120, width: 220, height: 140 },
-          },
-        ],
+        groups: legacy
+          ? [
+              {
+                id: "outer",
+                name: "整组",
+                pin: "整组 Pin",
+                pinColor: "danger",
+                bounds: { x: 40, y: 90, width: 1050, height: 600 },
+              },
+              {
+                id: "inner",
+                name: "子组",
+                parent: "outer",
+                bounds: { x: 60, y: 120, width: 220, height: 140 },
+              },
+            ]
+          : [],
         connections: [
           {
             id: "edge",
@@ -99,7 +101,7 @@ async function setup(page: Page) {
     ),
   });
   await page.getByRole("button", { name: "确认替换" }).click();
-  await expect(page.getByTestId("card")).toHaveCount(6);
+  await expect(page.getByTestId("card")).toHaveCount(legacy ? 2 : 6);
 }
 async function zipFromMenu(page: Page) {
   const pending = page.waitForEvent("download");
@@ -117,47 +119,44 @@ async function zipFromMenu(page: Page) {
     meta: JSON.parse(strFromU8(files["yua-canvas.metadata.json"])),
   };
 }
-test("group menu ZIP includes all descendants, subcanvas attachments and links", async ({
+test("selection ZIP includes a migrated canvas with its descendants, attachments and links", async ({
   page,
 }) => {
-  await setup(page);
+  await setup(page, true);
   await page
-    .getByRole("button", { name: "拖动分组 整组", exact: true })
-    .click({ button: "right", position: { x: 30, y: 10 } });
+    .locator('[data-card-id="outside"]')
+    .click({ position: { x: 20, y: 20 } });
+  await page
+    .locator('[data-card-id="outer"]')
+    .click({ modifiers: ["Shift"], position: { x: 24, y: 24 } });
+  await page
+    .locator('[data-card-id="outer"]')
+    .click({ button: "right", position: { x: 24, y: 24 } });
   const { files, meta, raw } = await zipFromMenu(page);
-  expect(meta.cards).toHaveLength(5);
-  expect(meta.groups).toHaveLength(2);
-  expect(meta.connections).toHaveLength(1);
-  expect(meta.cards.some((c: any) => c.id === "outside")).toBe(false);
-  const nested = meta.cards.find((c: any) => c.kind === "canvas").canvas
-    .cards[0];
-  expect([...files[nested.file]]).toEqual([1, 2, 3]);
-  expect([...files[meta.cards.find((c: any) => c.id === "file").file]]).toEqual(
-    [0, 1, 2, 255],
-  );
-  await expect(page.locator(".batch-download")).toHaveCount(0);
-  expect(meta.cards.find((c: any) => c.id === "text").pinColor).toBe("info");
-  expect(meta.cards.find((c: any) => c.kind === "canvas").pinColor).toBe(
-    "warn",
-  );
-  expect(meta.groups.find((g: any) => g.id === "outer").pinColor).toBe(
-    "danger",
-  );
+  expect(meta.cards).toHaveLength(2);
+  const outer = meta.cards.find((c: any) => c.id === "outer"),
+    inner = outer.canvas.cards.find((c: any) => c.id === "inner");
+  expect(outer.pinColor).toBe("danger");
+  expect(inner.canvas.cards[0].pinColor).toBe("info");
+  expect(outer.canvas.connections).toHaveLength(1);
+  expect([
+    ...files[outer.canvas.cards.find((c: any) => c.id === "file").file],
+  ]).toEqual([0, 1, 2, 255]);
+  expect([
+    ...files[
+      outer.canvas.cards.find((c: any) => c.id === "child").canvas.cards[0].file
+    ],
+  ]).toEqual([1, 2, 3]);
   await page.getByTestId("import").setInputFiles({
     name: "colored-pins.zip",
     mimeType: "application/zip",
     buffer: raw,
   });
-  const rail = page.getByRole("navigation", { name: "Pin 定位" });
-  for (const [name, color] of [
-    ["第一项", "info"],
-    ["子画布 Pin", "warn"],
-    ["整组 Pin", "danger"],
-  ]) {
-    const pins = rail.getByRole("button", { name, exact: true });
-    await expect(pins).toHaveCount(2);
-    await expect(pins.nth(1)).toHaveAttribute("data-pin-color", color);
-  }
+  const pins = page
+    .getByRole("navigation", { name: "Pin 定位" })
+    .getByRole("button", { name: "整组 Pin", exact: true });
+  await expect(pins).toHaveCount(2);
+  await expect(pins.nth(1)).toHaveAttribute("data-pin-color", "danger");
 });
 test("multi-selected component menu downloads whole selection rather than clicked item", async ({
   page,

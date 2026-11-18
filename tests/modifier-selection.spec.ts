@@ -18,7 +18,7 @@ async function setup(page: Page) {
           {
             id: "g",
             name: "资料",
-            bounds: { x: 30, y: 50, width: 1000, height: 280 },
+            bounds: { x: 30, y: 400, width: 1000, height: 280 },
           },
         ],
         cards: [
@@ -29,7 +29,6 @@ async function setup(page: Page) {
             text: "普通文本",
             x: 60,
             y: 120,
-            group: "g",
           },
           {
             ...base,
@@ -39,7 +38,6 @@ async function setup(page: Page) {
             blob: "data:text/plain;base64,SGVsbG8=",
             x: 300,
             y: 120,
-            group: "g",
           },
           {
             ...base,
@@ -49,7 +47,6 @@ async function setup(page: Page) {
             blob: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",
             x: 540,
             y: 120,
-            group: "g",
           },
           {
             ...base,
@@ -58,7 +55,6 @@ async function setup(page: Page) {
             tasks: [{ id: "task", text: "待办", done: false }],
             x: 780,
             y: 120,
-            group: "g",
           },
         ],
       }),
@@ -113,12 +109,16 @@ for (const modifier of ["Meta", "Control"] as const) {
           els.map((el) => (el as HTMLElement).style.cssText),
         ),
     ).toEqual(geometry);
-    // Selecting a card clears a previously selected group without selecting its siblings.
+    // Migrated canvases participate in the same modifier-click selection as other cards.
     await page
-      .getByRole("button", { name: "拖动分组 资料", exact: true })
-      .click();
+      .locator('[data-card-id="g"]')
+      .click({ position: { x: 16, y: 16 } });
     await click("text");
-    await expect(page.locator(".group-selected")).toHaveCount(0);
+    expect(await selection(page)).toEqual(["g", "text"]);
+    await card(page, "g").click({
+      modifiers: [modifier],
+      position: { x: 16, y: 16 },
+    });
     expect(await selection(page)).toEqual(["text"]);
     const b = (await card(page, "file").boundingBox())!;
     const x = b.x + 55,

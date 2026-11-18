@@ -134,6 +134,7 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
           masked: card.masked,
           remark: card.remark,
           textStyle: card.textStyle,
+          textRuns: card.textRuns,
           miniatureView: card.miniatureView,
           pdfPage: card.pdfPage,
           editableFile: card.editableFile,

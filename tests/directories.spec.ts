@@ -143,48 +143,34 @@ for (const variant of ["paste", "drop", "handle"] as const) {
       variant === "drop" ? "drop" : "paste",
       variant === "handle",
     );
-    await expect(page.getByTestId("card")).toHaveCount(4);
-    await expect(page.locator(".group-boundary")).toHaveCount(3);
+    await expect(page.getByTestId("card")).toHaveCount(1);
     const imported = await board(page);
-    const root = imported.groups.find((g: any) => g.name === "项目资料");
-    const child = imported.groups.find((g: any) => g.name === "子目录");
-    const empty = imported.groups.find((g: any) => g.name === "空目录");
-    expect(child.parent).toBe(root.id);
-    expect(empty.parent).toBe(root.id);
-    expect(imported.cards.filter((c: any) => c.group === root.id)).toHaveLength(
-      2,
-    );
+    const root = imported.cards.find((c: any) => c.title === "项目资料").canvas;
+    const child = root.cards.find((c: any) => c.title === "子目录").canvas;
     expect(
-      imported.cards.filter((c: any) => c.group === child.id),
-    ).toHaveLength(2);
-    for (const card of imported.cards) {
-      const b = imported.groups.find((g: any) => g.id === card.group).bounds;
-      expect(card.x).toBeGreaterThanOrEqual(b.x + 20);
-      expect(card.y).toBeGreaterThanOrEqual(b.y + 45);
-      expect(card.x + card.width).toBeLessThanOrEqual(b.x + b.width);
-      expect(card.y + card.height).toBeLessThanOrEqual(b.y + b.height);
-    }
-    const nested = imported.cards.find(
-      (c: any) => c.title === "说明.md" && c.group === child.id,
-    );
+      root.cards.find((c: any) => c.title === "空目录").canvas.cards,
+    ).toEqual([]);
+    expect(root.cards.filter((c: any) => c.kind !== "canvas")).toHaveLength(2);
+    expect(child.cards).toHaveLength(2);
+    const nested = child.cards.find((c: any) => c.title === "说明.md");
     expect(Buffer.from(nested.blob.split(",")[1], "base64").toString()).toBe(
       "# 子目录正文",
     );
-    expect(imported.cards.find((c: any) => c.kind === "image").blob).toBe(
+    expect(child.cards.find((c: any) => c.kind === "image").blob).toBe(
       "data:image/png;base64," + png,
     );
-    expect(imported.cards.some((c: any) => c.title === "项目资料")).toBe(false);
+    expect(imported.groups).toEqual([]);
     await page.keyboard.press("ControlOrMeta+z");
     await expect(page.getByTestId("card")).toHaveCount(0);
     await expect(page.locator(".group-boundary")).toHaveCount(0);
     await page.keyboard.press("ControlOrMeta+Shift+z");
-    await expect(page.getByTestId("card")).toHaveCount(4);
+    await expect(page.getByTestId("card")).toHaveCount(1);
     await expect(
       page.locator('.save-indicator[data-state="已保存至本地"]'),
     ).toBeVisible();
     await page.reload();
-    await expect(page.getByTestId("card")).toHaveCount(4);
-    await expect(page.locator(".group-boundary")).toHaveCount(3);
+    await expect(page.getByTestId("card")).toHaveCount(1);
+    await expect(page.locator(".group-boundary")).toHaveCount(0);
     if (variant === "paste")
       await page.screenshot({ path: "/tmp/yua-directory-paste.png" });
   });
@@ -224,16 +210,22 @@ for (const method of ["picker", "native drop"] as const) {
           });
         await cdp.detach();
       }
-      await expect(page.getByTestId("card")).toHaveCount(2);
-      await expect(page.locator(".group-boundary")).toHaveCount(
-        method === "picker" ? 2 : 3,
-      );
+      await expect(page.getByTestId("card")).toHaveCount(1);
       const imported = await board(page);
-      const root = imported.groups.find((g: any) => g.name === basename(path));
-      expect(imported.groups.find((g: any) => g.name === "素材").parent).toBe(
-        root.id,
-      );
-      const config = imported.cards.find((c: any) => c.title === "配置.env");
+      const root = imported.cards.find(
+        (c: any) => c.title === basename(path),
+      ).canvas;
+      expect(
+        root.cards.find((c: any) => c.title === "素材").canvas.cards[0].title,
+      ).toBe("样例.txt");
+      if (method === "native drop")
+        expect(
+          root.cards.find((c: any) => c.title === "空目录").canvas.cards,
+        ).toEqual([]);
+      await page
+        .getByRole("button", { name: "进入子画布 " + basename(path) })
+        .click();
+      const config = root.cards.find((c: any) => c.title === "配置.env");
       expect(Buffer.from(config.blob.split(",")[1], "base64")).toEqual(
         original,
       );

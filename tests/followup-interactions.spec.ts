@@ -237,8 +237,9 @@ test("TODO list previews preserve the clicked task and caret when opening their 
       },
     ],
   });
+  await page.getByRole("button", { name: "进入子画布 分组" }).click();
   const point = await page
-    .locator('.group-list-detail [data-task-id="one"] [data-task-text]')
+    .locator('.card-todo [data-task-id="one"] [data-task-text]')
     .evaluate((el) => {
       const range = document.createRange();
       range.setStart(el.firstChild!, 3);
@@ -247,9 +248,7 @@ test("TODO list previews preserve the clicked task and caret when opening their 
       return { x: r.left + 1, y: r.top + r.height / 2 };
     });
   await page.mouse.dblclick(point.x, point.y);
-  const input = page
-    .getByRole("dialog")
-    .getByRole("textbox", { name: "任务内容 1" });
+  const input = page.getByRole("textbox", { name: "任务内容 1" });
   await expect(input).toBeFocused();
   expect(await input.evaluate((i: HTMLInputElement) => i.selectionStart)).toBe(
     3,
@@ -257,5 +256,7 @@ test("TODO list previews preserve the clicked task and caret when opening their 
   await page.keyboard.type("!");
   await page.keyboard.press("ControlOrMeta+Enter");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  expect((await data(page)).cards[0].tasks[0].text).toBe("ABC!DEFGHIJKLMN");
+  expect((await data(page)).cards[0].canvas.cards[0].tasks[0].text).toBe(
+    "ABC!DEFGHIJKLMN",
+  );
 });

@@ -167,7 +167,7 @@ test("each Todo task has a border endpoint, links survive copies and task remova
   await page.keyboard.press("ControlOrMeta+z");
   await expect(page.locator(".connection-path:not(.draft)")).toHaveCount(2);
 });
-test("canceled connections and drops onto groups create no edges", async ({
+test("canceled connections create no edges and canvases accept connections", async ({
   page,
 }) => {
   await setup(page);
@@ -180,18 +180,10 @@ test("canceled connections and drops onto groups create no edges", async ({
   await page.keyboard.press("Escape");
   await page.mouse.up();
   await expect(page.locator(".connection-path")).toHaveCount(0);
-  await page.keyboard.press("ControlOrMeta+a");
-  await page.keyboard.press("ControlOrMeta+g");
-  await page.getByRole("textbox", { name: "分组名称" }).fill("不可连接分组");
-  await page.getByRole("button", { name: "保存分组" }).click();
-  await page.getByRole("button", { name: "适应所有内容" }).click();
-  await connect(
-    page,
-    source.locator(".port-e"),
-    page.getByRole("button", { name: "拖动分组 不可连接分组" }),
-  );
-  await expect(page.locator(".connection-path")).toHaveCount(0);
-  await expect(page.locator(".group-boundary .connection-port")).toHaveCount(0);
+  await page.getByRole("button", { name: "创建子画布", exact: true }).click();
+  const target = page.locator(".card-canvas");
+  await connect(page, source.locator(".port-e"), target.locator(".port-w"));
+  await expect(page.locator(".connection-path")).toHaveCount(1);
 });
 
 test("nearby target ports activate blue, snap on release and labels edit, cancel, undo and persist", async ({
@@ -338,7 +330,7 @@ test("connections, drafts and minimap curves have target arrows that keep a usab
   await page.screenshot({ path: "/tmp/yua-arrow-connection.png" });
 });
 
-test("connection editors stay above overlapping cards and group headers while zooming", async ({
+test("connection editors stay above overlapping cards while zooming", async ({
   page,
 }) => {
   await page.goto("/");
@@ -395,17 +387,6 @@ test("connection editors stay above overlapping cards and group headers while zo
   const zoom = await page
     .locator(".world")
     .evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
-  const title = await page
-    .getByRole("button", { name: "拖动分组 分组标题" })
-    .boundingBox();
-  await page.mouse.move(title!.x + 30, title!.y + title!.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(
-    title!.x + 30,
-    title!.y + title!.height / 2 - 240 * zoom,
-    { steps: 10 },
-  );
-  await page.mouse.up();
   const geometry = () =>
     page
       .locator(".card,.group-boundary")
@@ -429,7 +410,6 @@ test("connection editors stay above overlapping cards and group headers while zo
       { x, y },
     );
   expect((await hit(210, 180)).card).toBe("a");
-  expect((await hit(305, 180)).group).toBe("g");
   expect((await hit(350, 180)).card).toBe("b");
   const midpoint = await page.locator(".connection-hit").evaluate((el) => {
     const path = el as SVGPathElement,

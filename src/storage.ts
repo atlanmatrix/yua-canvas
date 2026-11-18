@@ -1,3 +1,4 @@
+import { locateBoard, migrateGroups } from "./canvasHierarchy";
 import { validAgentText } from "./agent";
 import { sealBoard, protectedNavigation, hasProtected } from "./encryption";
 import { protectPreviewCaches } from "./previewDisk";
@@ -12,6 +13,7 @@ import {
   validStrokes,
   type DisplayMode,
   type TextStyle,
+  type TextRun,
   type Stroke,
 } from "./presentation";
 import { validEndpoint, type Connection } from "./connections";
@@ -53,6 +55,7 @@ export type Card = {
   masked?: boolean;
   remark?: string;
   textStyle?: TextStyle;
+  textRuns?: TextRun[];
   textMode?: "wrap" | "scroll";
   textAutoHeight?: boolean;
   blob?: Blob;
@@ -166,26 +169,6 @@ export function containingGroup(
         a.bounds!.width * a.bounds!.height - b.bounds!.width * b.bounds!.height,
     )[0]?.id;
 }
-export function initializeGroups(board: Board): Board {
-  return {
-    ...board,
-    cards: board.cards.map((card) =>
-      card.kind === "canvas" && card.canvas
-        ? { ...card, canvas: initializeGroups(card.canvas) }
-        : card,
-    ),
-    groups: attachParents(
-      board.groups.map((g) =>
-        g.bounds
-          ? g
-          : {
-              ...g,
-              bounds: groupBounds(board.cards.filter((c) => c.group === g.id)),
-            },
-      ),
-    ),
-  };
-}
 export type View = { x: number; y: number; z: number };
 export type Navigation = { path: string[]; views: Record<string, View> };
 export type Board = {
@@ -209,20 +192,50 @@ const database = new Promise<IDBDatabase>((resolve, reject) => {
 });
 export async function readBoard(): Promise<Board | undefined> {
   const db = await database;
-  return new Promise((resolve, reject) => {
-    const r = db.transaction("boards").objectStore("boards").get("main");
-    r.onsuccess = async () => {
-      try {
-        const board = r.result ? initializeGroups(r.result) : undefined;
-        if (board && (board.lockProfile || hasProtected(board)))
-          await protectPreviewCaches();
-        resolve(board);
-      } catch (error) {
-        reject(error);
-      }
-    };
-    r.onerror = () => reject(r.error);
+  let result = await new Promise<Board | undefined>((resolve, reject) => {
+    const request = db.transaction("boards").objectStore("boards").get("main");
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
   });
+  const needsMigration = (b: Board): boolean =>
+    !!b.groups.length ||
+    b.cards.some((c) => c.canvas && needsMigration(c.canvas));
+  if (result && needsMigration(result))
+    result = await new Promise<Board | undefined>((resolve, reject) => {
+      // Re-read under the write lock so another tab's newer save cannot be overwritten.
+      const tx = db.transaction("boards", "readwrite");
+      const store = tx.objectStore("boards");
+      const r = store.get("main");
+      let board: Board | undefined;
+      r.onsuccess = () => {
+        try {
+          if (!r.result) return;
+          board = migrateGroups(r.result);
+          if (board === r.result) return;
+          store.put(board, "main");
+          const nav = store.get("navigation");
+          nav.onsuccess = () => {
+            if (Array.isArray(nav.result?.path)) {
+              store.put(
+                {
+                  ...nav.result,
+                  path: locateBoard(board!, nav.result.path).path,
+                },
+                "navigation",
+              );
+            }
+          };
+        } catch (error) {
+          tx.abort();
+          reject(error);
+        }
+      };
+      tx.oncomplete = () => resolve(board);
+      tx.onabort = tx.onerror = () => reject(tx.error);
+    });
+  if (result && (result.lockProfile || hasProtected(result)))
+    await protectPreviewCaches();
+  return result;
 }
 export async function readView(): Promise<View | undefined> {
   const db = await database;
@@ -583,6 +596,7 @@ export async function importBoard(
         masked: c.masked as boolean | undefined,
         remark: c.remark as string | undefined,
         textStyle: c.textStyle as Card["textStyle"],
+        textRuns: c.textRuns as Card["textRuns"],
         canvas,
         tasks,
         textMode: c.textMode as Card["textMode"],
@@ -650,7 +664,7 @@ export async function importBoard(
     throw Error("画笔显示设置无效");
   if (!validStrokes(data.strokes)) throw Error("画笔数据无效");
   if (data.lockProfile || hasProtected({ cards })) await protectPreviewCaches();
-  return initializeGroups({
+  return migrateGroups({
     ...(data.lockProfile
       ? { lockProfile: data.lockProfile as LockProfile }
       : {}),
@@ -687,7 +701,7 @@ export async function readRecovery(): Promise<Board | undefined> {
       .transaction("boards")
       .objectStore("boards")
       .get("cloud-recovery");
-    r.onsuccess = () => resolve(r.result);
+    r.onsuccess = () => resolve(r.result && migrateGroups(r.result));
     r.onerror = () => reject(r.error);
   });
 }
@@ -727,7 +741,15 @@ export async function readCanvasClipboard(): Promise<
       .transaction("boards")
       .objectStore("boards")
       .get("cut-clipboard");
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const copy = request.result as CanvasClipboard | undefined;
+      resolve(
+        copy && {
+          ...copy,
+          fragment: migrateGroups({ version: 1, ...copy.fragment }),
+        },
+      );
+    };
     request.onerror = () => reject(request.error);
   });
 }

@@ -1,4 +1,9 @@
-import { textCss, type TextStyle } from "./presentation";
+import {
+  textCss,
+  textSegments,
+  type TextRun,
+  type TextStyle,
+} from "./presentation";
 import { type Board, type Card, type Rect, attachParents } from "./storage";
 const textContext = document.createElement("canvas").getContext("2d")!;
 textContext.font = "13px monospace";
@@ -27,6 +32,7 @@ type CardGeometry = Pick<Card, "x" | "y" | "width" | "height"> &
       | "mime"
       | "title"
       | "contentAspectRatio"
+      | "textRuns"
       | "textStyle"
       | "text"
       | "textMode"
@@ -53,7 +59,13 @@ const previewTextHeights = new WeakMap<
 function previewTextHeight(c: CardGeometry, width: number) {
   const cached = previewTextHeights.get(c);
   if (cached?.width === width) return cached.height;
-  const height = textSize(c.text || "", c.textMode, width, c.textStyle).height;
+  const height = textSize(
+    c.text || "",
+    c.textMode,
+    width,
+    c.textStyle,
+    c.textRuns,
+  ).height;
   previewTextHeights.set(c, { width, height });
   return height;
 }
@@ -65,7 +77,11 @@ export const cardRect = (c: CardGeometry): Rect => {
     const scale = pdfGeometry(c)
       ? 1 / 1.5
       : Math.min(1, 320 / width, 240 / height);
-    const previewWidth = c.previewWidth || width * scale;
+    const previewWidth =
+      c.previewWidth ||
+      (c.kind === "text" && c.textAutoHeight
+        ? Math.min(width, 320)
+        : width * scale);
     const previewHeight =
       c.kind === "text" && c.textAutoHeight && typeof c.text === "string"
         ? previewTextHeight(c, previewWidth)
@@ -191,6 +207,7 @@ export function textSize(
   mode: "wrap" | "scroll" = "wrap",
   requestedWidth = TEXT_MAX_WIDTH,
   style?: TextStyle,
+  runs?: TextRun[],
 ) {
   const css = textCss(style);
   textContext.font = `${css.fontStyle} ${css.fontWeight} ${css.fontSize}px ${css.fontFamily}`;
@@ -198,45 +215,48 @@ export function textSize(
     inset = 26;
   const width = Math.max(64, Math.min(TEXT_MAX_WIDTH, requestedWidth));
   const contentWidth = width - inset;
-  const lines = text.split("\n");
-  const advances = new Map<string, number>();
-  let longest = 0;
-  const tab = ctx.measureText("0").width * 4;
-  const rows = lines.reduce((sum, line) => {
-    let count = 1,
-      used = 0,
-      lineWidth = 0;
-    for (const character of line) {
+  let used = 0,
+    longest = 0,
+    row = 1,
+    height = 0;
+  let rowHeight = parseFloat(css.lineHeight);
+  const nextRow = () => {
+    if (row <= TEXT_MAX_LINES) height += rowHeight;
+    row++;
+    used = 0;
+    rowHeight = parseFloat(css.lineHeight);
+  };
+  for (const segment of textSegments(text, runs, style)) {
+    const font = textCss(segment.style);
+    ctx.font = `${font.fontStyle} ${font.fontWeight} ${font.fontSize}px ${font.fontFamily}`;
+    const advances = new Map<string, number>();
+    const tab = ctx.measureText("0").width * 4;
+    for (const character of segment.text) {
+      if (character === "\n") {
+        nextRow();
+        continue;
+      }
       let advance = advances.get(character);
       if (advance === undefined) {
         advance = ctx.measureText(character).width;
         advances.set(character, advance);
       }
-      const actual = character === "\t" ? tab - (used % tab) : advance;
-      if (mode === "wrap" && used > 0 && used + actual > contentWidth) {
-        count++;
-        used = 0;
-      }
-      used += character === "\t" ? tab - (used % tab) : advance;
-      lineWidth += character === "\t" ? tab - (lineWidth % tab) : advance;
+      if (character === "\t") advance = tab - (used % tab);
+      if (mode === "wrap" && used && used + advance > contentWidth) nextRow();
+      used += advance;
+      rowHeight = Math.max(rowHeight, parseFloat(font.lineHeight));
+      longest = Math.max(used, longest);
     }
-    longest = Math.max(longest, lineWidth);
-    return sum + count;
-  }, 0);
+  }
+  if (row <= TEXT_MAX_LINES) height += rowHeight;
   const horizontal =
     mode === "scroll" &&
-    longest > contentWidth - (rows > TEXT_MAX_LINES ? scrollbarSize() : 0);
-  return {
-    width,
-    height:
-      Math.min(TEXT_MAX_LINES, rows) *
-        Math.max(24, (style?.fontSize || 13) * 1.5) +
-      inset +
-      (horizontal ? scrollbarSize() : 0),
-  };
+    longest > contentWidth - (row > TEXT_MAX_LINES ? scrollbarSize() : 0);
+  return { width, height: height + inset + (horizontal ? scrollbarSize() : 0) };
 }
 
 export function settleGroups(board: Board, moved: string[]): Board {
+  if (!board.groups.length) return board;
   let groups = board.groups.map((g) => ({
     ...g,
     bounds: g.bounds ? { ...g.bounds } : undefined,

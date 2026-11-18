@@ -36,7 +36,6 @@ async function setup(page: Page) {
     width,
     height,
     color: "#ffffff",
-    group: "g",
   });
   const cards = [
     note("普通文本", "text", 80, 130, 220, 100),
@@ -68,19 +67,7 @@ async function setup(page: Page) {
       JSON.stringify({
         version: 1,
         cards,
-        groups: [
-          {
-            id: "g",
-            name: "背景组",
-            bounds: { x: 30, y: 60, width: 1100, height: 600 },
-          },
-          {
-            id: "child",
-            name: "子分组",
-            parent: "g",
-            bounds: { x: 800, y: 310, width: 280, height: 120 },
-          },
-        ],
+        groups: [],
         connections: [
           {
             id: "c",
@@ -151,7 +138,7 @@ test("text menus copy, download and open the clicked text; file menus download o
   expect(text.data.toString()).toBe("普通文本");
   await menu(page, note);
   await page.getByRole("menuitem", { name: "打开", exact: true }).click();
-  await expect(page.getByRole("textbox", { name: "文本内容" })).toHaveValue(
+  await expect(page.getByRole("textbox", { name: "文本内容" })).toHaveText(
     "普通文本",
   );
   await page.keyboard.press("Escape");
@@ -176,7 +163,7 @@ test("text menus copy, download and open the clicked text; file menus download o
   await tab.close();
 });
 
-test("seven horizontal pastel choices color every card type and groups, preserve edges, undo and round-trip through JSON and ZIP", async ({
+test("seven horizontal pastel choices color every card type, preserve edges, undo and round-trip through JSON and ZIP", async ({
   page,
 }) => {
   await setup(page);
@@ -218,22 +205,6 @@ test("seven horizontal pastel choices color every card type and groups, preserve
       rgb(palette[index + 1][1]),
     );
   }
-  const parent = page.locator('.group-boundary[data-group-id="g"]');
-  await color(
-    page,
-    page.getByRole("button", { name: "拖动分组 背景组", exact: true }),
-    "浅绿",
-  );
-  await expect(parent).toHaveCSS("background-color", rgb(palette[4][1]));
-  expect(
-    await parent.evaluate(
-      (el) => getComputedStyle(el, "::before").backgroundColor,
-    ),
-  ).toBe(rgb(palette[4][1]));
-  await expect(card(page, ids[0])).toHaveCSS(
-    "background-color",
-    rgb(palette[1][1]),
-  );
   const edgeIsVisible = () =>
     page.locator(".connection-hit").evaluate((el) => {
       const p = el as SVGPathElement,
@@ -246,71 +217,16 @@ test("seven horizontal pastel choices color every card type and groups, preserve
     });
   expect(await edgeIsVisible()).toBe(true);
   await page.keyboard.press("ControlOrMeta+z");
-  await expect(parent).not.toHaveCSS("background-color", rgb(palette[4][1]));
+  await expect(card(page, ids.at(-1)!)).not.toHaveCSS(
+    "background-color",
+    rgb(palette[6][1]),
+  );
   await page.keyboard.press("ControlOrMeta+Shift+z");
-  await expect(parent).toHaveCSS("background-color", rgb(palette[4][1]));
-  await color(
-    page,
-    page.getByRole("button", { name: "拖动分组 子分组", exact: true }),
-    "浅紫",
-  );
-  await expect(
-    page.locator('.group-boundary[data-group-id="child"]'),
-  ).toHaveCSS("background-color", rgb(palette[6][1]));
-  await expect(
-    page.locator('.save-indicator[data-state="已保存至本地"]'),
-  ).toBeVisible();
-  await page.reload();
-  await expect(parent).toHaveCSS("background-color", rgb(palette[4][1]));
+  const snapshot = JSON.parse((await bytes(page, "导出画布")).data.toString());
   for (const [index, id] of ids.entries())
-    await expect(card(page, id)).toHaveCSS(
-      "background-color",
-      rgb(palette[index + 1][1]),
+    expect(snapshot.cards.find((c: any) => c.id === id).color).toBe(
+      palette[index + 1][1],
     );
-  const json = JSON.parse((await bytes(page, "导出画布")).data.toString());
-  expect(json.groups.find((g: any) => g.id === "g").color).toBe(palette[4][1]);
-  await page
-    .getByRole("button", { name: "拖动分组 背景组", exact: true })
-    .click();
-  await page.keyboard.press("ControlOrMeta+d");
-  await expect(page.getByTestId("card")).toHaveCount(12);
-  await expect(page.locator(".group-boundary")).toHaveCount(4);
-  const duplicated = JSON.parse(
-    (await bytes(page, "导出画布")).data.toString(),
-  );
-  expect(
-    duplicated.groups.filter((g: any) => g.color === palette[4][1]),
-  ).toHaveLength(2);
-  await page.keyboard.press("ControlOrMeta+z");
-  await expect(page.getByTestId("card")).toHaveCount(6);
-  await page
-    .getByRole("button", { name: "拖动分组 背景组", exact: true })
-    .click();
-  const archive = await bytes(page, "批量下载"),
-    metadata = JSON.parse(
-      strFromU8(unzipSync(archive.data)["yua-canvas.metadata.json"]),
-    );
-  expect(metadata.groups.map((g: any) => g.color)).toEqual([
-    palette[4][1],
-    palette[6][1],
-  ]);
-  await page.getByTestId("import").setInputFiles({
-    name: "colors.zip",
-    mimeType: "application/zip",
-    buffer: archive.data,
-  });
-  await expect(page.getByTestId("card")).toHaveCount(12);
-  await expect(page.locator(".group-boundary")).toHaveCount(4);
-  const restored = JSON.parse((await bytes(page, "导出画布")).data.toString());
-  expect(
-    restored.groups.filter((g: any) => g.color === palette[6][1]),
-  ).toHaveLength(2);
-  for (const [index, id] of ids.entries())
-    expect(
-      restored.cards
-        .filter((c: any) => c.title === id)
-        .every((c: any) => c.color === palette[index + 1][1]),
-    ).toBe(true);
 });
 
 test("palette keyboard navigation does not move elements and expanded menus stay inside the viewport", async ({

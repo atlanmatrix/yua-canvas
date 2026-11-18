@@ -102,21 +102,13 @@ test("Todo edits inline, preserves task IDs and links, autosaves and restores th
 }) => {
   await load(page, {
     version: 1,
-    groups: [
-      {
-        id: "g",
-        name: "项目",
-        color: "#dbeafe",
-        bounds: { x: 50, y: 50, width: 400, height: 350 },
-      },
-    ],
+    groups: [],
     cards: [
       {
         ...card("todo", 100, 120, 300, 240),
         kind: "todo",
         text: "",
         color: "#fef9c3",
-        group: "g",
         tasks: [
           { id: "one", text: "第一项", done: true },
           { id: "two", text: "第二项", done: false },

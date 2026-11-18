@@ -938,7 +938,7 @@ body .file-detail-modal .file-content-editor {
   margin-bottom: 10px;
   cursor: pointer;
 }
-.todo-list input {
+.todo-list input[type="checkbox"] {
   margin: 4px 0 0;
   flex-shrink: 0;
   accent-color: var(--accent);
@@ -1617,7 +1617,9 @@ body .file-detail-modal .file-content-editor {
   flex: 1;
   min-width: 0;
   width: 0;
-  padding: 4px 0;
+  height: 30px;
+  margin: 0;
+  padding: 3px 7px;
   border: 0;
   border-bottom: 1px solid transparent;
   border-radius: 0;
@@ -2463,3 +2465,34 @@ body .file-detail-modal .file-content-editor {
 
 .cloud-panel .cloud-login:disabled { background: #e5e7eb; color: #6b7280; opacity: 1; cursor: not-allowed; }
 .cloud-panel .cloud-sync-option { display: flex; align-items: center; gap: 6px; margin: 0; }
+
+.card.canvas-editing
+  > :is(.card-toolbar, .connection-port, .text-display-toggle, .card-resize),
+.card:has(
+    .component-content
+      :is(
+        textarea,
+        input:not([type="checkbox"]),
+        [contenteditable="true"]
+      ):focus
+  )
+  > :is(.card-toolbar, .connection-port, .text-display-toggle, .card-resize) {
+  display: none;
+}
+.card[data-drop-target="true"] {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+.note-editor-host {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.note-editor-host .text-editor {
+  white-space: pre-wrap;
+  user-select: text;
+}
+.note-editor-host.text-scroll .text-editor {
+  white-space: pre;
+  overflow-wrap: normal;
+}

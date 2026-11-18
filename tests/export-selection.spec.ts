@@ -358,31 +358,20 @@ test.describe("touch export menu", () => {
   });
 });
 
-test("H masks a selected group without changing its children's individual masks", async ({
+test("H toggles masking for a selected child canvas", async ({
   page,
 }) => {
   await setup(page);
-  await selectPair(page);
-  await page.keyboard.press("ControlOrMeta+g");
-  await page
-    .getByRole("textbox", { name: "分组名称", exact: true })
-    .fill("group mask");
-  await page.getByRole("button", { name: "保存分组", exact: true }).click();
-  await page
-    .getByRole("button", { name: "拖动分组 group mask", exact: true })
-    .click();
+  await page.getByRole("button", { name: "创建子画布", exact: true }).click();
   await page.keyboard.press("h");
-  await expect(page.locator(".group-boundary > .component-mask")).toHaveCount(
-    1,
-  );
-  await expect(card(page, "a")).toHaveCount(0);
+  await expect(page.locator(".card-canvas > .component-mask")).toBeVisible();
   await page.keyboard.press("h");
-  await expect(card(page, "a")).toBeVisible();
-  await expect(card(page, "b")).toBeVisible();
-  await expect(page.locator(".component-mask")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "进入子画布 子画布" }),
+  ).toBeVisible();
 });
 
-test("PNG waits for cold file previews inside list groups", async ({
+test("PNG waits for cold file previews inside a migrated canvas", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -395,42 +384,41 @@ test("PNG waits for cold file previews inside list groups", async ({
   await page.goto("/");
   const source =
     "```mermaid\nflowchart LR; A[Ready]-->B[Exported]; style A fill:#ff0000;\n```\n";
-  await page
-    .getByTestId("import")
-    .setInputFiles({
-      name: "list.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(
-        JSON.stringify({
-          version: 1,
-          groups: [
-            {
-              id: "list",
-              name: "List",
-              displayMode: "list",
-              activeCard: "doc",
-              bounds: { x: 3000, y: 1500, width: 800, height: 500 },
-            },
-          ],
-          cards: [
-            {
-              ...note("doc", 3100, 1600),
-              kind: "file",
-              group: "list",
-              title: "diagram.md",
-              text: "",
-              width: 400,
-              height: 300,
-              mime: "text/markdown",
-              blob:
-                "data:text/markdown;base64," +
-                Buffer.from(source).toString("base64"),
-            },
-          ],
-        }),
-      ),
-    });
+  await page.getByTestId("import").setInputFiles({
+    name: "list.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(
+      JSON.stringify({
+        version: 1,
+        groups: [
+          {
+            id: "list",
+            name: "List",
+            displayMode: "list",
+            activeCard: "doc",
+            bounds: { x: 3000, y: 1500, width: 800, height: 500 },
+          },
+        ],
+        cards: [
+          {
+            ...note("doc", 3100, 1600),
+            kind: "file",
+            group: "list",
+            title: "diagram.md",
+            text: "",
+            width: 400,
+            height: 300,
+            mime: "text/markdown",
+            blob:
+              "data:text/markdown;base64," +
+              Buffer.from(source).toString("base64"),
+          },
+        ],
+      }),
+    ),
+  });
   await page.getByRole("button", { name: "确认替换", exact: true }).click();
+  await page.getByRole("button", { name: "进入子画布 List" }).click();
   await openSettings(page);
   await page.getByRole("button", { name: "导出", exact: true }).click();
   const image = await bytes(page, () =>

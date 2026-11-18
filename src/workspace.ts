@@ -9,6 +9,8 @@ import {
   type Card,
   validView,
 } from "./storage";
+import { locateBoard } from "./canvasHierarchy";
+export { locateBoard } from "./canvasHierarchy";
 export const DEFAULT_VIEW: View = { x: 65, y: 55, z: 1 };
 export const newBoard = (): Board => ({
   version: 1,
@@ -31,21 +33,6 @@ export const canvasCard = (
   ...point,
   canvas,
 });
-export function locateBoard(root: Board, path: string[]) {
-  let board = root;
-  const valid: string[] = [],
-    names: string[] = [];
-  for (const id of path) {
-    const card = board.cards.find(
-      (c) => c.id === id && c.kind === "canvas" && c.canvas,
-    );
-    if (!card?.canvas) break;
-    valid.push(id);
-    names.push(card.title || "子画布");
-    board = card.canvas;
-  }
-  return { board, path: valid, names };
-}
 export function replaceBoard(
   root: Board,
   path: string[],

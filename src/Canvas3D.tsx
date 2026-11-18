@@ -1,3 +1,4 @@
+import { StyledNoteText } from "./NoteText";
 import { AgentCard } from "./AgentCard";
 import { LockedContent } from "./ComponentLock";
 import { t as tr } from "./i18n";
@@ -96,7 +97,15 @@ function ComponentPreview({ card }: { card: Card }) {
     return <img src={image} alt={card.title} draggable={false} />;
   if (card.kind === "text")
     return (
-      <pre style={textCss(card.textStyle)}>{card.text.slice(0, 3000)}</pre>
+      <pre style={textCss(card.textStyle)}>
+        {
+          <StyledNoteText
+            text={card.text.slice(0, 3000)}
+            textStyle={card.textStyle}
+            textRuns={card.textRuns?.filter((run) => run.from < 3000)}
+          />
+        }
+      </pre>
     );
   if (isApplicationKind(card.kind))
     return <ApplicationCard card={card} readonly />;

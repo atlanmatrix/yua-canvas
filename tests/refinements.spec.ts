@@ -78,7 +78,7 @@ for (const direction of ["right", "left", "down", "up"]) {
     expect(await coords()).toEqual(after);
   });
 }
-test("env previews, 13px filenames, 16px icons, invisible resize corners and unified group header", async ({
+test("env previews, 13px filenames, 16px icons, invisible resize corners and retired group shortcut", async ({
   page,
 }) => {
   await page.goto("/");
@@ -128,25 +128,5 @@ test("env previews, 13px filenames, 16px icons, invisible resize corners and uni
   );
   await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.press("ControlOrMeta+g");
-  await page.getByRole("textbox", { name: "分组名称" }).fill("统一标题");
-  await page.getByRole("button", { name: "保存分组" }).click();
-  await page.getByRole("button", { name: "适应所有内容" }).click();
-  await expect(page.locator(".group-title")).toHaveCSS(
-    "backdrop-filter",
-    /blur\(/,
-  );
-  await expect(page.locator(".group-fit")).toHaveCSS(
-    "backdrop-filter",
-    /blur\(/,
-  );
-  await expect(page.getByTestId("resize-se")).toHaveCSS(
-    "border-top-width",
-    "0px",
-  );
-  expect(
-    await page
-      .locator(".group-boundary")
-      .evaluate((el) => getComputedStyle(el, "::before").backgroundColor),
-  ).toBe("rgb(239, 246, 255)");
-  await page.screenshot({ path: "/tmp/yua-refined-cards.png" });
+  await expect(page.getByRole("textbox", { name: "分组名称" })).toHaveCount(0);
 });

@@ -12,7 +12,7 @@ async function point(page: Page, x: number, y: number) {
 }
 async function move(page: Page, el: Locator, to: { x: number; y: number }) {
   const b = await el.boundingBox();
-  await page.mouse.move(b!.x + b!.width / 2, b!.y + b!.height / 2);
+  await page.mouse.move(b!.x + 20, b!.y + 20);
   await page.mouse.down();
   await page.mouse.move(to.x, to.y, { steps: 18 });
   await page.mouse.up();
@@ -127,7 +127,7 @@ test("pasted images retain aspect ratio without chrome and new copies may overla
     expect(await noOverlap(page)).toBe(false);
   }
 });
-test("partially outside blocks expand a group; wholly outside leave and overlapping neighbours remain stationary", async ({
+test("moving a migrated container leaves overlapping neighbours stationary", async ({
   page,
 }) => {
   await page.goto("/");
@@ -161,26 +161,15 @@ test("partially outside blocks expand a group; wholly outside leave and overlapp
     ),
   });
   await page.getByRole("button", { name: "确认替换" }).click();
-  const a = page.getByTestId("card").filter({ hasText: "甲" });
-  await expect(a).toHaveCount(1);
-  await move(page, a, await point(page, 280, 140));
-  await expect(a).toHaveAttribute("data-group-name", "容器");
-  const frame = page.locator(".group-boundary");
-  const rect = await frame.evaluate((el) => ({
-    x: parseFloat((el as HTMLElement).style.left),
-    w: parseFloat((el as HTMLElement).style.width),
-  }));
-  expect(rect.x + rect.w).toBeGreaterThanOrEqual(360);
-  await move(page, a, await point(page, 500, 140));
-  await expect(a).toHaveAttribute("data-group-name", "");
+  const a = page.getByTestId("card").filter({ hasText: "容器" });
+  await expect(a).toBeVisible();
+  await move(page, a, await point(page, 400, 140));
   expect(await noOverlap(page)).toBe(true);
   await move(page, a, await point(page, 730, 140));
   expect(await noOverlap(page)).toBe(false);
-  const ar = await a.evaluate((el) => ({
-    x: parseFloat((el as HTMLElement).style.left),
-    w: parseFloat((el as HTMLElement).style.width),
-  }));
-  expect(ar.x).toBeCloseTo(650, 0);
+  const position = await a.boundingBox();
+  const pointer = await point(page, 730, 140);
+  expect(Math.abs(position!.x + 20 - pointer.x)).toBeLessThan(2);
   const neighbour = await page
     .getByTestId("card")
     .filter({ hasText: "乙" })
@@ -189,6 +178,7 @@ test("partially outside blocks expand a group; wholly outside leave and overlapp
   await page.keyboard.press("ControlOrMeta+z");
   await expect(a).toHaveAttribute("data-group-name", "");
   await page.keyboard.press("ControlOrMeta+z");
-  await expect(a).toHaveAttribute("data-group-name", "容器");
+  await a.getByRole("button", { name: "进入子画布 容器" }).click();
+  await expect(page.getByTestId("card")).toHaveText(/甲/);
   expect(await noOverlap(page)).toBe(true);
 });

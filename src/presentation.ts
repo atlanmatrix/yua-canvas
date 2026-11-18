@@ -13,7 +13,29 @@ export type TextStyle = {
   underline?: boolean;
   strikethrough?: boolean;
   color?: string;
+  backgroundColor?: string;
 };
+export type TextRun = { from: number; to: number; style: TextStyle };
+export function textSegments(
+  text: string,
+  runs?: TextRun[],
+  base: TextStyle = {},
+) {
+  const segments: { text: string; style: TextStyle }[] = [];
+  let offset = 0;
+  for (const run of runs || []) {
+    if (offset < run.from)
+      segments.push({ text: text.slice(offset, run.from), style: base });
+    segments.push({
+      text: text.slice(run.from, run.to),
+      style: { ...base, ...run.style },
+    });
+    offset = run.to;
+  }
+  if (offset < text.length)
+    segments.push({ text: text.slice(offset), style: base });
+  return segments;
+}
 export type Stroke = {
   id: string;
   color: string;
@@ -54,6 +76,30 @@ export function validPresentation(value: any, group = false): boolean {
       value.contentAspectRatio > 1000)
   )
     return false;
+  if (value.textRuns !== undefined) {
+    let end = 0;
+    if (
+      value.kind !== "text" ||
+      !Array.isArray(value.textRuns) ||
+      typeof value.text !== "string" ||
+      !value.textRuns.every((r: TextRun) => {
+        if (
+          !r ||
+          !Number.isInteger(r.from) ||
+          !Number.isInteger(r.to) ||
+          r.from < end ||
+          r.from >= r.to ||
+          r.to > value.text.length ||
+          !r.style ||
+          !validPresentation({ textStyle: r.style })
+        )
+          return false;
+        end = r.to;
+        return true;
+      })
+    )
+      return false;
+  }
   return (
     s === undefined ||
     (!!s &&
@@ -63,6 +109,7 @@ export function validPresentation(value: any, group = false): boolean {
       (s.fontSize === undefined ||
         (Number.isFinite(s.fontSize) && s.fontSize >= 8 && s.fontSize <= 96)) &&
       (s.color === undefined || hex(s.color)) &&
+      (s.backgroundColor === undefined || hex(s.backgroundColor)) &&
       ["bold", "italic", "underline", "strikethrough"].every(
         (k) => s[k] === undefined || typeof s[k] === "boolean",
       ))
@@ -134,6 +181,7 @@ export function textCss(s: TextStyle = {}) {
         .filter(Boolean)
         .join(" ") || "none",
     color: s.color || "var(--ink)",
+    backgroundColor: s.backgroundColor,
   };
 }
 export function surfaceColor(color?: string) {

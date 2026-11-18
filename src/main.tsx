@@ -1,3 +1,4 @@
+import { moveIntoCanvas } from "./canvasHierarchy";
 import { useCanvasTouch } from "./useCanvasTouch";
 import { useCanvasWheelGuard } from "./useCanvasWheelGuard";
 import { defaultAgent } from "./agent";
@@ -58,7 +59,6 @@ import {
   FileUp,
   Minus,
   Maximize,
-  Folder,
   FolderUp,
   Check,
   Copy,
@@ -71,7 +71,6 @@ import {
   Network,
   Terminal,
   Code2,
-  Unlink,
   EyeOff,
   Eye,
   MessageSquare,
@@ -85,11 +84,7 @@ import {
   type Card,
   type Task,
   type Rect,
-  type Group,
-  attachParents,
   groupTreeIds,
-  groupDepth,
-  groupBounds,
   containingGroup,
   emptyBoard,
   readBoard,
@@ -119,19 +114,12 @@ import { todoFocusAt } from "./todoCaret";
 import {
   Mask,
   Remark,
-  GroupList,
   StaticContent,
   presentationHidden,
   groupFrame,
-  groupCards,
 } from "./CardPresentation";
-import { TextFormatToolbar } from "./TextFormatToolbar";
-import {
-  strokeBounds,
-  remarkBounds,
-  textCss,
-  type TextStyle,
-} from "./presentation";
+import { TextEditor } from "./TextEditor";
+import { strokeBounds, remarkBounds, type TextRun } from "./presentation";
 import { mermaidSource, DEFAULT_MERMAID } from "./mermaidSource";
 import { ApplicationDialog, type ApplicationDraft } from "./ApplicationDialog";
 import { LocalLauncherDialog } from "./LocalLauncherDialog";
@@ -176,7 +164,6 @@ import {
   pdfGeometry,
   textSize,
   TEXT_MAX_WIDTH,
-  settleGroups,
   adjacentCard,
   type ArrowDirection,
 } from "./geometry";
@@ -284,7 +271,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       Record<string, { y: number; visible: boolean }>
     >({});
   const [selectedGroup, setSelectedGroup] = useState<string>(),
-    [editingGroup, setEditingGroup] = useState<string>(),
     [menu, setMenu] = useState<{
       x: number;
       y: number;
@@ -310,10 +296,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     [editingCard, setEditingCard] = useState<string>(),
     [editingTask, setEditingTask] = useState<string>(),
     [editingTaskOffset, setEditingTaskOffset] = useState<number>(),
-    [groupDialog, setGroupDialog] = useState<{
-      name: string;
-      id?: string;
-    } | null>(null),
     [createPreview, setCreatePreview] = useState<{
       kind: Card["kind"];
       x: number;
@@ -367,9 +349,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       link?: string;
       toggleCard?: string;
       context?: { id: string; kind: "card" | "group" | "canvas" };
-      groupId?: string;
-      groupIds?: Set<string>;
-      groups?: Group[];
       bounds?: Rect;
       edge?: string;
       cardId?: string;
@@ -386,6 +365,20 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   const latestBoard = useRef(board);
   latestBoard.current = board;
   const clipboardBusy = useRef(false);
+  const pointer = useRef<{ x: number; y: number } | undefined>(undefined);
+  const [dropTarget, setDropTarget] = useState<string>();
+  const canvasUnderPointer = (x: number, y: number, moving: string[]) => {
+    const hits = document.elementsFromPoint(x, y);
+    if (!surface.current?.contains(hits[0])) return;
+    for (const hit of hits) {
+      const el = hit.closest<HTMLElement>(".card");
+      if (!el || moving.includes(el.dataset.cardId!)) continue;
+      const target = board.cards.find((c) => c.id === el.dataset.cardId);
+      return target?.canvas && !target.locked && !target.masked
+        ? target.id
+        : undefined;
+    }
+  };
   const lastPointerMoved = useRef(false);
   const activeCanvasKey = useRef(board.id || "");
   activeCanvasKey.current = board.id || "";
@@ -393,6 +386,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   const cancelGesture = () => {
     const g = gesture.current;
     gesture.current = null;
+    setDropTarget(undefined);
     setDragCursor(false);
     setMarquee(null);
     setCreatePreview(null);
@@ -402,8 +396,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       cancel();
       return;
     }
-    if (g?.moved && g.kind === "move")
-      setBoard((b) => settleGroups(b, g.groupId ? [] : g.ids));
     if (g) end();
   };
   useLayoutEffect(() => {
@@ -509,20 +501,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     window.addEventListener("pointerdown", close);
     return () => window.removeEventListener("pointerdown", close);
   }, [menu]);
-  const dissolveGroup = (id: string) => {
-    setBoard((b) => {
-      const parent = b.groups.find((g) => g.id === id)?.parent;
-      return {
-        ...b,
-        groups: attachParents(b.groups.filter((g) => g.id !== id)),
-        cards: b.cards.map((c) =>
-          c.group === id ? { ...c, group: parent } : c,
-        ),
-      };
-    });
-    setSelectedGroup(undefined);
-    setMenu(null);
-  };
   const updateCards = (fn: (cards: Card[]) => Card[]) =>
     setBoard((b) => ({ ...b, cards: fn(b.cards) }));
   const deleteItems = (ids: string[], groupId?: string) => {
@@ -681,29 +659,40 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     if (internalCopy.current && marker === internalCopy.current.token) {
       const fragment = internalCopy.current.fragment;
       const positions = [
-        ...fragment.cards,
-        ...fragment.groups.flatMap((g) => (g.bounds ? [g.bounds] : [])),
+        ...fragment.cards.map(cardRect),
+        ...fragment.groups.flatMap((g) => g.bounds || []),
       ];
+      if (!positions.length) return false;
+      const left = Math.min(...positions.map((p) => p.x)),
+        top = Math.min(...positions.map((p) => p.y));
+      const bounds = surface.current!.getBoundingClientRect();
+      const cursor = pointer.current;
+      if (
+        !point &&
+        cursor &&
+        surface.current!.contains(document.elementFromPoint(cursor.x, cursor.y))
+      ) {
+        point = {
+          x: (cursor.x - bounds.left - view.x) / view.z,
+          y: (cursor.y - bounds.top - view.y) / view.z,
+        };
+      }
       const offset = point
-        ? {
-            x: point.x - Math.min(...positions.map((p) => p.x)),
-            y: point.y - Math.min(...positions.map((p) => p.y)),
-          }
-        : internalCopy.current.offset;
+        ? { x: point.x - left, y: point.y - top }
+        : {
+            x:
+              (bounds.width / 2 - view.x) / view.z -
+              (left + Math.max(...positions.map((p) => p.x + p.width))) / 2,
+            y:
+              (bounds.height / 2 - view.y) / view.z -
+              (top + Math.max(...positions.map((p) => p.y + p.height))) / 2,
+          };
       if (hasProtected(fragment)) {
         setLockRequest({ path: [...path], mode: "copy", fragment, offset });
         return true;
       }
       const result = duplicateFragment(latestBoard.current, fragment, offset);
-      internalCopy.current.offset += 30;
-      setBoard(result.board);
-      if (result.group && !point) {
-        const family = groupTreeIds(result.board.groups, result.group);
-        fit(
-          result.board.cards.filter((c) => result.cards.includes(c.id)),
-          result.board.groups.filter((g) => family.has(g.id)),
-        );
-      }
+      setBoard(() => result.board);
       setSelection(result.group ? [] : result.cards);
       setSelectedGroup(result.group);
       notify("已粘贴");
@@ -898,8 +887,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       true,
     );
   };
-  const changeText = (id: string, text: string) => {
+  const changeText = (id: string, text: string, runs: TextRun[]) => {
     if (editSession.current?.id !== id) return;
+    editSession.current.styleChanged = true;
     editSession.current.value = text;
     editSession.current.hasContent = !!text.trim();
     updateCards((cards) =>
@@ -908,39 +898,18 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           ? {
               ...card,
               text,
+              textStyle: undefined,
+              textRuns: runs.length ? runs : undefined,
               ...textSize(
                 text,
                 card.textMode,
                 card.width || TEXT_MAX_WIDTH,
-                card.textStyle,
+                undefined,
+                runs,
               ),
               textAutoHeight: true,
             }
           : card,
-      ),
-    );
-  };
-  const changeTextFormat = (
-    id: string,
-    textStyle: TextStyle,
-    color?: string,
-  ) => {
-    if (editSession.current?.id === id) editSession.current.styleChanged = true;
-    updateCards((cards) =>
-      cards.map((c) =>
-        c.id === id
-          ? {
-              ...c,
-              textStyle,
-              color: color || c.color,
-              ...textSize(
-                c.text,
-                c.textMode,
-                c.width || TEXT_MAX_WIDTH,
-                textStyle,
-              ),
-            }
-          : c,
       ),
     );
   };
@@ -966,10 +935,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setApplicationDraft(undefined);
     setLauncherSetup(undefined);
     setActiveMiniature(undefined);
-    setEditingGroup(undefined);
+
     setRenamingCanvas(undefined);
     setRenamingCurrentCanvas(false);
-    setGroupDialog(null);
+
     setConfirmImport(null);
     setToast("");
     setRemarkDraft(undefined);
@@ -1005,7 +974,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setSelectedGroup(undefined);
     setMenu(null);
   };
-  const createFromMenu = (kind: Card["kind"] | "group") => {
+  const createFromMenu = (kind: Card["kind"]) => {
     if (!menu || !ready || !surface.current) return;
     const rect = surface.current.getBoundingClientRect();
     const point = {
@@ -1082,20 +1051,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       if (kind === "mermaid") setDetail(id);
     } else if (kind === "canvas") addCanvas(point);
     else if (kind === "miniature") addMiniature(point);
-    else if (kind === "group") {
-      const id = uid();
-      setBoard((b) => ({
-        ...b,
-        groups: attachParents([
-          ...b.groups,
-          { id, name: "分组", bounds: { ...point, width: 360, height: 240 } },
-        ]),
-      }));
-      setSelection([]);
-      setSelectedGroup(id);
-      setSelectedConnection(undefined);
-      setEditingGroup(id);
-    } else {
+    else {
       pendingUpload.current = point;
       (kind === "image" ? imageInput : fileInput).current?.click();
     }
@@ -1135,7 +1091,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       presentationHidden(board, card.group) &&
       (card.kind === "text" || card.kind === "todo")
     ) {
-      if (card.kind === "todo") editCard(card, false, task, offset, appendTask);
+      editCard(card, false, task, offset, appendTask);
       setDetail(card.id);
       return;
     }
@@ -1365,19 +1321,14 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   const visible = board.cards.filter(
     (c) => !presentationHidden(board, c.group),
   );
-  const pointerDown = (
-    e: React.PointerEvent,
-    id?: string,
-    groupId?: string,
-  ) => {
+  const pointerDown = (e: React.PointerEvent, id?: string) => {
     if (e.button !== 0 && e.button !== 1 && e.button !== 2) return;
     const modifierPan =
       e.button === 2 || (e.button === 0 && (e.ctrlKey || e.metaKey));
     if (
       (e.target as HTMLElement).closest("button,input,textarea,label") &&
-      !groupId &&
       !modifierPan &&
-      !(e.target as Element).closest(".vscode-pill")
+      !(e.target as Element).closest(".vscode-pill,.canvas-enter")
     )
       return;
     if (e.button === 1 || modifierPan) e.preventDefault();
@@ -1387,17 +1338,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       space.current ||
       e.button === 1 ||
       modifierPan ||
-      (e.pointerType === "touch" && !id && !groupId);
+      (e.pointerType === "touch" && !id);
     let ids = selection;
-    const family = groupId ? groupTreeIds(board.groups, groupId) : undefined;
     if (!pan) setSelectedConnection(undefined);
-    if (groupId && !pan) {
-      ids = board.cards
-        .filter((c) => c.group && family!.has(c.group))
-        .map((c) => c.id);
-      setSelection([]);
-      setSelectedGroup(groupId);
-    } else if (id && !pan) {
+    if (id && !pan) {
       setSelectedGroup(undefined);
       if (e.shiftKey) {
         ids = selection.includes(id)
@@ -1419,7 +1363,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           ? target.closest<HTMLAnchorElement>("a.note-link")?.href
           : undefined;
     gesture.current = {
-      kind: pan ? "pan" : id || groupId ? "move" : "select",
+      kind: pan ? "pan" : id ? "move" : "select",
       button: e.button,
       link,
       toggleCard:
@@ -1428,7 +1372,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         !link &&
         tool !== "hand" &&
         !space.current &&
-        !target.closest("button,input,textarea,label,.resize-handle")
+        (!target.closest("button,input,textarea,label,.resize-handle") ||
+          target.closest(".canvas-enter"))
           ? cardTarget?.getAttribute("data-card-id") || undefined
           : undefined,
       context: cardTarget
@@ -1446,45 +1391,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       y: e.clientY,
       view,
       cards: board.cards,
-      ids: pan ? [] : id || groupId ? ids : e.shiftKey ? selection : [],
+      ids: pan ? [] : id ? ids : e.shiftKey ? selection : [],
       startX: x,
       startY: y,
       moved: false,
-      groupId: !pan ? groupId : undefined,
-      groupIds: !pan ? family : undefined,
-      groups: board.groups,
-      bounds: groupId
-        ? board.groups.find((g) => g.id === groupId)?.bounds
-        : undefined,
     };
-    setDragCursor(pan || !!id || !!groupId);
-    if (!pan && (id || groupId)) begin();
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-  const resizeGroup = (
-    e: React.PointerEvent,
-    groupId: string,
-    bounds: Rect,
-    edge: string,
-  ) => {
-    if (e.button !== 0) return;
-    e.stopPropagation();
-    e.preventDefault();
-    begin();
-    gesture.current = {
-      kind: "resize",
-      groupId,
-      bounds,
-      edge,
-      x: e.clientX,
-      y: e.clientY,
-      view,
-      cards: board.cards,
-      ids: [],
-      startX: 0,
-      startY: 0,
-      moved: false,
-    };
+    setDragCursor(pan || !!id);
+    if (!pan && id) begin();
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const resizeCard = (e: React.PointerEvent, c: Card, edge: string) => {
@@ -1677,6 +1590,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           original.textMode,
           rect.width,
           original.textStyle,
+          original.textRuns,
         ).height;
       const factor = pdfGeometry(original) ? 1.5 : 1;
       const next = {
@@ -1695,24 +1609,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         return { ...b, cards };
       });
     }
-    if (g.kind === "resize" && g.bounds && !g.cardId) {
-      const bounds = resizeRect(
-        g.bounds,
-        g.edge!,
-        dx / g.view.z,
-        dy / g.view.z,
-        e.shiftKey,
-        160,
-        120,
-      );
-      setBoard((b) => ({
-        ...b,
-        groups: b.groups.map((group) =>
-          group.id === g.groupId ? { ...group, bounds } : group,
-        ),
-      }));
-    }
-    if (g.kind === "move" && g.moved)
+    if (g.kind === "move" && g.moved) {
+      setDropTarget(canvasUnderPointer(e.clientX, e.clientY, g.ids));
       setBoard((b) => {
         const proposed: Board = {
           ...b,
@@ -1726,27 +1624,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 }
               : c;
           }),
-          groups:
-            g.groupId && g.groupIds
-              ? b.groups.map((group) => {
-                  const original = g.groups?.find(
-                    (item) => item.id === group.id,
-                  )?.bounds;
-                  return g.groupIds!.has(group.id) && original
-                    ? {
-                        ...group,
-                        bounds: {
-                          ...original,
-                          x: original.x + dx / g.view.z,
-                          y: original.y + dy / g.view.z,
-                        },
-                      }
-                    : group;
-                })
-              : b.groups,
         };
         return proposed;
       });
+    }
     if (g.kind === "select") {
       const x = Math.min(g.startX, g.startX + dx / g.view.z),
         y = Math.min(g.startY, g.startY + dy / g.view.z),
@@ -1774,6 +1655,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     const g = gesture.current;
     lastPointerMoved.current = !!g?.moved;
     gesture.current = null;
+    setDropTarget(undefined);
     setMarquee(null);
     setCreatePreview(null);
     if (
@@ -1900,28 +1782,15 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         }
       }
     }
-    if (g?.moved && (g.kind === "move" || g.kind === "resize")) {
-      setBoard((b) => settleGroups(b, g.groupId ? [] : g.ids));
+    if (g?.moved && g.kind === "move" && e.type !== "pointercancel") {
+      const target = canvasUnderPointer(e.clientX, e.clientY, g.ids);
+      if (target) {
+        setBoard((b) => moveIntoCanvas(b, g.ids, target));
+        setSelection([target]);
+      }
     }
     if (g && g.kind !== "create") end();
   };
-  const fitGroup = (id: string) =>
-    setBoard((b) => {
-      const family = groupTreeIds(b.groups, id);
-      const cards = b.cards.filter((c) => c.group && family.has(c.group));
-      const frames = b.groups
-        .filter((g) => g.id !== id && family.has(g.id) && g.bounds)
-        .map((g) => g.bounds!);
-      if (!cards.length && !frames.length) return b;
-      return {
-        ...b,
-        groups: attachParents(
-          b.groups.map((g) =>
-            g.id === id ? { ...g, bounds: groupBounds(cards, frames) } : g,
-          ),
-        ),
-      };
-    });
   const download = (blob: Blob, name: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -2181,14 +2050,15 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         setSelectedConnection(undefined);
         if (gesture.current?.kind === "create") {
           gesture.current = null;
+          setDropTarget(undefined);
           suppressToolbarClick.current = true;
           setCreatePreview(null);
         }
         setSelectedGroup(undefined);
         setMenu(null);
-        setEditingGroup(undefined);
+
         setRenamingCanvas(undefined);
-        setGroupDialog(null);
+
         setRemarkDraft(undefined);
         setDetail(undefined);
         setMiniatureDraft(undefined);
@@ -2250,15 +2120,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           setSelectedConnection(undefined);
           setSelection(visible.map((c) => c.id));
           setSelectedGroup(undefined);
-        } else if (key === "g") {
-          e.preventDefault();
-          if (e.shiftKey)
-            updateCards((cards) =>
-              cards.map((c) =>
-                selection.includes(c.id) ? { ...c, group: undefined } : c,
-              ),
-            );
-          else if (selection.length > 1) setGroupDialog({ name: "" });
         } else if (key === "d") {
           e.preventDefault();
           const fragment = selectedFragment(board, selection, selectedGroup);
@@ -2273,7 +2134,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               return;
             }
             const result = duplicateFragment(board, fragment, 30);
-            setBoard(result.board);
+            setBoard(() => result.board);
             setSelection(result.group ? [] : result.cards);
             setSelectedGroup(result.group);
           }
@@ -2627,7 +2488,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       changeText,
       changeTodo,
       finishEditing,
-      changeTextFormat,
       downloadCard,
     },
     (board.id || "") + JSON.stringify(path),
@@ -2661,7 +2521,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     <div
       key="canvas"
       inert={preview3D}
-      onPointerMoveCapture={(e) => setLinkModifier(e.metaKey || e.ctrlKey)}
+      onPointerMoveCapture={(e) => {
+        pointer.current = { x: e.clientX, y: e.clientY };
+        setLinkModifier(e.metaKey || e.ctrlKey);
+      }}
+      onPointerLeave={() => {
+        pointer.current = undefined;
+      }}
       onPointerDownCapture={(e) => {
         setTouchMode(e.pointerType === "touch");
         cancelViewAnimation();
@@ -2954,215 +2820,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               ref={connectionLabels}
               aria-label={tr("连线标签")}
             />
-            {[...board.groups]
-              .filter((g) => !presentationHidden(board, g.parent))
-              .sort(
-                (a, b) =>
-                  groupDepth(board.groups, a.id) -
-                  groupDepth(board.groups, b.id),
-              )
-              .map((g) => {
-                const cards = groupCards(board, g.id);
-                const bounds = groupFrame(g);
-                return (
-                  <div
-                    key={g.id}
-                    className={
-                      "group-boundary " +
-                      (selectedGroup === g.id ? "group-selected" : "")
-                    }
-                    data-group-id={g.id}
-                    data-parent={g.parent || ""}
-                    style={{
-                      left: bounds.x,
-                      top: bounds.y,
-                      width: bounds.width,
-                      height: bounds.height,
-                      background: g.color,
-                      ...({
-                        "--group-header-color": g.color,
-                      } as React.CSSProperties),
-                    }}
-                  >
-                    {g.masked ? (
-                      <Mask />
-                    ) : g.displayMode === "list" ? (
-                      <GroupList
-                        group={g}
-                        cards={cards}
-                        renderContent={(card) => (
-                          <StaticContent
-                            card={card}
-                            onUnlock={openCard}
-                            onToolChange={(card, text) =>
-                              updateCards((cards) =>
-                                cards.map((c) =>
-                                  c.id === card.id ? { ...c, text } : c,
-                                ),
-                              )
-                            }
-                            onRunApplication={runApplication}
-                            onCopyCommands={(text) => void copyCommands(text)}
-                            onOpenCanvas={(card) =>
-                              navigateCanvas([...path, card.id])
-                            }
-                            onToggleTask={(card, id) =>
-                              updateCards((cards) =>
-                                cards.map((c) =>
-                                  c.id === card.id
-                                    ? {
-                                        ...c,
-                                        tasks: c.tasks?.map((t) =>
-                                          t.id === id
-                                            ? { ...t, done: !t.done }
-                                            : t,
-                                        ),
-                                      }
-                                    : c,
-                                ),
-                              )
-                            }
-                            activeMiniature={activeMiniature === card.id}
-                            onActiveMiniatureChange={(active) =>
-                              setActiveMiniature(active ? card.id : undefined)
-                            }
-                            onPdfPageChange={(pdfPage) =>
-                              setBoard(
-                                (b) => ({
-                                  ...b,
-                                  cards: b.cards.map((c) =>
-                                    c.id === card.id ? { ...c, pdfPage } : c,
-                                  ),
-                                }),
-                                { preserveLayout: true, recordHistory: false },
-                              )
-                            }
-                          />
-                        )}
-                        onSelect={(id) =>
-                          setBoard(
-                            (b) => ({
-                              ...b,
-                              groups: b.groups.map((group) =>
-                                group.id === g.id
-                                  ? { ...group, activeCard: id }
-                                  : group,
-                              ),
-                            }),
-                            { preserveLayout: true, recordHistory: false },
-                          )
-                        }
-                        onOpen={(card, event) => {
-                          if (card.kind === "todo" && event) {
-                            const focus = todoFocusAt(
-                              event,
-                              event.target as Element,
-                            );
-                            openCard(
-                              card,
-                              focus.task,
-                              focus.offset,
-                              !focus.task,
-                            );
-                          } else if (card.kind === "text") setDetail(card.id);
-                          else openCard(card);
-                        }}
-                        onContextMenu={(e, card) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setMenu({
-                            kind: "card",
-                            id: card.id,
-                            x: e.clientX,
-                            y: e.clientY,
-                          });
-                        }}
-                      />
-                    ) : null}
-                    {!g.masked && <Remark text={g.remark} />}
-                    {editingGroup === g.id ? (
-                      <GroupNameEditor
-                        name={g.name}
-                        onSave={(name) => {
-                          setBoard((b) => ({
-                            ...b,
-                            groups: b.groups.map((group) =>
-                              group.id === g.id && group.name !== name
-                                ? { ...group, name }
-                                : group,
-                            ),
-                          }));
-                          setEditingGroup(undefined);
-                        }}
-                        onCancel={() => setEditingGroup(undefined)}
-                      />
-                    ) : (
-                      <button
-                        className="group-title"
-                        aria-label={tr("拖动分组 {0}", g.name)}
-                        onPointerDown={(e) => {
-                          e.stopPropagation();
-                          pointerDown(e, undefined, g.id);
-                        }}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setSelectedGroup(g.id);
-                          setSelection([]);
-                          setSelectedConnection(undefined);
-                          setMenu({
-                            x: e.clientX,
-                            y: e.clientY,
-                            id: g.id,
-                            kind: "group",
-                          });
-                        }}
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          setEditingGroup(g.id);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setEditingGroup(g.id);
-                          }
-                        }}
-                      >
-                        <Folder size={13} />
-                        {g.masked ? tr("已遮罩") : g.name}
-                      </button>
-                    )}
-                    <button
-                      className="group-fit"
-                      aria-label={tr("自适应分组 {0}", g.name)}
-                      title={tr("自适应")}
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onDoubleClick={(e) => e.stopPropagation()}
-                      onClick={() => fitGroup(g.id)}
-                    >
-                      <Maximize size={13} />
-                    </button>
-                    {["n", "s", "e", "w", "ne", "nw", "se", "sw"].map(
-                      (edge) => (
-                        <div
-                          key={edge}
-                          className={`resize-handle resize-${edge}`}
-                          data-testid={`resize-${edge}`}
-                          onPointerDown={(e) =>
-                            resizeGroup(e, g.id, bounds, edge)
-                          }
-                        />
-                      ),
-                    )}
-                  </div>
-                );
-              })}
             {visible.map((c) => (
               <CanvasCard
                 key={c.id}
                 card={c}
                 selected={selection.includes(c.id)}
+                dropTarget={dropTarget === c.id}
                 menuOpen={menu?.kind === "card" && menu.id === c.id}
                 touchMode={touchMode}
                 editing={editingCard === c.id}
@@ -3516,15 +3179,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     <Box size={14} />
                     Miniature
                   </button>
-                  <MenuButton
-                    shortcut={selection.length > 1 ? "group" : undefined}
-                    role="menuitem"
-                    disabled={!ready}
-                    onClick={() => createFromMenu("group")}
-                  >
-                    <Folder size={14} />
-                    {tr("分组")}
-                  </MenuButton>
                 </ContextSubmenu>
                 <ContextSubmenu
                   key={`tools-${menu.x}:${menu.y}`}
@@ -3750,65 +3404,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   )}
                 </MenuSection>
               )}
-              {menuGroup && (
-                <MenuSection label={tr("内容操作")}>
-                  <MenuButton
-                    shortcut="copy"
-                    role="menuitem"
-                    onClick={() => {
-                      setMenu(null);
-                      void copySelected([], { groupId: menuGroup.id });
-                    }}
-                  >
-                    <Copy size={14} />
-                    {tr("复制")}
-                  </MenuButton>
-                  <ExportMenu
-                    disabled={archiveBusy}
-                    onExport={(format) =>
-                      void exportChoice(format, [], menuGroup.id)
-                    }
-                  />
-                  <MenuButton
-                    shortcut="cut"
-                    role="menuitem"
-                    onClick={() => {
-                      setMenu(null);
-                      void copySelected([], {
-                        cut: true,
-                        groupId: menuGroup.id,
-                      });
-                    }}
-                  >
-                    <Scissors size={14} />
-                    {tr("剪切")}
-                  </MenuButton>
-                </MenuSection>
-              )}
-              {menuGroup && (
-                <MenuSection label={tr("定位")}>
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      updatePin(
-                        {
-                          path,
-                          id: menuGroup.id,
-                          kind: "group",
-                          name: menuGroup.name,
-                        },
-                        menuGroup.pin
-                          ? undefined
-                          : menuGroup.name.slice(0, 100).trim() || "分组",
-                      );
-                      setMenu(null);
-                    }}
-                  >
-                    <Pin size={14} />
-                    {menuGroup.pin ? tr("取消 Pin") : "Pin"}
-                  </button>
-                </MenuSection>
-              )}
               {menuCard && menuCard.kind !== "canvas" && (
                 <MenuSection label={tr("显示模式")}>
                   <div className="display-mode-options">
@@ -3836,44 +3431,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                                 c.kind !== "canvas"
                                   ? { ...c, displayMode: mode }
                                   : c,
-                              ),
-                            }),
-                            { preserveLayout: true },
-                          );
-                          setMenu(null);
-                        }}
-                      >
-                        <Icon size={18} />
-                      </button>
-                    ))}
-                  </div>
-                </MenuSection>
-              )}
-              {menuGroup && (
-                <MenuSection label={tr("显示模式")}>
-                  <div className="display-mode-options">
-                    {(
-                      [
-                        ["flat", tr("平铺"), LayoutGrid],
-                        ["list", tr("列表"), List],
-                      ] as const
-                    ).map(([mode, label, Icon]) => (
-                      <button
-                        key={mode}
-                        role="menuitemradio"
-                        aria-label={tr("显示模式：{0}", label)}
-                        title={label}
-                        aria-checked={
-                          (menuGroup.displayMode || "flat") === mode
-                        }
-                        onClick={() => {
-                          setBoard(
-                            (b) => ({
-                              ...b,
-                              groups: b.groups.map((g) =>
-                                g.id === menuGroup.id
-                                  ? { ...g, displayMode: mode }
-                                  : g,
                               ),
                             }),
                             { preserveLayout: true },
@@ -3957,52 +3514,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   <MessageSquare size={14} />
                   {tr("备注")}
                 </button>
-              </MenuSection>
-              <MenuSection label={tr("分组操作")}>
-                {menu.kind === "card" ? (
-                  <>
-                    <MenuButton
-                      shortcut={menuCardIds.length > 1 ? "group" : undefined}
-                      role="menuitem"
-                      onClick={() => {
-                        setMenu(null);
-                        setGroupDialog({ name: "" });
-                      }}
-                    >
-                      <Folder size={14} />
-                      {tr("创建分组")}
-                    </MenuButton>
-                    {board.cards.some(
-                      (card) => menuCardIds.includes(card.id) && card.group,
-                    ) && (
-                      <MenuButton
-                        shortcut="ungroup"
-                        role="menuitem"
-                        onClick={() => {
-                          setMenu(null);
-                          updateCards((cards) =>
-                            cards.map((card) =>
-                              menuCardIds.includes(card.id)
-                                ? { ...card, group: undefined }
-                                : card,
-                            ),
-                          );
-                        }}
-                      >
-                        <Unlink size={14} />
-                        {tr("移出分组")}
-                      </MenuButton>
-                    )}
-                  </>
-                ) : (
-                  <button
-                    role="menuitem"
-                    onClick={() => dissolveGroup(menu.id)}
-                  >
-                    <Unlink size={14} />
-                    {tr("解散分组")}
-                  </button>
-                )}
               </MenuSection>
               <MenuSection label={tr("外观")}>
                 <ColorPalette
@@ -4095,102 +3606,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 {tr("清空")}
               </button>
               <button className="primary">{tr("保存备注")}</button>
-            </div>
-          </form>
-        </div>
-      )}
-      {groupDialog && (
-        <div className="modal-backdrop">
-          <form
-            className="modal compact"
-            role="dialog"
-            aria-modal="true"
-            aria-label={tr("分组命名")}
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!groupDialog.name.trim()) return;
-              const id = groupDialog.id || uid();
-              setBoard((b) => {
-                const next: Board = {
-                  ...b,
-                  groups: groupDialog.id
-                    ? b.groups.map((g) =>
-                        g.id === id
-                          ? { ...g, name: groupDialog.name.trim() }
-                          : g,
-                      )
-                    : [
-                        ...b.groups,
-                        {
-                          id,
-                          name: groupDialog.name.trim(),
-                          bounds: groupBounds(
-                            b.cards.filter((c) => selection.includes(c.id)),
-                          ),
-                        },
-                      ],
-                  cards: groupDialog.id
-                    ? b.cards
-                    : b.cards.map((c) =>
-                        selection.includes(c.id) ? { ...c, group: id } : c,
-                      ),
-                };
-                return { ...next, groups: attachParents(next.groups) };
-              });
-              setGroupDialog(null);
-            }}
-          >
-            <div className="modal-heading">
-              <span>
-                <Folder size={18} />
-                {groupDialog.id ? tr("重命名分组") : tr("创建分组")}
-              </span>
-              <button
-                type="button"
-                aria-label={tr("关闭")}
-                onClick={() => setGroupDialog(null)}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <label>
-              {tr("分组名称")}
-              <input
-                autoFocus
-                aria-label={tr("分组名称")}
-                maxLength={200}
-                placeholder={tr("名称")}
-                value={groupDialog.name}
-                onChange={(e) =>
-                  setGroupDialog({ ...groupDialog, name: e.target.value })
-                }
-              />
-            </label>
-            <div className="modal-bottom">
-              {groupDialog.id ? (
-                <button
-                  className="button"
-                  type="button"
-                  onClick={() => {
-                    const id = groupDialog.id;
-                    setBoard((b) => ({
-                      ...b,
-                      groups: attachParents(
-                        b.groups.filter((g) => g.id !== id),
-                      ),
-                      cards: b.cards.map((c) =>
-                        c.group === id ? { ...c, group: undefined } : c,
-                      ),
-                    }));
-                    setGroupDialog(null);
-                  }}
-                >
-                  {tr("解散分组")}
-                </button>
-              ) : null}
-              <button className="primary" disabled={!groupDialog.name.trim()}>
-                {tr("保存分组")}
-              </button>
             </div>
           </form>
         </div>
@@ -4327,41 +3742,19 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             {current.kind === "text" || current.kind === "todo" ? (
               <div className="group-component-editor">
                 {current.kind === "text" ? (
-                  <>
-                    <TextFormatToolbar
-                      style={current.textStyle}
-                      background={current.color}
-                      onChange={(style, color) =>
-                        changeTextFormat(current.id, style, color)
-                      }
-                    />
-                    <textarea
-                      aria-label={tr("文本内容")}
-                      value={current.text}
-                      style={{
-                        ...textCss(current.textStyle),
-                        background: current.color,
-                      }}
-                      onChange={(e) =>
-                        updateCards((cards) =>
-                          cards.map((c) =>
-                            c.id === current.id
-                              ? {
-                                  ...c,
-                                  text: e.target.value,
-                                  ...textSize(
-                                    e.target.value,
-                                    c.textMode,
-                                    c.width,
-                                    c.textStyle,
-                                  ),
-                                }
-                              : c,
-                          ),
-                        )
-                      }
-                    />
-                  </>
+                  <TextEditor
+                    text={current.text}
+                    textRuns={current.textRuns}
+                    textStyle={current.textStyle}
+                    mode={current.textMode}
+                    onChange={(text, runs) =>
+                      changeText(current.id, text, runs)
+                    }
+                    onFinish={(cancelled) => {
+                      finishEditing(current.id, cancelled);
+                      setDetail(undefined);
+                    }}
+                  />
                 ) : (
                   <TodoEditor
                     tasks={current.tasks || []}

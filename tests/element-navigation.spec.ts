@@ -98,7 +98,7 @@ test("text editing, menus, shift nudging and parent-child shortcuts retain their
   await editor.fill("abc");
   await page.keyboard.press("ArrowLeft");
   expect(
-    await editor.evaluate((el: HTMLTextAreaElement) => el.selectionStart),
+    await editor.evaluate(() => document.getSelection()?.focusOffset),
   ).toBe(2);
   await expect(card(page, "origin")).toHaveClass(/selected/);
   await page.keyboard.press("Escape");

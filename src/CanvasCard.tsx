@@ -28,8 +28,8 @@ import { TextEditor } from "./TextEditor";
 import { TodoEditor } from "./TodoEditor";
 import { GroupNameEditor } from "./GroupNameEditor";
 import { PreviewFrame, Mask, TypeIcon, Remark } from "./CardPresentation";
-import { TextFormatToolbar } from "./TextFormatToolbar";
-import type { TextStyle } from "./presentation";
+
+import type { TextRun } from "./presentation";
 import { todoFocusAt } from "./todoCaret";
 import { previewMetrics } from "./previewCache";
 import { ToolCard } from "./ToolCard";
@@ -66,10 +66,9 @@ export type CanvasCardActions = {
   ) => void;
   updateCards: (fn: (cards: Card[]) => Card[]) => void;
   navigateCanvas: (path: string[]) => void;
-  changeText: (id: string, text: string) => void;
+  changeText: (id: string, text: string, runs: TextRun[]) => void;
   changeTodo: (id: string, tasks: Task[]) => void;
   finishEditing: (id: string, cancelled?: boolean) => void;
-  changeTextFormat: (id: string, style: TextStyle, color?: string) => void;
   downloadCard: (card: Card) => void;
 };
 const emptyOffsets: Record<string, { y: number; visible: boolean }> = {};
@@ -77,6 +76,7 @@ export const CanvasCard = memo(function CanvasCard({
   card: c,
   selected,
   menuOpen = false,
+  dropTarget = false,
   touchMode = false,
   editing,
   editingTask,
@@ -95,6 +95,7 @@ export const CanvasCard = memo(function CanvasCard({
   card: Card;
   selected: boolean;
   menuOpen?: boolean;
+  dropTarget?: boolean;
   touchMode?: boolean;
   editing: boolean;
   editingTask?: string;
@@ -132,7 +133,6 @@ export const CanvasCard = memo(function CanvasCard({
     changeText,
     changeTodo,
     finishEditing,
-    changeTextFormat,
     downloadCard,
   } = actions;
   const workspace = { updateRoot: actions.updateRoot };
@@ -170,6 +170,7 @@ export const CanvasCard = memo(function CanvasCard({
       data-testid="card"
       data-card-id={c.id}
       data-connection-source={connectionSource || undefined}
+      data-drop-target={dropTarget || undefined}
       data-menu-open={menuOpen || undefined}
       data-custom-color={customColor(c.color)}
       onContextMenu={(e) => {
@@ -196,7 +197,7 @@ export const CanvasCard = memo(function CanvasCard({
         (isMarkdownFile(c) ? " markdown-file-card" : "") +
         " " +
         (selected ? "selected" : "") +
-        (editing ? " canvas-editing" : "")
+        (editing || renaming ? " canvas-editing" : "")
       }
       tabIndex={-1}
       aria-label={
@@ -441,13 +442,24 @@ export const CanvasCard = memo(function CanvasCard({
               </svg>
               <div className="canvas-card-preview">
                 <button
+                  className="canvas-enter"
                   aria-label={tr("进入子画布 {0}", c.title)}
                   title={tr("进入子画布")}
-                  onPointerDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    pointerDown(e, c.id);
+                  }}
                   onDoubleClick={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigateCanvas([...path, c.id]);
+                    if (
+                      !e.detail ||
+                      (!lastPointerMoved.current &&
+                        !e.shiftKey &&
+                        !e.ctrlKey &&
+                        !e.metaKey)
+                    )
+                      navigateCanvas([...path, c.id]);
                   }}
                 >
                   <PanelsTopLeft size={36} />
@@ -508,7 +520,8 @@ export const CanvasCard = memo(function CanvasCard({
                 text={c.text}
                 mode={c.textMode}
                 textStyle={c.textStyle}
-                onChange={(text) => changeText(c.id, text)}
+                textRuns={c.textRuns}
+                onChange={(text, runs) => changeText(c.id, text, runs)}
                 onFinish={(cancelled) => finishEditing(c.id, cancelled)}
               />
             ) : (
@@ -516,6 +529,7 @@ export const CanvasCard = memo(function CanvasCard({
                 text={c.text}
                 mode={c.textMode}
                 textStyle={c.textStyle}
+                textRuns={c.textRuns}
               />
             )
           ) : c.kind === "todo" ? (
@@ -605,13 +619,6 @@ export const CanvasCard = memo(function CanvasCard({
         </PreviewFrame>
       )}
       {!c.masked && <Remark text={c.remark} />}
-      {!c.masked && c.kind === "text" && editing && (
-        <TextFormatToolbar
-          style={c.textStyle}
-          background={c.color}
-          onChange={(style, color) => changeTextFormat(c.id, style, color)}
-        />
-      )}
       {(c.kind === "todo" ? ["n", "s"] : ["n", "e", "s", "w"]).map((value) => {
         const side = value as Side;
         return (
@@ -696,6 +703,7 @@ export const CanvasCard = memo(function CanvasCard({
                         textMode,
                         card.width || TEXT_MAX_WIDTH,
                         card.textStyle,
+                        card.textRuns,
                       ),
                     }
                   : card,

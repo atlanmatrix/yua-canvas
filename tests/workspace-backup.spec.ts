@@ -226,8 +226,9 @@ test("exporting from a deep canvas restores every canvas, component, byte, ID an
     bytes = await backup(page),
     data = JSON.parse(bytes.toString());
   expect(data.format).toBe("yua-canvas-workspace");
-  expect(data.cards.map((c: any) => c.id)).toEqual([
-    "root-text",
+  expect(data.cards.map((c: any) => c.id)).toEqual(["outer", "empty-group"]);
+  expect(data.cards[0].canvas.cards.map((c: any) => c.id)).toEqual([
+    "inner",
     "branch",
     "sibling",
   ]);
@@ -244,7 +245,7 @@ test("exporting from a deep canvas restores every canvas, component, byte, ID an
       "替换整个工作区",
     );
     await expect(fresh.getByRole("dialog", { name: "确认导入" })).toContainText(
-      "4 个画布、9 个组件",
+      "7 个画布、12 个组件",
     );
     await fresh.getByRole("button", { name: "确认替换" }).click();
     await expect(fresh.locator(".canvas-navigation")).toHaveText("深层画布");
@@ -252,9 +253,9 @@ test("exporting from a deep canvas restores every canvas, component, byte, ID an
     expect(await snapshot(fresh)).toEqual(original);
     const roundTrip = JSON.parse((await backup(fresh)).toString());
     expect(roundTrip).toEqual(data);
-    const deep = roundTrip.cards[1].canvas.cards.find(
-      (c: any) => c.id === "deep-node",
-    ).canvas;
+    const deep = roundTrip.cards[0].canvas.cards
+      .find((c: any) => c.id === "branch")
+      .canvas.cards.find((c: any) => c.id === "deep-node").canvas;
     expect(deep.cards[0].mime).toBe("text/plain");
     expect(deep.cards[0].blobType).toBe("application/octet-stream");
     expect(deep.cards[0].blobName).toBe("原始.dat");
@@ -326,7 +327,9 @@ test("malformed workspace metadata and attachments fail atomically; cancel leave
     },
   ];
   const missing = structuredClone(data);
-  delete missing.cards[1].canvas.cards.find((c: any) => c.id === "photo").blob;
+  delete missing.cards[0].canvas.cards
+    .find((c: any) => c.id === "branch")
+    .canvas.cards.find((c: any) => c.id === "photo").blob;
   variants.push(missing);
   for (const value of variants) {
     await upload(page, Buffer.from(JSON.stringify(value)));
@@ -343,6 +346,7 @@ test("failed storage transaction keeps both the current canvas and saved workspa
 }) => {
   await seed(page);
   const bytes = await backup(page);
+  await page.getByRole("button", { name: "返回父画布", exact: true }).click();
   await page.getByRole("button", { name: "返回父画布", exact: true }).click();
   await page.getByRole("button", { name: "返回父画布", exact: true }).click();
   await saved(page);
@@ -501,11 +505,12 @@ test("a slow restore suspends pending autosave until the imported workspace is a
       .toBe(true);
     await page.clock.fastForward(800);
     expect(await page.evaluate(() => (window as any).backupWrites)).toEqual([
-      ["branch", "deep-node"],
+      ["outer", "branch", "deep-node"],
     ]);
     await page.clock.fastForward(1600);
     await expect(page.locator(".canvas-navigation")).toHaveText("深层画布");
     expect((await snapshot(page)).navigation?.path).toEqual([
+      "outer",
       "branch",
       "deep-node",
     ]);

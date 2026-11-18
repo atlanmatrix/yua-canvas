@@ -358,22 +358,19 @@ test("small finger jitter preserves node position during long-press, and a secon
   await touch.close();
 });
 
-test("long-press on a group title opens its menu without dragging its children", async ({
+test("long-press on a migrated canvas opens its menu without dragging its children", async ({
   page,
 }) => {
   await setup(page, false, true);
   const before = await layout(page),
-    title = page.getByRole("button", {
-      name: "拖动分组 触屏分组",
-      exact: true,
-    });
+    title = page.locator(".card-canvas");
   const r = (await title.boundingBox())!,
     touch = await touches(page);
   await touch.send("touchStart", [
     { id: 1, x: r.x + 60, y: r.y + r.height / 2 },
   ]);
   await expect(
-    page.getByRole("menuitem", { name: "解散分组", exact: true }),
+    page.getByRole("menuitem", { name: "打开", exact: true }),
   ).toBeVisible();
   await touch.send("touchEnd", []);
   expect(await layout(page)).toEqual(before);

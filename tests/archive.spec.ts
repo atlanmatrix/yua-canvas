@@ -32,7 +32,7 @@ async function download(page: Page, name: string) {
   return { name: file.suggestedFilename(), bytes: Buffer.concat(chunks) };
 }
 
-test("multi-selection ZIP retains original bytes, avoids duplicate names and restores layout, groups, tasks and labeled links without overwriting", async ({
+test("multi-selection ZIP retains original bytes, avoids duplicate names and restores layout, tasks and labeled links without overwriting", async ({
   page,
 }) => {
   await page.goto("/");
@@ -42,7 +42,7 @@ test("multi-selection ZIP retains original bytes, avoids duplicate names and res
     Buffer.from("中文配置\r\n", "utf16le"),
   ]);
   const cards = [
-    { ...note("note", 80, 100, "原始笔记\n保留换行\n"), group: "inner" },
+    { ...note("note", 80, 100, "原始笔记\n保留换行\n") },
     {
       ...note("file1", 340, 100),
       kind: "file",
@@ -50,7 +50,6 @@ test("multi-selection ZIP retains original bytes, avoids duplicate names and res
       title: "配置.env",
       mime: "text/plain",
       blob: "data:text/plain;base64," + env1.toString("base64"),
-      group: "outer",
     },
     {
       ...note("file2", 600, 100),
@@ -59,7 +58,6 @@ test("multi-selection ZIP retains original bytes, avoids duplicate names and res
       title: "配置.env",
       mime: "text/plain",
       blob: "data:text/plain;base64," + env2.toString("base64"),
-      group: "outer",
     },
     {
       ...note("image", 80, 350),
@@ -68,7 +66,6 @@ test("multi-selection ZIP retains original bytes, avoids duplicate names and res
       title: "原始图片.PNG",
       mime: "image/png",
       blob: "data:image/png;base64," + pixel.toString("base64"),
-      group: "outer",
     },
     {
       ...note("todo", 340, 350),
@@ -77,22 +74,8 @@ test("multi-selection ZIP retains original bytes, avoids duplicate names and res
       width: 260,
       height: 200,
       tasks: [{ id: "task", text: "任务第一行\n第二行", done: true }],
-      group: "outer",
     },
     note("excluded", 930, 350, "未选中内容"),
-  ];
-  const groups = [
-    {
-      id: "outer",
-      name: "外分组",
-      bounds: { x: 20, y: 20, width: 820, height: 580 },
-    },
-    {
-      id: "inner",
-      name: "内分组",
-      parent: "outer",
-      bounds: { x: 50, y: 60, width: 240, height: 200 },
-    },
   ];
   await page.getByTestId("import").setInputFiles({
     name: "board.json",
@@ -101,7 +84,7 @@ test("multi-selection ZIP retains original bytes, avoids duplicate names and res
       JSON.stringify({
         version: 1,
         cards,
-        groups,
+        groups: [],
         connections: [
           {
             id: "link",
@@ -125,7 +108,7 @@ test("multi-selection ZIP retains original bytes, avoids duplicate names and res
   const metadata = JSON.parse(strFromU8(entries[META]));
   expect(Object.keys(entries)).toHaveLength(6);
   expect(metadata.cards).toHaveLength(5);
-  expect(metadata.groups).toHaveLength(2);
+  expect(metadata.groups).toEqual([]);
   expect(
     metadata.cards.every(
       (c: any) =>
@@ -180,7 +163,6 @@ test("multi-selection ZIP retains original bytes, avoids duplicate names and res
       original.text,
     ]);
     if (original.blob) expect(card.blob).toBe(original.blob);
-    expect(card.group).not.toBe(original.group);
   }
   expect(imported[4].tasks[0]).toMatchObject({
     text: "任务第一行\n第二行",
@@ -190,13 +172,6 @@ test("multi-selection ZIP retains original bytes, avoids duplicate names and res
   expect(restored.connections).toHaveLength(2);
   expect(restored.connections[1].label).toBe("参考资料");
   expect(restored.connections[1].from.card).toBe(imported[0].id);
-  const newInner = restored.groups.find(
-    (g: any) => g.id !== "inner" && g.name === "内分组",
-  );
-  expect(restored.groups.find((g: any) => g.id === newInner.parent).name).toBe(
-    "外分组",
-  );
-  expect(newInner.parent).not.toBe("outer");
   await page.keyboard.press("ControlOrMeta+z");
   await expect(page.getByTestId("card")).toHaveCount(6);
   await page.keyboard.press("ControlOrMeta+Shift+z");
@@ -272,7 +247,7 @@ test("damaged archives and missing metadata files leave existing content untouch
   await expect(page.getByTestId("card")).toContainText("保留内容");
 });
 
-test("ZIP metadata preserves intentionally resized frames and ungrouped cards on import and reload", async ({
+test("legacy ZIP metadata preserves explicit group membership and ungrouped cards on import and reload", async ({
   page,
 }) => {
   await page.goto("/");
@@ -304,17 +279,11 @@ test("ZIP metadata preserves intentionally resized frames and ungrouped cards on
   });
   await expect(page.getByTestId("card")).toHaveCount(2);
   const check = async () => {
-    const frame = await page.locator(".group-boundary").evaluate((el) => ({
-      width: parseFloat((el as HTMLElement).style.width),
-      height: parseFloat((el as HTMLElement).style.height),
-    }));
-    expect(frame).toEqual({ width: 180, height: 120 });
-    await expect(
-      page.getByTestId("card").filter({ hasText: "部分越界" }),
-    ).toHaveAttribute("data-group-name", "固定边框");
-    await expect(
-      page.getByTestId("card").filter({ hasText: "未分组" }),
-    ).toHaveAttribute("data-group-name", "");
+    await expect(page.getByText("未分组", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "进入子画布 固定边框" }).click();
+    await expect(page.getByTestId("card")).toHaveCount(1);
+    await expect(page.getByText("部分越界", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "返回父画布" }).click();
   };
   await check();
   await expect(

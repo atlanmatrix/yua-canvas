@@ -19,7 +19,6 @@ async function setup(page: Page) {
             width: 200,
             height: 100,
             color: "#ffffff",
-            group: "g",
           },
           {
             id: "b",
@@ -56,7 +55,7 @@ async function setup(page: Page) {
     ),
   });
   await page.getByRole("button", { name: "确认替换" }).click();
-  await expect(page.getByTestId("card")).toHaveCount(2);
+  await expect(page.getByTestId("card")).toHaveCount(4);
   await page.getByRole("button", { name: "关闭提示" }).click();
 }
 async function camera(page: Page) {
@@ -181,7 +180,7 @@ test("the gray canvas frame matches the full overview area across zoom, filters 
   await expect(frame).toHaveCSS("pointer-events", "none");
   await match();
   const initial = await bounds();
-  await expect(page.getByTestId("card")).toHaveCount(2);
+  await expect(page.getByTestId("card")).toHaveCount(4);
   expect(await bounds()).toEqual(initial);
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "放大", exact: true }).click();

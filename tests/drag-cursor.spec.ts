@@ -83,7 +83,7 @@ test("right-button zoom keeps grabbing cursor, pointer anchor and subsequent pan
     .toBeCloseTo(moved.y - 40);
   expect((await transform(page)).z).toBe(moved.z);
 });
-test("card, group and toolbar drags use grabbing; release and lost focus restore the cursor", async ({
+test("card, child canvas and toolbar drags use grabbing; release and lost focus restore the cursor", async ({
   page,
 }) => {
   await setup(page);
@@ -97,7 +97,7 @@ test("card, group and toolbar drags use grabbing; release and lost focus restore
   await page.mouse.move(box!.x + 70, box!.y + 40, { steps: 4 });
   await page.mouse.up();
   await expect(card).toHaveCSS("cursor", "grab");
-  const title = page.getByRole("button", { name: "拖动分组 分组" }),
+  const title = page.locator(".card-canvas"),
     t = await title.boundingBox();
   await page.mouse.move(t!.x + 30, t!.y + 17);
   await page.mouse.down();

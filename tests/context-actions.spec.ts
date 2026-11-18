@@ -1,7 +1,7 @@
 import { test, expect, type Page, type Locator } from "@playwright/test";
 const card = (page: Page, id: string) =>
   page.locator(`.card[data-card-id="${id}"]`);
-async function setup(page: Page) {
+async function setup(page: Page, legacy = false) {
   await page.goto("/");
   const base = {
     title: "",
@@ -16,21 +16,23 @@ async function setup(page: Page) {
     buffer: Buffer.from(
       JSON.stringify({
         version: 1,
-        groups: [
-          {
-            id: "g",
-            name: "项目",
-            color: "#dbeafe",
-            bounds: { x: 40, y: 60, width: 700, height: 560 },
-          },
-          {
-            id: "child",
-            parent: "g",
-            name: "子组",
-            color: "#ede9fe",
-            bounds: { x: 380, y: 330, width: 300, height: 250 },
-          },
-        ],
+        groups: legacy
+          ? [
+              {
+                id: "g",
+                name: "项目",
+                color: "#dbeafe",
+                bounds: { x: 40, y: 60, width: 700, height: 560 },
+              },
+              {
+                id: "child",
+                parent: "g",
+                name: "子组",
+                color: "#ede9fe",
+                bounds: { x: 380, y: 330, width: 300, height: 250 },
+              },
+            ]
+          : [],
         cards: [
           {
             ...base,
@@ -139,7 +141,7 @@ async function selectEdge(page: Page) {
   ).toHaveClass(/selected/);
 }
 
-test("selection has no toolbar; context menus group capabilities and retain multiselect ungrouping and all seven colors", async ({
+test("selection has no toolbar; context menus group capabilities for multiple selected cards and all seven colors", async ({
   page,
 }) => {
   await setup(page);
@@ -159,16 +161,14 @@ test("selection has no toolbar; context menus group capabilities and retain mult
   await expect(page.getByRole("button", { name: "批量下载" })).toHaveCount(0);
   await menu(page, card(page, "a"), { x: 50, y: 50 });
   const popup = page.getByRole("menu");
-  for (const label of ["内容操作", "分组操作", "外观", "删除操作"])
+  for (const label of ["内容操作", "外观", "删除操作"])
     await expect(
       popup.getByRole("group", { name: label, exact: true }),
     ).toBeVisible();
   await expect(
     popup.getByRole("group", { name: "内容操作" }).getByRole("menuitem"),
   ).toHaveText(["打开", /^复制/, /^剪切/, "Pin", /^导出/]);
-  await expect(
-    popup.getByRole("group", { name: "分组操作" }).getByRole("menuitem"),
-  ).toHaveText([/^创建分组/, /^移出分组/]);
+  await expect(popup.getByRole("group", { name: "分组操作" })).toHaveCount(0);
   await expect(
     popup
       .getByRole("group", { name: "背景颜色", exact: true })
@@ -192,14 +192,7 @@ test("selection has no toolbar; context menus group capabilities and retain mult
     })
     .toBe(true);
   await page.screenshot({ path: "/tmp/yua-menu-sections-mobile.png" });
-  await popup.getByRole("menuitem", { name: "移出分组" }).click();
-  await expect(card(page, "a")).toHaveAttribute("data-group-name", "");
-  await expect(card(page, "d")).toHaveAttribute("data-group-name", "");
-  await page.setViewportSize({ width: 1280, height: 720 });
-  const ungrouped = await snapshot(page);
-  expect(ungrouped.groups).toEqual(original.groups);
-  expect(ungrouped.connections).toEqual(original.connections);
-  await page.keyboard.press("ControlOrMeta+z");
+  await page.keyboard.press("Escape");
   expect(await snapshot(page)).toEqual(original);
 });
 
@@ -255,53 +248,18 @@ test("context deletion targets every card type, clears stale edge selection, pru
   ]);
 });
 
-test("group menus separate dissolution from deleting descendants and restore layout with undo", async ({
+test("deleting a migrated canvas removes descendants and undo restores their links", async ({
   page,
 }) => {
-  await setup(page);
-  const original = await snapshot(page),
-    title = page.getByRole("button", { name: "拖动分组 项目", exact: true });
-  await menu(page, title);
-  const popup = page.getByRole("menu");
-  await expect(
-    popup.getByRole("group", { name: "内容操作" }).getByRole("menuitem"),
-  ).toHaveText([/^复制/, /^导出/, /^剪切/]);
-  await expect(
-    popup
-      .getByRole("group", { name: "分组操作" })
-      .getByRole("menuitem", { name: "解散分组" }),
-  ).toBeVisible();
-  await expect(
-    popup
-      .getByRole("group", { name: "删除操作" })
-      .getByRole("menuitem", { name: "删除" }),
-  ).toBeVisible();
-  await popup.getByRole("menuitem", { name: "解散分组" }).click();
-  const dissolved = await snapshot(page);
-  expect(dissolved.cards).toHaveLength(5);
-  expect(dissolved.groups.map((g: any) => g.id)).toEqual(["child"]);
-  expect(dissolved.connections).toEqual(original.connections);
+  await setup(page, true);
+  const original = await snapshot(page);
+  await menu(page, card(page, "g"), { x: 20, y: 20 });
+  await page.getByRole("menuitem", { name: "删除", exact: true }).click();
+  expect((await snapshot(page)).cards.map((c: any) => c.id)).toEqual(["e"]);
   await page.keyboard.press("ControlOrMeta+z");
   expect(await snapshot(page)).toEqual(original);
-  await selectEdge(page);
-  await menu(page, title);
-  await popup.getByRole("menuitem", { name: "删除", exact: true }).click();
-  await expect(page.getByTestId("card")).toHaveCount(1);
-  await expect(card(page, "e")).toBeVisible();
-  const deleted = await snapshot(page);
-  expect(deleted.groups).toEqual([]);
-  expect(deleted.connections).toEqual([]);
-  expect(deleted.cards.map((c: any) => c.id)).toEqual(["e"]);
-  await page.keyboard.press("ControlOrMeta+z");
-  expect(await snapshot(page)).toEqual(original);
-  await page.keyboard.press("ControlOrMeta+Shift+z");
-  expect(await snapshot(page)).toEqual(deleted);
-  await page.reload();
-  await expect(card(page, "e")).toBeVisible();
-  await expect(page.locator(".group-boundary")).toHaveCount(0);
 });
-
-test("every component and group menu copies content that can be pasted independently", async ({
+test("every component menu copies content that can be pasted independently", async ({
   page,
   context,
 }) => {
@@ -328,13 +286,4 @@ test("every component and group menu copies content that can be pasted independe
     await page.keyboard.press("ControlOrMeta+z");
     await expect(page.getByTestId("card")).toHaveCount(5);
   }
-  await menu(
-    page,
-    page.getByRole("button", { name: "拖动分组 项目", exact: true }),
-  );
-  await page.getByRole("menuitem", { name: "复制", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("已复制分组");
-  await page.keyboard.press("ControlOrMeta+v");
-  await expect(page.getByTestId("card")).toHaveCount(9);
-  await expect(page.locator(".group-boundary")).toHaveCount(4);
 });

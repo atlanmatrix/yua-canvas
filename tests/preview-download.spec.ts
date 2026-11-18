@@ -147,9 +147,7 @@ test("right-button drag pans without modifying elements, while a stationary righ
       return { x: b!.x + 80, y: b!.y + 60 };
     },
     async () => {
-      const b = await page
-        .getByRole("button", { name: "拖动分组 分组" })
-        .boundingBox();
+      const b = await page.locator('[data-card-id="g"]').boundingBox();
       return { x: b!.x + b!.width - 40, y: b!.y + b!.height / 2 };
     },
   ];
@@ -167,10 +165,12 @@ test("right-button drag pans without modifying elements, while a stationary righ
     await expect(page.getByRole("menu")).toHaveCount(0);
   }
   await page.getByTestId("card").first().click({ button: "right" });
-  await expect(page.getByRole("menuitem", { name: "创建分组" })).toBeVisible();
+  await expect(
+    page.getByRole("menuitem", { name: "复制", exact: true }),
+  ).toBeVisible();
   await page.keyboard.press("Escape");
-  await page
-    .getByRole("button", { name: "拖动分组 分组" })
-    .click({ button: "right" });
-  await expect(page.getByRole("menuitem", { name: "解散分组" })).toBeVisible();
+  await page.locator('[data-card-id="g"]').click({ button: "right" });
+  await expect(
+    page.getByRole("menuitem", { name: "打开", exact: true }),
+  ).toBeVisible();
 });

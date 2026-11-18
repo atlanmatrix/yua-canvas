@@ -75,7 +75,6 @@ test("hover and click open all component types; text is created at zoomed right-
     "Mermaid",
     "Agent",
     "Miniature",
-    "分组",
   ]);
   await trigger.click();
   await expect(submenu).toBeVisible();
@@ -86,13 +85,12 @@ test("hover and click open all component types; text is created at zoomed right-
   await page.keyboard.press("ControlOrMeta+z");
   await expect(page.getByTestId("card")).toHaveCount(0);
 });
-test("task, Mermaid and group creation share the original anchor", async ({
+test("task and Mermaid creation share the original anchor", async ({
   page,
 }) => {
   for (const [label, kind] of [
     ["任务", "todo"],
     ["Mermaid", "mermaid"],
-    ["分组", "group"],
   ]) {
     const point = await position(page);
     await (await menu(page)).hover();
@@ -112,17 +110,7 @@ test("task, Mermaid and group creation share the original anchor", async ({
     }
     if (kind === "mermaid")
       await page.getByRole("button", { name: "保存图表" }).click();
-    if (kind === "group") {
-      await page.getByRole("textbox", { name: "分组名称" }).fill("新分组");
-      await page.getByRole("textbox", { name: "分组名称" }).press("Enter");
-      const group = page.locator(".group-boundary").last();
-      const coords = await group.evaluate((el) => ({
-        x: parseFloat((el as HTMLElement).style.left),
-        y: parseFloat((el as HTMLElement).style.top),
-      }));
-      expect(coords.x).toBeCloseTo(point.x);
-      expect(coords.y).toBeCloseTo(point.y);
-    } else await checkPosition(page, kind, point);
+    await checkPosition(page, kind, point);
     await page.keyboard.press("Escape");
     await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.press("Delete");

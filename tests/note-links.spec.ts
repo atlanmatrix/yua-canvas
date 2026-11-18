@@ -64,7 +64,7 @@ test("pasted web URLs highlight only with modifiers, preserve text and remain ed
   await expect(link).toHaveAttribute("href", new URL(text.trim()).href);
   await link.dblclick();
   const input = page.getByRole("textbox", { name: "文本内容" });
-  await expect(input).toHaveValue(text);
+  await expect(input).toHaveText(text);
   await input.fill("普通文本内容");
   await page.keyboard.press("ControlOrMeta+Enter");
   await expect(link).toHaveCount(0);

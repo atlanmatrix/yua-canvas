@@ -847,7 +847,7 @@ test("protected child-canvas exports and selections remain encrypted and a deep 
     await saveBoard(root, { x: 10, y: 20, z: 1 }, navigation);
     const localPath = (await readNavigation())?.path;
     const child = await exportBoard(open.canvas!);
-    const fragment = selectedFragment(open.canvas!, [], "private-group");
+    const fragment = selectedFragment(open.canvas!, ["private-group"]);
     const selection = await sealBoard(fragment);
     const cloud = await packCloud(open.canvas!);
     const single = await exportBoard({
@@ -868,8 +868,8 @@ test("protected child-canvas exports and selections remain encrypted and a deep 
       selection: JSON.stringify(selection),
       cloud: JSON.stringify(cloud.snapshot),
       single,
-      restoredText: revealed.canvas?.cards[0].text,
-      restoredGroup: revealed.canvas?.groups[0].name,
+      restoredText: revealed.canvas?.cards[0].canvas?.cards[0].text,
+      restoredGroup: revealed.canvas?.cards[0].title,
     };
   }, password);
   for (const value of [

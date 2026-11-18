@@ -42,7 +42,7 @@ async function setup(page: Page) {
     buffer: Buffer.from(JSON.stringify(board)),
   });
   await page.getByRole("button", { name: "确认替换" }).click();
-  await expect(page.getByTestId("card")).toHaveCount(2);
+  await expect(page.getByTestId("card")).toHaveCount(3);
 }
 async function point(page: Page, x: number, y: number) {
   return page.locator(".world").evaluate(
@@ -61,62 +61,25 @@ async function drag(page: Page, source: Locator, to: { x: number; y: number }) {
   await page.mouse.move(to.x, to.y, { steps: 12 });
   await page.mouse.up();
 }
-const membership = (card: Locator) => card;
-test("dragging into, between and out of groups uses full containment at zoom", async ({
+test("dropping on a migrated canvas at reduced zoom moves the card into that canvas", async ({
   page,
 }) => {
   await setup(page);
-  const card = page.getByTestId("card").filter({ hasText: "移动卡片" });
-  // Grab the card center, so drop coordinates are its center as well.
-  await drag(page, card, await point(page, 170, 225));
-  await expect(membership(card)).toHaveAttribute("data-group-name", "内组");
-  await expect(page.locator(".card.selected")).toHaveCount(1);
-  // Partial overlap retains the original group and expands its frame.
-  await drag(page, card, await point(page, 340, 225));
-  await expect(membership(card)).toHaveAttribute("data-group-name", "内组");
-  // Fully outside inner, but overlapping outer: transfer and expand outer.
-  await drag(page, card, await point(page, 700, 225));
-  await expect(membership(card)).toHaveAttribute("data-group-name", "外组");
   await page.keyboard.press("-");
-  await page.keyboard.press("-");
-  await drag(page, card, await point(page, 1200, 225));
-  await expect(membership(card)).toHaveAttribute("data-group-name", "");
-  await expect(page.locator(".group-boundary")).toHaveCount(2);
-  await drag(page, card, await point(page, 170, 225));
-  await expect(membership(card)).toHaveAttribute("data-group-name", "内组");
-  await expect(
-    page.locator('.save-indicator[data-state="已保存至本地"]'),
-  ).toBeVisible();
-  await page.reload();
-  await expect(membership(card)).toHaveAttribute("data-group-name", "内组");
-  await page.getByRole("button", { name: "适应所有内容" }).click();
-  const title = page.getByRole("button", { name: "拖动分组 内组" });
-  await page.keyboard.press("Escape");
-  const titleBox = await title.boundingBox();
-  await title.click({
-    position: { x: titleBox!.width - 20, y: titleBox!.height / 2 },
+  const card = page.locator('[data-card-id="b"]');
+  const target = (await page.locator('[data-card-id="outer"]').boundingBox())!;
+  await drag(page, card, {
+    x: target.x + target.width / 2,
+    y: target.y + target.height / 2,
   });
-  await expect(page.locator(".card.selected")).toHaveCount(0);
-  await expect(page.locator(".selection-bar")).toHaveCount(0);
-  const before = await card.boundingBox();
-  const groupBefore = await title.boundingBox();
-  await page.mouse.move(
-    groupBefore!.x + groupBefore!.width - 20,
-    groupBefore!.y + groupBefore!.height / 2,
-  );
-  await page.mouse.down();
-  await page.mouse.move(
-    groupBefore!.x + groupBefore!.width - 20 + 35,
-    groupBefore!.y + groupBefore!.height / 2 + 20,
-    { steps: 8 },
-  );
-  await page.mouse.up();
-  const after = await card.boundingBox();
-  expect(after!.x - before!.x).toBeCloseTo(35, 0);
-  expect(after!.y - before!.y).toBeCloseTo(20, 0);
-  await expect(page.locator(".card.selected")).toHaveCount(0);
+  await expect(card).toHaveCount(0);
+  await page.getByRole("button", { name: "进入子画布 外组" }).click();
+  await expect(card).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "进入子画布 内组" }),
+  ).toBeVisible();
 });
-test("toolbar Todo cards drag to exact positions, join groups and cancel outside canvas", async ({
+test("toolbar Todo cards drag to exact positions, and cancel outside canvas", async ({
   page,
 }) => {
   await setup(page);
@@ -130,7 +93,6 @@ test("toolbar Todo cards drag to exact positions, join groups and cancel outside
   await page.getByRole("textbox", { name: "任务内容 1" }).fill("拖入第一项");
   await page.keyboard.press("ControlOrMeta+Enter");
   const note = page.getByTestId("card").filter({ hasText: "拖入第一项" });
-  await expect(membership(note)).toHaveAttribute("data-group-name", "内组");
   const position = await note.evaluate((el) => ({
     x: parseFloat((el as HTMLElement).style.left),
     y: parseFloat((el as HTMLElement).style.top),
@@ -144,16 +106,13 @@ test("toolbar Todo cards drag to exact positions, join groups and cancel outside
   );
   await page.getByRole("textbox", { name: "任务内容 1" }).fill("拖入任务");
   await page.keyboard.press("ControlOrMeta+Enter");
-  await expect(
-    membership(page.getByTestId("card").filter({ hasText: "拖入任务" })),
-  ).toHaveAttribute("data-group-name", "外组");
   await drag(
     page,
     page.getByRole("button", { name: "添加任务", exact: true }),
     { x: -10, y: 450 },
   );
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByTestId("card")).toHaveCount(4);
+  await expect(page.getByTestId("card")).toHaveCount(5);
   await expect(page.locator(".creation-preview")).toHaveCount(0);
   // A normal click still works after a canceled drag.
   await page.getByRole("button", { name: "添加任务", exact: true }).click();
@@ -187,10 +146,6 @@ test("toolbar attachment drops keep the drop position through file selection", a
     });
     const card = page.locator(`.card[aria-label="${name}"]`);
     await expect(card).toHaveCount(1);
-    await expect(membership(card)).toHaveAttribute(
-      "data-group-name",
-      name === "file.txt" ? "外组" : "内组",
-    );
     const p = await card.evaluate((el) => ({
       x: parseFloat((el as HTMLElement).style.left),
       y: parseFloat((el as HTMLElement).style.top),
@@ -201,7 +156,7 @@ test("toolbar attachment drops keep the drop position through file selection", a
 });
 
 for (const modifier of ["Control", "Meta"]) {
-  test(`${modifier} + left drag pans from canvas, cards and group controls without edits`, async ({
+  test(`${modifier} + left drag pans from canvas, cards and canvas containers without edits`, async ({
     page,
   }) => {
     await setup(page);
@@ -227,18 +182,8 @@ for (const modifier of ["Control", "Meta"]) {
         return { x: b!.x + 80, y: b!.y + 70 };
       },
       async () => {
-        const b = await page
-          .getByRole("button", { name: "拖动分组 内组" })
-          .boundingBox();
-        return { x: b!.x + b!.width - 20, y: b!.y + b!.height / 2 };
-      },
-      async () => {
-        const b = await page
-          .locator(".group-boundary")
-          .first()
-          .getByTestId("resize-se")
-          .boundingBox();
-        return { x: b!.x + 6, y: b!.y + 6 };
+        const b = (await page.locator('[data-card-id="outer"]').boundingBox())!;
+        return { x: b.x + 24, y: b.y + 24 };
       },
     ];
     for (const [index, source] of sources.entries()) {

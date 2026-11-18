@@ -79,7 +79,7 @@ const card = (id: string, kind: string, x: number, y: number) => ({
     : {}),
 });
 
-test("minimap fits all elements and groups at any spread and navigates", async ({
+test("minimap fits all elements and migrated canvases at any spread and navigates", async ({
   page,
 }) => {
   await page.goto("/");
@@ -122,12 +122,12 @@ test("minimap fits all elements and groups at any spread and navigates", async (
   });
   await page.getByRole("button", { name: "确认替换" }).click();
   const map = page.getByTestId("minimap");
-  await expect(map.locator("[data-minimap-card]")).toHaveCount(4);
+  await expect(map.locator("[data-minimap-card]")).toHaveCount(5);
   await expect(map.locator("[data-minimap-card] image")).toHaveAttribute(
     "href",
     /^blob:/,
   );
-  await expect(map.locator("[data-minimap-group]")).toHaveCount(1);
+  await expect(map.locator('[data-minimap-card="g"]')).toHaveCount(1);
   await expect(map.locator("[data-minimap-connection]")).toHaveCount(1);
   const allFit = () =>
     map.evaluate((el) => {
@@ -147,8 +147,8 @@ test("minimap fits all elements and groups at any spread and navigates", async (
       });
     });
   expect(await allFit()).toBe(true);
-  await expect(page.getByTestId("card")).toHaveCount(4);
-  await expect(map.locator("[data-minimap-card]")).toHaveCount(4);
+  await expect(page.getByTestId("card")).toHaveCount(5);
+  await expect(map.locator("[data-minimap-card]")).toHaveCount(5);
   const far = map.locator('[data-minimap-card="任务列表"]');
   const b = await far.boundingBox();
   // At this scale a whole card is less than one pixel wide. Check the exact

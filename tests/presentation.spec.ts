@@ -68,11 +68,6 @@ async function cardMenu(page: Page, id = "a") {
     .locator(`[data-card-id="${id}"]`)
     .dispatchEvent("contextmenu", { clientX: 400, clientY: 240 });
 }
-async function groupMenu(page: Page) {
-  await page
-    .locator(".group-title")
-    .dispatchEvent("contextmenu", { clientX: 300, clientY: 150 });
-}
 async function mode(page: Page, label: string) {
   await page
     .getByRole("menuitemradio", { name: `显示模式：${label}`, exact: true })
@@ -130,7 +125,7 @@ test("component sizes preserve natural dimensions, mask unmounts content, and re
     masked: false,
   });
 });
-test("group list switches active content, persists and restores exact flat layout", async ({
+test("migrated groups keep their editable content and positions after navigation", async ({
   page,
 }) => {
   await seed(page, [
@@ -141,47 +136,15 @@ test("group list switches active content, persists and restores exact flat layou
     },
   ]);
   const before = await snapshot(page);
-  await groupMenu(page);
-  await mode(page, "列表");
-  await expect(page.getByTestId("card")).toHaveCount(0);
-  await expect(page.locator(".group-list-detail")).toContainText("完整内容甲");
-  await page
-    .getByRole("navigation", { name: "分组组件列表" })
-    .getByRole("button", { name: "待办乙" })
-    .click();
-  await expect(page.locator(".group-list-detail")).toContainText("准备资料");
-  await page
-    .getByRole("navigation", { name: "分组组件列表" })
-    .getByRole("button", { name: "待办乙" })
-    .click({ button: "right" });
-  await expect(
-    page.getByRole("menuitemradio", { name: "显示模式：小" }),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
-  const task = page
-    .locator(".group-list-detail")
-    .getByRole("checkbox", { name: "准备资料" });
+  await page.getByRole("button", { name: "进入子画布 资料组" }).click();
+  await expect(page.getByText("完整内容甲", { exact: true })).toBeVisible();
+  const task = page.getByRole("checkbox", { name: "准备资料" });
   await task.check();
-  await expect(task).toBeChecked();
-  await task.uncheck();
   await saved(page);
   await page.reload();
-  await expect(page.locator(".group-list-detail")).toContainText("准备资料");
-  await groupMenu(page);
-  await page.getByRole("menuitem", { name: "遮罩", exact: true }).click();
-  await expect(page.locator(".group-list")).toHaveCount(0);
-  await expect(page.getByTestId("card")).toHaveCount(0);
-  await expect(page.locator(".group-boundary>.component-mask")).toBeVisible();
-  await page
-    .locator(".group-boundary>.component-mask")
-    .click({ button: "right", position: { x: 20, y: 80 } });
-  await page.getByRole("menuitem", { name: "取消遮罩" }).click();
-  await groupMenu(page);
-  await mode(page, "平铺");
-  await expect(page.getByTestId("card")).toHaveCount(2);
-  const after = await snapshot(page);
-  expect(after.cards).toEqual(before.cards);
-  expect(after.groups[0].bounds).toEqual(before.groups[0].bounds);
+  await expect(task).toBeChecked();
+  await task.uncheck();
+  expect((await snapshot(page)).cards).toEqual(before.cards);
 });
 test("double-click text offers formatting, Escape restores it, format-only edits undo as one action", async ({
   page,
@@ -191,6 +154,7 @@ test("double-click text offers formatting, Escape restores it, format-only edits
   await page.locator(".canvas").dblclick({ position: { x: 240, y: 220 } });
   const editor = page.getByRole("textbox", { name: "文本内容" });
   await editor.fill("格式化文字");
+  await editor.press("ControlOrMeta+a");
   const toolbar = page.getByRole("toolbar", { name: "文本格式" });
   await toolbar.getByRole("button", { name: "加粗", exact: true }).click();
   await toolbar.getByRole("button", { name: "倾斜" }).click();
@@ -202,19 +166,22 @@ test("double-click text offers formatting, Escape restores it, format-only edits
   await toolbar.getByLabel("文本背景色").fill("#fef9c3");
   await editor.click();
   await page.keyboard.press("ControlOrMeta+Enter");
-  const p = page.locator(".note-body p");
+  const p = page.locator(".note-body p span");
   await expect(p).toHaveCSS("font-weight", "700");
   await expect(p).toHaveCSS("font-size", "24px");
   await expect(p).toHaveCSS("font-style", "italic");
+  await expect(p).toHaveCSS("background-color", "rgb(254, 249, 195)");
   await expect(p).toHaveCSS("color", "rgb(220, 38, 38)");
   await expect(p).toHaveCSS("text-decoration-line", "underline line-through");
   expect((await snapshot(page)).cards[0].displayMode).toBe("medium");
   await page.getByTestId("card").dblclick();
+  await editor.press("ControlOrMeta+a");
   await toolbar.getByRole("button", { name: "加粗", exact: true }).click();
   await editor.click();
   await page.keyboard.press("Escape");
   await expect(p).toHaveCSS("font-weight", "700");
   await page.getByTestId("card").dblclick();
+  await editor.press("ControlOrMeta+a");
   await toolbar.getByRole("button", { name: "加粗", exact: true }).click();
   await editor.click();
   await page.keyboard.press("ControlOrMeta+Enter");
@@ -414,24 +381,18 @@ test("shared boards retain masks, notes, list selection and brush strokes withou
     route.fulfill({ json: { snapshot: board } }),
   );
   await page.goto("/#/s/" + "b".repeat(64));
-  await expect(page.locator(".share-card>.component-mask")).toHaveCount(1);
-  await expect(page.locator(".share-group>.component-mask")).toHaveCount(1);
-  await expect(page.locator("body")).not.toContainText("secret-masked");
-  await expect(page.locator("body")).not.toContainText("private-note");
-  await expect(page.locator("body")).not.toContainText("secret-child");
-  await expect(page.locator(".share-card>.component-type-icon")).toHaveCount(1);
-  await expect(page.locator(".group-list-detail")).toContainText(
-    "secret-second",
-  );
-  await expect(page.locator(".share-paint [data-stroke-id]")).toHaveCount(1);
-  await page
-    .getByRole("navigation", { name: "分组组件列表" })
-    .getByRole("button", { name: "已遮罩" })
-    .click();
-  await expect(
-    page.locator(".group-list-detail .component-mask"),
-  ).toBeVisible();
-  await expect(page.locator(".group-list-detail")).not.toContainText(
+  await expect(page.locator(".share-card>.component-mask")).toHaveCount(2);
+  for (const secret of [
+    "secret-masked",
+    "private-note",
+    "secret-child",
     "secret-first",
-  );
+  ])
+    await expect(page.locator("body")).not.toContainText(secret);
+  await expect(page.locator(".share-card>.component-type-icon")).toHaveCount(1);
+  await expect(page.locator(".share-paint [data-stroke-id]")).toHaveCount(1);
+
+  await page.getByRole("button", { name: /进入.*list/ }).click();
+  await expect(page.getByText("secret-second", { exact: true })).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("secret-first");
 });

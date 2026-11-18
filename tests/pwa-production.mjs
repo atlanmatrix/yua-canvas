@@ -316,7 +316,7 @@ test("3D hierarchy and component opening work offline at the Pages subpath", asy
     await expect(page.locator(".canvas3d-layer")).toHaveCount(2);
 
     await page.locator('[data-3d-card="note"]').dblclick();
-    await expect(page.getByRole("textbox", { name: "文本内容" })).toHaveValue(
+    await expect(page.getByRole("textbox", { name: "文本内容" })).toHaveText(
       "离线 3D 组件",
     );
     assert.equal(new URL(page.url()).pathname, prefix);

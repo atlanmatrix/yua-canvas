@@ -1,4 +1,5 @@
-import type { Group } from "./storage";
+import type { Card } from "./storage";
+import { canvasCard, newBoard } from "./workspace";
 import type { Fragment } from "./fragments";
 import { cardsFromFiles } from "./files";
 
@@ -117,100 +118,38 @@ export function nodesFromFiles(files: File[]): ImportNode[] {
   return roots;
 }
 
-type Layout = Fragment & { width: number; height: number };
-function translate(layout: Layout, x: number, y: number): Layout {
-  return {
-    ...layout,
-    cards: layout.cards.map((card) => ({
-      ...card,
-      x: card.x + x,
-      y: card.y + y,
-    })),
-    groups: layout.groups.map((group) => ({
-      ...group,
-      bounds: group.bounds && {
-        ...group.bounds,
-        x: group.bounds.x + x,
-        y: group.bounds.y + y,
-      },
-    })),
-  };
-}
-async function layoutDirectory(node: DirectoryNode): Promise<Layout> {
-  const id = crypto.randomUUID();
-  const children = await Promise.all(
-    node.children.map(async (child): Promise<Layout> => {
-      if (child.kind === "directory") {
-        const layout = await layoutDirectory(child);
-        return {
-          ...layout,
-          groups: layout.groups.map((group) =>
-            group.parent ? group : { ...group, parent: id },
-          ),
-        };
-      }
-      const [card] = await cardsFromFiles([child.file], { x: 0, y: 0 });
-      return {
-        cards: [{ ...card, group: id }],
-        groups: [],
-        width: card.width!,
-        height: card.height!,
-      };
-    }),
-  );
-  const columns = Math.min(3, children.length);
-  const widths = Array.from({ length: columns }, (_, col) =>
-    Math.max(
-      ...children
-        .filter((_, i) => i % columns === col)
-        .map((child) => child.width),
+async function directoryCard(node: DirectoryNode): Promise<Card> {
+  const cards = await Promise.all(
+    node.children.map(async (child) =>
+      child.kind === "directory"
+        ? directoryCard(child)
+        : (await cardsFromFiles([child.file], { x: 0, y: 0 }))[0],
     ),
   );
-  const heights = Array.from(
-    { length: Math.ceil(children.length / Math.max(1, columns)) },
-    (_, row) =>
-      Math.max(
-        ...children
-          .slice(row * columns, (row + 1) * columns)
-          .map((child) => child.height),
-      ),
-  );
-  const sum = (sizes: number[]) =>
-    sizes.reduce((total, size) => total + size + 24, 0);
-  const width = Math.max(160, 40 + sum(widths) - (columns ? 24 : 0));
-  const height = Math.max(120, 68 + sum(heights) - (heights.length ? 24 : 0));
-  const placed = children.map((child, index) =>
-    translate(
-      child,
-      20 + sum(widths.slice(0, index % columns)),
-      48 + sum(heights.slice(0, Math.floor(index / columns))),
-    ),
-  );
-  const group: Group = {
-    id,
-    name: node.name,
-    bounds: { x: 0, y: 0, width, height },
-  };
-  return {
-    width,
-    height,
-    cards: placed.flatMap((child) => child.cards),
-    groups: [group, ...placed.flatMap((child) => child.groups)],
-  };
+  let y = 32;
+  for (let start = 0; start < cards.length; start += 3) {
+    const row = cards.slice(start, start + 3);
+    let x = 32;
+    for (const card of row) {
+      card.x = x;
+      card.y = y;
+      x += (card.width || 240) + 24;
+    }
+    y += Math.max(...row.map((card) => card.height || 250)) + 24;
+  }
+  return canvasCard({ ...newBoard(), cards }, node.name);
 }
 export async function directoriesFragment(
   nodes: DirectoryNode[],
   point: { x: number; y: number },
 ): Promise<Fragment> {
-  const layouts = await Promise.all(nodes.map(layoutDirectory));
-  let x = point.x;
-  const placed = layouts.map((layout) => {
-    const result = translate(layout, x, point.y);
-    x += layout.width + 32;
-    return result;
-  });
+  const cards = await Promise.all(nodes.map(directoryCard));
   return {
-    cards: placed.flatMap((layout) => layout.cards),
-    groups: placed.flatMap((layout) => layout.groups),
+    cards: cards.map((card, i) => ({
+      ...card,
+      x: point.x + 272 * i,
+      y: point.y,
+    })),
+    groups: [],
   };
 }

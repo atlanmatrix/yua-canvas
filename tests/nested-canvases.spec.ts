@@ -84,23 +84,15 @@ async function download(page: Page, name: string) {
 }
 const seed = () => ({
   version: 1,
-  groups: [
-    {
-      id: "g",
-      name: "资料组",
-      color: "#dbeafe",
-      bounds: { x: 50, y: 50, width: 680, height: 300 },
-    },
-  ],
+  groups: [],
   cards: [
-    { ...note("原来的文本"), group: "g" },
+    { ...note("原来的文本") },
     {
       ...note("文件", 420),
       kind: "file",
       title: "original.env",
       text: "",
       blob: "data:text/plain;base64,SEVMTE8NCg==",
-      group: "g",
     },
   ],
   connections: [
@@ -349,29 +341,20 @@ test("canvas duplication and ZIP restore independent complete subtrees, original
   const inner = {
     version: 1,
     id: "inner",
-    groups: [
-      {
-        id: "ig",
-        name: "子组",
-        bounds: { x: 30, y: 50, width: 700, height: 470 },
-        color: "#dcfce7",
-      },
-    ],
+    groups: [],
     cards: [
-      { ...note("text"), group: "ig" },
+      { ...note("text") },
       {
         ...note("file", 400),
         kind: "file",
         title: "data.env",
         blob: "data:text/plain;base64,SEVMTE8NCg==",
-        group: "ig",
       },
       {
         ...note("todo", 100, 300),
         kind: "todo",
         text: "",
         tasks: [{ id: "t", text: "任务", done: true }],
-        group: "ig",
       },
       {
         ...note("deeper", 400, 300),
@@ -396,7 +379,6 @@ test("canvas duplication and ZIP restore independent complete subtrees, original
             },
           ],
         },
-        group: "ig",
       },
     ],
     connections: [

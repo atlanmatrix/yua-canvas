@@ -239,7 +239,7 @@ for (const [name, bounds] of [
   });
 }
 
-test("a second pin continues from the current view and groups finish centered", async ({
+test("a second pin continues from the current view and a migrated canvas finishes centered", async ({
   page,
 }) => {
   await setup(page);
@@ -251,10 +251,18 @@ test("a second pin continues from the current view and groups finish centered", 
   await page.clock.runFor(animationDuration + 50);
   await expectView(page, await target(page, near));
   await pin(page, "group").click();
+  await expect(
+    page.locator('.card.selected[data-card-id="group"]'),
+  ).toHaveCount(1);
   await page.clock.runFor(animationDuration + 50);
-  await expectView(page, await target(page, group));
-  await expect(page.locator(".group-selected")).toHaveCount(1);
-  await expect(page.locator(".card.selected")).toHaveCount(0);
+  await expectView(
+    page,
+    await target(page, { ...group, width: 240, height: 180 }),
+  );
+  await expect(
+    page.locator('.card.selected[data-card-id="group"]'),
+  ).toHaveCount(1);
+  await expect(page.locator(".card.selected")).toHaveCount(1);
 });
 
 test("double-click renaming stops the transition and persists the new name", async ({

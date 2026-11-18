@@ -11,15 +11,12 @@ import {
 import { FONT_FAMILIES, type TextStyle } from "./presentation";
 export function TextFormatToolbar({
   style = {},
-  background,
   onChange,
 }: {
   style?: TextStyle;
-  background: string;
-  onChange: (style: TextStyle, background?: string) => void;
+  onChange: (style: TextStyle) => void;
 }) {
-  const update = (patch: Partial<TextStyle>) =>
-    onChange({ ...style, ...patch });
+  const update = (patch: Partial<TextStyle>) => onChange(patch);
   const [fontSize, setFontSize] = useState(String(style.fontSize || 13));
   useEffect(() => setFontSize(String(style.fontSize || 13)), [style.fontSize]);
   return (
@@ -92,8 +89,8 @@ export function TextFormatToolbar({
         <input
           type="color"
           aria-label={tr("文本背景色")}
-          value={background}
-          onChange={(e) => onChange(style, e.target.value)}
+          value={style.backgroundColor || "#ffffff"}
+          onChange={(e) => update({ backgroundColor: e.target.value })}
         />
       </label>
     </div>

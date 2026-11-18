@@ -14,14 +14,7 @@ async function setup(page: Page) {
     buffer: Buffer.from(
       JSON.stringify({
         version: 1,
-        groups: [
-          {
-            id: "g",
-            name: "文本组",
-            color: "#dbeafe",
-            bounds: { x: 40, y: 60, width: 740, height: 340 },
-          },
-        ],
+        groups: [],
         cards: [
           {
             id: "t",
@@ -33,7 +26,6 @@ async function setup(page: Page) {
             y: 130,
             width: 300,
             height: 80,
-            group: "g",
             textMode: "wrap",
             textAutoHeight: true,
           },
@@ -91,7 +83,7 @@ test("double-click edits text in place, keeps native text interactions and saves
   );
   await expect(input).toBeFocused();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(card(page).locator("textarea")).toHaveCount(1);
+  await expect(card(page).locator("[contenteditable=true]")).toHaveCount(1);
   const before = await card(page).evaluate((el) => ({
     x: (el as HTMLElement).style.left,
     y: (el as HTMLElement).style.top,
@@ -105,7 +97,7 @@ test("double-click edits text in place, keeps native text interactions and saves
   await page.keyboard.press("Enter");
   await page.evaluate(() => navigator.clipboard.writeText("第二行内容"));
   await page.keyboard.press("ControlOrMeta+v");
-  await expect(input).toHaveValue("n v h\n第二行内容");
+  await expect(input).toHaveText("n v h\n第二行内容");
   await expect(page.getByTestId("card")).toHaveCount(2);
   await page.keyboard.press("ArrowLeft");
   expect(
@@ -131,7 +123,7 @@ test("double-click edits text in place, keeps native text interactions and saves
   await expect(page.locator(".sidebar")).toHaveCount(0);
 });
 
-test("one edit is one undo step and Escape restores text, dimensions, colors, group frames and connections", async ({
+test("one edit is one undo step and Escape restores text, dimensions, colors and connections", async ({
   page,
 }) => {
   await setup(page);
@@ -146,9 +138,7 @@ test("one edit is one undo step and Escape restores text, dimensions, colors, gr
   await expect(content(page)).toHaveCount(0);
   await saved(page);
   const edited = await snapshot(page);
-  expect(edited.groups[0].bounds.height).toBeGreaterThan(
-    original.groups[0].bounds.height,
-  );
+  expect(edited.cards[0].height).toBeGreaterThan(original.cards[0].height);
   await page.keyboard.press("ControlOrMeta+z");
   await saved(page);
   expect(await snapshot(page)).toEqual(original);

@@ -88,7 +88,7 @@ async function setup(page: Page, group = false) {
     ),
   });
   await page.getByRole("button", { name: "确认替换" }).click();
-  await expect(page.getByTestId("card")).toHaveCount(3);
+  await expect(page.getByTestId("card")).toHaveCount(group ? 1 : 3);
 }
 async function snapshot(page: Page) {
   const promise = page.waitForEvent("download");
@@ -200,20 +200,18 @@ test("group menu cuts and restores the complete group and descendants", async ({
 }) => {
   await setup(page, true);
   await page
-    .getByRole("button", { name: "拖动分组 整组", exact: true })
+    .locator('[data-card-id="outer"]')
     .click({ button: "right", position: { x: 30, y: 12 } });
   await page.getByRole("menuitem", { name: "剪切", exact: true }).click();
-  await expect(page.getByRole("status")).toHaveText("已剪切分组");
+  await expect(page.getByRole("status")).toHaveText("已剪切");
   await expect(page.getByTestId("card")).toHaveCount(0);
   await expect(page.locator(".group-frame")).toHaveCount(0);
   await page.keyboard.press("ControlOrMeta+v");
-  await expect(page.getByTestId("card")).toHaveCount(3);
-  const result = await snapshot(page);
-  expect(result.groups).toHaveLength(1);
-  expect(result.groups[0].id).not.toBe("outer");
-  expect(result.cards.every((c: any) => c.group === result.groups[0].id)).toBe(
-    true,
-  );
+  await expect(page.getByTestId("card")).toHaveCount(1);
+  const outer = (await snapshot(page)).cards[0];
+  expect(outer.id).not.toBe("outer");
+  const result = outer.canvas;
+  expect(result.cards).toHaveLength(3);
   expect(result.connections).toHaveLength(1);
   expect(
     result.cards.find((c: any) => c.kind === "canvas").canvas.cards,
