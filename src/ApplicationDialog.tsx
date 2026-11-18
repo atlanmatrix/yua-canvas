@@ -86,7 +86,7 @@ export function ApplicationDialog({
               autoFocus
               aria-label={tr("iTerm2 命令")}
               spellCheck={false}
-              rows={8}
+              rows={4}
               placeholder={"cd /Users/name/project\nnpm run dev"}
               value={value}
               onChange={(e) => {
@@ -118,12 +118,14 @@ export function ApplicationDialog({
               {tr("本机打开器设置")}
             </button>
           )}
-          <button type="button" className="button" onClick={onClose}>
-            {tr("取消")}
-          </button>
-          <button type="submit" className="primary">
-            {tr("保存关联")}
-          </button>
+          <div className="modal-action-group">
+            <button type="button" className="button" onClick={onClose}>
+              {tr("取消")}
+            </button>
+            <button type="submit" className="primary">
+              {tr("保存关联")}
+            </button>
+          </div>
         </div>
       </form>
     </div>

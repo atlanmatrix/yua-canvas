@@ -15,8 +15,8 @@
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
-  height: 48px;
-  padding: 0 14px;
+  height: max(40px, var(--action-height));
+  padding: 0 12px;
   border-bottom: 1px solid var(--border);
   cursor: grab;
 }
@@ -40,9 +40,9 @@
   justify-content: center;
   align-items: center;
   gap: 5px;
-  min-width: 28px;
-  min-height: 28px;
-  padding: 5px 8px;
+  min-width: var(--action-height);
+  min-height: var(--action-height);
+  padding: 4px var(--action-pad-x);
   border: 1px solid var(--border);
   border-radius: 7px;
   background: var(--surface);
@@ -51,6 +51,11 @@
 .agent-card button:disabled {
   opacity: 0.4;
   cursor: default;
+}
+.agent-card .agent-header button,
+.agent-card .agent-composer button[aria-label] {
+  width: var(--action-height);
+  padding: 0;
 }
 .agent-card button:hover:not(:disabled) {
   background: var(--surface-muted);
@@ -158,8 +163,8 @@
   overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px;
+  gap: 10px;
+  padding: 12px;
   cursor: auto;
 }
 .agent-settings label {
@@ -168,10 +173,15 @@
   gap: 6px;
   font-size: 12px;
 }
-.agent-settings footer {
+.agent-card .agent-settings footer {
   display: flex;
-  justify-content: space-between;
-  margin-top: auto;
+  gap: var(--action-gap);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  font-size: inherit;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 .agent-hint {
   margin: -4px 0 0;

@@ -31,6 +31,9 @@ body textarea:not(.canvas-editor) {
   box-shadow: none;
   padding-inline: 16px;
 }
+body .modal textarea:not(.canvas-editor) {
+  border-radius: 12px;
+}
 body
   :is(
     .text-editor,
@@ -84,9 +87,11 @@ body :is(.modal, .cloud-panel, .pwa-error, .component-remark) {
   border-radius: 32px;
   box-shadow: var(--panel-shadow);
 }
+body .modal {
+  border-radius: 18px;
+}
 body
   :is(
-    .modal-bottom,
     .context-menu-section,
     .brush-controls,
     .group-list > nav
@@ -109,6 +114,10 @@ body .context-menu button:not(.color-swatch) {
   border-radius: 8px !important;
   box-shadow: none;
 }
+body .context-menu button[role="menuitem"] {
+  min-height: var(--action-height);
+  padding: 4px var(--action-pad-x);
+}
 body .context-menu .color-swatch[aria-checked="true"]::after {
   content: none;
 }
@@ -118,6 +127,24 @@ body a:focus-visible {
 body .context-menu .color-palette {
   justify-content: center;
   padding-inline: 6px;
+}
+@media (pointer: coarse) {
+  .context-menu:has(.color-palette) {
+    --swatch-size: 28px;
+  }
+  .context-menu:has(.color-swatch:nth-child(7)) {
+    /* Seven swatches, six one-third-width gaps and the two panel insets. */
+    width: calc(9 * var(--swatch-size) + 28px);
+  }
+  .context-menu .color-palette {
+    gap: calc(var(--swatch-size) / 3);
+  }
+  .context-menu .color-swatch {
+    flex-basis: var(--swatch-size);
+    width: var(--swatch-size);
+    height: var(--swatch-size);
+    min-height: 0;
+  }
 }
 body .context-menu :is(button:focus-visible, .color-swatch:focus-visible) {
   outline: none;
@@ -133,7 +160,7 @@ body .context-menu :is(button:focus-visible, .color-swatch:focus-visible) {
   --segment: 42px;
   position: relative;
   flex-shrink: 0;
-  height: 38px;
+  height: var(--action-height);
   width: calc(var(--segments) * var(--segment) + 8px);
   padding: 4px;
   border: 1px solid transparent;
@@ -179,9 +206,9 @@ body .context-menu :is(button:focus-visible, .color-swatch:focus-visible) {
 .preference-slider input[type="range"] {
   position: absolute;
   z-index: 2;
-  inset: 4px;
+  inset: -1px 4px;
   width: calc(100% - 8px);
-  height: calc(100% - 8px);
+  height: calc(100% + 2px);
   margin: 0;
   padding: 0;
   opacity: 0;
@@ -192,11 +219,11 @@ body .context-menu :is(button:focus-visible, .color-swatch:focus-visible) {
 .preference-slider input::-webkit-slider-thumb {
   appearance: none;
   width: var(--segment);
-  height: 30px;
+  height: 100%;
 }
 .preference-slider input::-moz-range-thumb {
   width: var(--segment);
-  height: 30px;
+  height: 100%;
   border: 0;
 }
 .preference-slider:has(input:focus-visible) {
@@ -205,13 +232,6 @@ body .context-menu :is(button:focus-visible, .color-swatch:focus-visible) {
 @media (max-width: 600px) {
   .preference-slider {
     --segment: 30px;
-    height: 34px;
-  }
-  .preference-slider input::-webkit-slider-thumb {
-    height: 26px;
-  }
-  .preference-slider input::-moz-range-thumb {
-    height: 26px;
   }
   .preferences-controls {
     gap: 5px;
@@ -401,7 +421,7 @@ body .settings-popover {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 12px;
+  padding: 3px var(--action-pad-x);
 }
 .settings-heading h2 {
   margin: 0;
@@ -411,8 +431,8 @@ body .settings-popover {
 .settings-heading button {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: var(--action-height);
+  height: var(--action-height);
   background: transparent;
   color: var(--muted);
 }
@@ -436,8 +456,8 @@ body .settings-popover .settings-action {
   justify-content: flex-start;
   gap: 12px;
   width: 100%;
-  min-height: 42px;
-  padding: 10px 12px;
+  min-height: var(--action-height);
+  padding: 4px var(--action-pad-x);
   border-radius: 8px !important;
   background: transparent;
   color: var(--ink);
@@ -462,7 +482,7 @@ body .settings-popover button:focus-visible {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 18px;
+  padding: 8px var(--action-pad-x);
   font-size: 12px;
   color: var(--muted);
 }

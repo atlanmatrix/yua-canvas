@@ -39,10 +39,12 @@
   display: none;
 }
 
-/* Reserve space on systems with classic scrollbars without adding a second
-   gutter to the fixed outer frames of help and file dialogs. */
+/* Reserve a gutter in scrolling panels. Short association forms keep their
+   padding symmetric, and file/help dialogs scroll inside their fixed frames. */
 :where(
-  .modal:not(.help-dialog):not(.file-detail-modal),
+  .modal:not(
+    .help-dialog, .file-detail-modal, .application-dialog, .local-launcher-dialog
+  ),
   .help-dialog-content,
   .detail-content,
   .cloud-panel,

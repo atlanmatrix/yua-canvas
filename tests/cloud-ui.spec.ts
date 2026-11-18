@@ -302,6 +302,15 @@ test.describe("mobile cloud UI", () => {
     await page.screenshot({ path: "/tmp/yua-cloud-mobile-options.png" });
     await panel.getByRole("option", { name: "30 天", exact: true }).tap();
     await expect(panel.getByRole("combobox")).toHaveText("30 天");
+    for (const control of [
+      panel.getByRole("button", { name: "关闭云同步" }),
+      panel.getByRole("button", { name: "手动拉取" }),
+      panel.getByRole("button", { name: "手动上传" }),
+      panel.getByRole("switch"),
+      panel.getByRole("combobox"),
+    ]) {
+      expect((await control.boundingBox())!.height).toBe(44);
+    }
     const bounds = (await panel.boundingBox())!;
     expect(bounds.x).toBeGreaterThanOrEqual(0);
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);

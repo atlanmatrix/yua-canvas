@@ -90,3 +90,28 @@ test("invalid stored viewport falls back safely without losing cards", async ({
   await saved(page);
   expect(await view(page)).toEqual(expected);
 });
+
+test.describe("narrow touch canvas", () => {
+  test.use({ isMobile: true, hasTouch: true, reducedMotion: "reduce" });
+
+  test("zoom stays clear of the overview and the creation tools fit on screen", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    for (const width of [320, 376, 390]) {
+      await page.setViewportSize({ width, height: 640 });
+      const overview = await page.locator(".canvas-overview").boundingBox();
+      const zoom = await page.locator(".zoom-controls").boundingBox();
+      expect(zoom!.x).toBeGreaterThanOrEqual(overview!.x + overview!.width);
+      for (const button of await page
+        .locator(".zoom-controls button, .toolbar > button")
+        .all()) {
+        await expect(button).toBeInViewport({ ratio: 1 });
+        expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      }
+      const previousZoom = (await view(page)).z;
+      await page.getByRole("button", { name: "放大", exact: true }).tap();
+      await expect.poll(async () => (await view(page)).z).toBeGreaterThan(previousZoom);
+    }
+  });
+});

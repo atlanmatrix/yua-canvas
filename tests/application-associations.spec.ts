@@ -57,6 +57,50 @@ test.beforeEach(async ({ page }) => {
   await saved(page);
 });
 
+for (const [device, viewport, touch] of [
+  ["desktop", { width: 1280, height: 800 }, false],
+  ["narrow phone", { width: 320, height: 568 }, true],
+  ["landscape phone", { width: 844, height: 390 }, true],
+] as const) {
+  test.describe(device, () => {
+    test.use({ viewport, hasTouch: touch, isMobile: touch });
+    test("iTerm2 actions are equal in height and visible without scrolling", async ({
+      page,
+    }) => {
+      await openSettings(page);
+      await page
+        .getByRole("slider", { name: "语言", exact: true })
+        .press("End");
+      await page.keyboard.press("Escape");
+      await page
+        .locator(".canvas")
+        .click({ button: "right", position: { x: 55, y: 105 } });
+      await page
+        .getByRole("menuitem", { name: "New app link", exact: true })
+        .click();
+      await page.getByRole("menuitem", { name: "iTerm2", exact: true }).click();
+      const dialog = page.getByRole("dialog");
+      const buttons = dialog.locator(".modal-bottom button");
+      await expect(buttons).toHaveCount(3);
+      const heights = await buttons.evaluateAll((nodes) =>
+        nodes.map((button) => button.getBoundingClientRect().height),
+      );
+      expect(new Set(heights).size).toBe(1);
+      expect(heights[0]).toBeGreaterThanOrEqual(touch ? 44 : 32);
+      for (const button of await buttons.all())
+        await expect(button).toBeInViewport({ ratio: 1 });
+      expect(
+        await dialog.evaluate((el) => el.scrollWidth - el.clientWidth),
+      ).toBeLessThanOrEqual(1);
+      await dialog.getByRole("textbox").fill("pwd");
+      await dialog
+        .getByRole("button", { name: "Save link", exact: true })
+        .click();
+      await expect(page.locator(".card-iterm2 pre")).toHaveText("pwd");
+    });
+  });
+}
+
 test("VS Code links encode local paths and the Mac installer validates as a shell script", async () => {
   expect(vscodeUrl("/Users/name/项目 #1/a?b")).toBe(
     "vscode://file/Users/name/%E9%A1%B9%E7%9B%AE%20%231/a%3Fb?windowId=_blank",

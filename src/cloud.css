@@ -40,12 +40,12 @@
   color: var(--cloud-ink);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  gap: 14px;
-  padding: 20px;
+  gap: 10px;
+  padding: 16px;
 }
 :root[data-theme] body .cloud-panel :is(button, input) {
   box-sizing: border-box;
-  min-height: 32px;
+  min-height: var(--action-height);
   background: var(--cloud-field);
   color: var(--cloud-ink);
   border: 1px solid transparent !important;
@@ -53,12 +53,11 @@
   backdrop-filter: none;
   font-size: 13px;
   line-height: 18px;
-  padding: 7px 12px;
+  padding: 4px var(--action-pad-x);
 }
 :root[data-theme] body .cloud-panel input {
   background-color: var(--cloud-field) !important;
   margin: 0;
-  padding: 7px 12px;
   width: 100%;
 }
 :root[data-theme] body .cloud-panel input::placeholder {
@@ -125,27 +124,33 @@
   background: var(--cloud-red);
 }
 .cloud-panel .modal-heading {
-  gap: 12px;
+  gap: var(--action-gap);
+  margin: 0;
+}
+.cloud-panel .modal-heading h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.cloud-share-list:empty {
+  display: none;
 }
 :root[data-theme] body .cloud-panel .cloud-icon-button {
   display: inline-flex;
   justify-content: center;
   align-items: center;
-  padding: 5px;
-  width: 28px;
-  height: 28px;
-  min-height: 28px;
-  flex: 0 0 28px;
+  padding: 0;
+  width: var(--action-height);
+  height: var(--action-height);
+  flex: 0 0 var(--action-height);
   border-color: transparent !important;
   background: transparent;
 }
 .cloud-auth-actions {
   display: grid;
-  grid-template-columns: 28px auto 28px;
-  gap: 10px;
+  grid-template-columns: var(--action-height) auto var(--action-height);
+  gap: var(--action-gap);
   justify-content: center;
   align-items: center;
-  padding: 8px 0;
 }
 .cloud-auth-actions::before {
   content: "";
@@ -157,7 +162,7 @@
   justify-content: center;
   border-radius: 999px !important;
   min-width: 120px;
-  padding: 8px 16px;
+  padding-inline: 16px;
   font-weight: 600;
 }
 .cloud-panel .cloud-login svg {
@@ -218,18 +223,25 @@
 :root[data-theme] body .cloud-server-row > button:first-child {
   flex: 1;
   min-width: 0;
-  min-height: 32px;
+  min-height: var(--action-height);
   text-align: left;
+}
+.cloud-server-row [role="menuitem"] > span {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.cloud-share-list button {
+  flex-shrink: 0;
 }
 :root[data-theme] body .cloud-server-row .cloud-switch,
 :root[data-theme] body .cloud-panel .cloud-switch {
   position: relative;
   display: inline-block;
-  flex: 0 0 36px;
-  width: 36px;
-  min-width: 36px;
-  height: 32px;
-  min-height: 32px;
+  flex: 0 0 max(36px, var(--action-height));
+  width: max(36px, var(--action-height));
+  height: var(--action-height);
+  min-height: var(--action-height);
   padding: 0;
   background: transparent;
   border: 1px solid transparent !important;
@@ -239,8 +251,8 @@
 :root[data-theme] body .cloud-switch::before {
   content: "";
   position: absolute;
-  left: 3px;
-  top: 7px;
+  left: calc(50% - 15px);
+  top: calc(50% - 9px);
   width: 30px;
   height: 18px;
   border-radius: 999px;
@@ -248,8 +260,8 @@
 }
 :root[data-theme] body .cloud-switch > span {
   position: absolute;
-  left: 5px;
-  top: 9px;
+  left: calc(50% - 13px);
+  top: calc(50% - 7px);
   width: 14px;
   height: 14px;
   border-radius: 50%;
@@ -287,7 +299,7 @@
   gap: 12px;
   width: 100%;
   text-align: left;
-  padding: 7px 12px;
+  padding: 4px var(--action-pad-x);
 }
 .app-select-options {
   display: grid;
@@ -303,8 +315,8 @@
   align-items: center;
   text-align: left;
   border-color: transparent !important;
-  min-height: 30px;
-  padding: 6px 10px;
+  min-height: var(--action-height);
+  padding: 4px 10px;
 }
 :root[data-theme] body .app-select-options > button[aria-selected="true"] {
   background: var(--cloud-hover);

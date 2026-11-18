@@ -14,23 +14,27 @@
   overflow: hidden;
 }
 .component-locked button {
+  min-height: var(--action-height);
   padding: 5px 12px;
   background: var(--surface-muted);
   color: var(--ink);
 }
 .component-lock-dialog p {
   font-size: 13px;
-  line-height: 1.8;
+  line-height: 1.55;
+  margin: 0;
 }
 .component-lock-dialog label {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin: 16px 0;
+  margin: 10px 0;
 }
 .component-lock-dialog input {
   width: 100%;
-  padding: 10px 12px;
+  min-height: var(--action-height);
+  margin: 0;
+  padding: 4px var(--action-pad-x);
   background: var(--surface-muted);
   color: var(--ink);
 }
@@ -44,7 +48,7 @@
 }
 
 .settings-password {
-  padding: 12px 0;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border);
 }
 .settings-password-status {
@@ -61,11 +65,12 @@
 .settings-password-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
+  gap: var(--action-gap);
+  margin-top: 6px;
 }
 .settings-password-actions button {
-  padding: 6px 10px;
+  min-height: var(--action-height);
+  padding: 4px var(--action-pad-x);
   background: var(--surface-muted);
   color: var(--ink);
   font-size: 12px;

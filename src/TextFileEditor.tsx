@@ -231,9 +231,9 @@ export function TextFileEditor({
           preview
         )}
       </div>
-      <div className="modal-bottom file-edit-footer">
+      <div className="modal-bottom">
         <small>{languageForFile(name) || card.mime || tr("文件")}</small>
-        <div>
+        <div className="modal-action-group">
           <button className="button" onClick={onDownload}>
             <Download size={15} />
             {tr("下载原文件")}

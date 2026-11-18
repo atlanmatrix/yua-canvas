@@ -1,4 +1,7 @@
 :root {
+  --action-height: 32px;
+  --action-pad-x: 12px;
+  --action-gap: 8px;
   --surface: #ffffff;
   --surface-muted: #edf0f4;
   --canvas-bg: #f1f2f4;
@@ -8,6 +11,11 @@
   --connection-color: #d1d5db;
   --muted: #64748b;
   --ink: #334155;
+}
+@media (pointer: coarse) {
+  :root {
+    --action-height: 44px;
+  }
 }
 :root[data-theme="dark"] {
   --surface: #232832;

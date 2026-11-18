@@ -1,4 +1,5 @@
 :root {
+  --primary-ink: #fff;
   --glass-surface: color-mix(in srgb, var(--surface) 61%, transparent);
   --glass-field: color-mix(in srgb, var(--surface-muted) 88%, transparent);
   --glass-thumb: color-mix(in srgb, var(--surface) 67%, transparent);
@@ -11,6 +12,7 @@
   --preference-active-label: #1d4ed8;
 }
 :root[data-theme="dark"] {
+  --primary-ink: #132442;
   --preference-track-surface: #3b4a60;
   --preference-thumb-surface: #64748b;
   --preference-label: #c4cfdf;
@@ -135,8 +137,12 @@
 :root[data-theme]
   body
   :is(button.primary, button.agent-primary, .calculator-keys button.primary) {
-  background: color-mix(in srgb, var(--accent) 73%, transparent);
-  color: white;
+  background: var(--accent);
+  color: var(--primary-ink);
+}
+:root[data-theme] body button:is(.primary, .agent-primary):focus-visible {
+  outline: 2px solid var(--primary-ink);
+  outline-offset: -4px;
 }
 :root[data-theme] body nav.canvas-navigation {
   background: rgb(255 255 255 / 63%);

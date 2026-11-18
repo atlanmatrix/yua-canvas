@@ -188,3 +188,93 @@ body .bottom-tools[data-drawing="true"] .paint-controls {
     gap: 2px;
   }
 }
+
+.zoom-controls {
+  padding: 3px;
+}
+.zoom-controls button {
+  min-width: var(--action-height);
+  height: var(--action-height);
+}
+@media (pointer: coarse) {
+  .settings-trigger,
+  .help-button {
+    width: var(--action-height);
+    height: var(--action-height);
+  }
+  .bottom-tools {
+    --dock-height: 50px;
+    /* Reserve the other dock, the gap and both viewport gutters. */
+    --available-dock-width: calc(
+      100vw - 24px - var(--dock-height) - var(--action-gap)
+    );
+    --creation-width: min(
+      calc(6 * var(--action-height) + 13px),
+      var(--available-dock-width)
+    );
+    --tool-size: calc((var(--creation-width) - 13px) / 6);
+    --paint-width: min(342px, var(--available-dock-width));
+    gap: var(--action-gap);
+  }
+  .bottom-tools .toolbar {
+    gap: 1px;
+    padding: 2px 3px;
+  }
+  .bottom-tools .toolbar > button,
+  .bottom-tools .paint-controls > button,
+  .bottom-tools .drawing-exit {
+    height: var(--action-height);
+  }
+  .bottom-tools .drawing-exit {
+    width: var(--action-height);
+  }
+  body .bottom-tools .paint-controls {
+    padding: 2px 4px 2px 0;
+    gap: 1px;
+  }
+  .bottom-tools .paint-controls > button {
+    width: min(
+      var(--action-height),
+      calc((var(--paint-width) - var(--dock-height) - 92px) / 3)
+    );
+  }
+  .bottom-tools .paint-controls .brush-controls {
+    flex: 1;
+    min-width: 0;
+    gap: 3px;
+  }
+  :root[data-theme] .bottom-tools .brush-controls input[type="range"] {
+    flex: 1;
+    min-width: 22px;
+    height: var(--action-height);
+    background: linear-gradient(var(--glass-field), var(--glass-field)) center /
+      100% 5px no-repeat;
+  }
+}
+/* Keep the overview and zoom controls independently reachable on small phones. */
+@media (max-width: 440px) {
+  .help-button {
+    top: 12px;
+    right: 64px;
+    bottom: auto;
+  }
+  body .canvas-navigation {
+    max-width: calc(100% - 106px);
+  }
+  .canvas-navigation span {
+    min-width: 0;
+  }
+  .zoom-controls {
+    right: 12px;
+  }
+}
+@media (max-width: 385px) {
+  body .zoom-controls {
+    display: grid;
+    grid-template-columns: repeat(2, auto);
+    border-radius: 16px;
+  }
+  .zoom-controls i {
+    display: none;
+  }
+}

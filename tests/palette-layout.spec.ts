@@ -77,3 +77,28 @@ test("component and Pin palettes keep wider spacing and all focus rings inside m
     }
   }
 });
+
+test.describe("touch palette", () => {
+  test.use({ isMobile: true, hasTouch: true, viewport: { width: 320, height: 640 } });
+
+  test("all seven swatches stay circular on one row", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "添加任务", exact: true }).tap();
+    await page.locator(".card-todo").click({ button: "right", position: { x: 40, y: 30 } });
+    const swatches = page.getByRole("menuitemradio");
+    await expect(swatches).toHaveCount(7);
+    const bounds = await swatches.evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const { top, width, height } = button.getBoundingClientRect();
+        return { top, width, height };
+      }),
+    );
+    for (const swatch of bounds) {
+      expect(swatch.width).toBeGreaterThanOrEqual(24);
+      expect(swatch.height).toBe(swatch.width);
+      expect(swatch.top).toBe(bounds[0].top);
+    }
+    await swatches.last().tap();
+    await expect(swatches).toHaveCount(0);
+  });
+});

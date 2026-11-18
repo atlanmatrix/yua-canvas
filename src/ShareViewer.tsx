@@ -120,7 +120,7 @@ export function ShareViewer({ token }: { token: string }) {
     };
   }, [token]);
   useEffect(() => {
-    if (!board) return;
+    if (!board || !surface.current) return;
     const rects = [
       ...board.cards.map(cardRect),
       ...strokeBounds(board.strokes),
@@ -130,12 +130,17 @@ export function ShareViewer({ token }: { token: string }) {
       y = Math.min(...rects.map((r) => r.y)),
       w = Math.max(...rects.map((r) => r.x + r.width)) - x,
       h = Math.max(...rects.map((r) => r.y + r.height)) - y;
-    const z = Math.min(
-      1,
-      (innerWidth - 120) / Math.max(w, 1),
-      (innerHeight - 160) / Math.max(h, 1),
+    const { clientWidth, clientHeight } = surface.current;
+    const inset = Math.min(32, clientWidth / 10, clientHeight / 10);
+    const z = Math.max(
+      0.05,
+      Math.min(
+        1,
+        (clientWidth - 2 * inset) / Math.max(w, 1),
+        (clientHeight - 2 * inset) / Math.max(h, 1),
+      ),
     );
-    setView({ x: 60 - x * z, y: 100 - y * z, z: Math.max(0.05, z) });
+    setView({ x: inset - x * z, y: inset - y * z, z });
   }, [board]);
   const touch = useCanvasTouch({
     scope: "share:" + (board?.id || stack.length),

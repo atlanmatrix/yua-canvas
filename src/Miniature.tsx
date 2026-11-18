@@ -320,7 +320,7 @@ export function MiniatureDialog({
             autoFocus
             aria-label={tr("场景 URL 或 iframe 代码")}
             value={value}
-            rows={5}
+            rows={4}
             placeholder={tr("https://… 或 <iframe src=…></iframe>")}
             onChange={(e) => {
               setValue(e.target.value);

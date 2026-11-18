@@ -18,11 +18,16 @@ const snapshot = {
 test("share opens read-only, does not replace the local workspace", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
   await page.route("**/api/shares/resolve", (r) =>
     r.fulfill({ json: { snapshot } }),
   );
   await page.goto("/#/s/" + "a".repeat(64));
   await expect(page.getByText("来自分享的内容")).toBeVisible();
+  const header = (await page.locator(".share-viewer > header").boundingBox())!;
+  const surface = (await page.locator(".share-surface").boundingBox())!;
+  expect(surface.y).toBeCloseTo(header.y + header.height, 0);
+  expect(surface.y + surface.height).toBeCloseTo(568, 0);
   await expect(
     page.getByRole("button", { name: "添加任务", exact: true }),
   ).toHaveCount(0);
