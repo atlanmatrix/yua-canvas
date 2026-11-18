@@ -491,33 +491,60 @@ test("HTML selection opens offline with editable text, persistent checkboxes and
   const canvas = file.locator("main");
   const fitted = (await canvas.boundingBox())!;
   const cursor = { x: 180, y: 60 };
-  const zoomMenu = file.getByRole("menu", { name: "画布缩放" });
-  await file.mouse.click(cursor.x, cursor.y, { button: "right" });
-  await zoomMenu.getByRole("menuitem", { name: "放大" }).click();
-  await expect(zoomMenu).toBeHidden();
+  await file.mouse.move(cursor.x, cursor.y);
+  await file.mouse.down({ button: "right" });
+  await file.mouse.wheel(0, -120);
+  await expect
+    .poll(async () => (await canvas.boundingBox())!.width)
+    .toBeGreaterThan(fitted.width);
   const enlarged = (await canvas.boundingBox())!;
-  expect(enlarged.width / fitted.width).toBeCloseTo(1.25);
-  expect(enlarged.x + (cursor.x - fitted.x) * 1.25).toBeCloseTo(cursor.x, 0);
+  const ratio = enlarged.width / fitted.width;
+  expect(enlarged.x + (cursor.x - fitted.x) * ratio).toBeCloseTo(cursor.x, 1);
+  expect(enlarged.y + (cursor.y - fitted.y) * ratio).toBeCloseTo(cursor.y, 1);
+
+  await file.mouse.move(cursor.x + 36, cursor.y - 28, { steps: 5 });
+  const panned = (await canvas.boundingBox())!;
+  expect(panned.x - enlarged.x).toBeCloseTo(36, 1);
+  expect(panned.y - enlarged.y).toBeCloseTo(-28, 1);
+  expect(panned.width).toBeCloseTo(enlarged.width, 1);
+  await file.mouse.wheel(0, 120);
+  await expect
+    .poll(async () => (await canvas.boundingBox())!.width)
+    .toBeCloseTo(fitted.width, 1);
+  await file.mouse.up({ button: "right" });
+  await expect(file.locator("body")).not.toHaveClass(/is-grabbing/);
+  await expect(file.getByRole("menu")).toHaveCount(0);
+
+  const released = await canvas.boundingBox();
+  await file.mouse.wheel(0, -120);
+  await file.mouse.move(cursor.x, cursor.y);
+  expect(await canvas.boundingBox()).toEqual(released);
+  const natural = await canvas.evaluate((el) => el.offsetWidth);
+  for (const modifier of ["Control", "Meta"]) {
+    await file.keyboard.press(`${modifier}+1`);
+    expect((await canvas.boundingBox())!.width).toBeCloseTo(natural, 1);
+    expect(
+      await file.evaluate(() => [
+        document.documentElement.scrollWidth,
+        document.documentElement.scrollHeight,
+        window.scrollX,
+        window.scrollY,
+      ]),
+    ).toEqual([520, 480, 0, 0]);
+    await file.keyboard.press(`${modifier}+0`);
+    expect(await canvas.boundingBox()).toEqual(fitted);
+  }
+
+  // Resizing in fit mode also respects the vertical bounds.
+  await file.setViewportSize({ width: 900, height: 220 });
+  await expect
+    .poll(async () => (await canvas.boundingBox())!.height)
+    .toBeCloseTo(220, 1);
+  await file.setViewportSize({ width: 520, height: 480 });
+  await expect.poll(() => canvas.boundingBox()).toEqual(fitted);
   await first.fill("修订后的内容");
   const check = file.getByRole("checkbox", { name: "准备资料" });
   await check.check();
-  const openZoomMenu = () => file.mouse.click(515, 475, { button: "right" });
-  await openZoomMenu();
-  const menuBounds = (await zoomMenu.boundingBox())!;
-  expect(menuBounds.x + menuBounds.width).toBeLessThan(520);
-  expect(menuBounds.y + menuBounds.height).toBeLessThan(480);
-  await file.keyboard.press("ArrowDown");
-  await expect(zoomMenu.getByRole("menuitem", { name: "缩小" })).toBeFocused();
-  await file.keyboard.press("Enter");
-  expect((await canvas.boundingBox())!.width).toBeCloseTo(fitted.width, 0);
-  await openZoomMenu();
-  await file.keyboard.press("Escape");
-  await expect(zoomMenu).toBeHidden();
-  await openZoomMenu();
-  await zoomMenu.getByRole("menuitem", { name: "放大" }).click();
-  await openZoomMenu();
-  await zoomMenu.getByRole("menuitem", { name: "适应宽度" }).click();
-  expect((await canvas.boundingBox())!.width).toBeCloseTo(fitted.width, 0);
   await file.reload();
   await expect(first).toHaveText("修订后的内容");
   await expect(check).toBeChecked();

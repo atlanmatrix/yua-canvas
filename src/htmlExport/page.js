@@ -1,58 +1,116 @@
 // This script runs in the standalone file. Only text and checkbox state are stored.
 (() => {
   const canvas = document.querySelector("main");
-  const menu = document.querySelector("#zoom-menu");
-  const items = [...menu.querySelectorAll("button")];
+  const viewport = document.documentElement;
   const fitScale = () =>
-    Math.min(1, document.documentElement.clientWidth / canvas.offsetWidth);
-  let zoom = fitScale();
+    Math.min(
+      1,
+      viewport.clientWidth / canvas.offsetWidth,
+      viewport.clientHeight / canvas.offsetHeight,
+    );
+  let x = 0,
+    y = 0,
+    zoom = 1;
   let fitting = true;
-  let anchor;
-  const setZoom = (scale) => {
-    zoom = scale;
-    canvas.style.zoom = scale;
+  let drag;
+  const render = () => {
+    canvas.style.transform = `translate(${x}px, ${y}px) scale(${zoom})`;
   };
-  setZoom(zoom);
-
+  const fit = () => {
+    fitting = true;
+    zoom = fitScale();
+    x = (viewport.clientWidth - canvas.offsetWidth * zoom) / 2;
+    y = (viewport.clientHeight - canvas.offsetHeight * zoom) / 2;
+    render();
+  };
+  const zoomAt = (scale, px, py) => {
+    fitting = false;
+    if (scale === zoom) return;
+    const ratio = scale / zoom;
+    x = px - (px - x) * ratio;
+    y = py - (py - y) * ratio;
+    zoom = scale;
+    render();
+  };
+  fit();
   window.addEventListener("resize", () => {
-    menu.hidePopover();
-    if (fitting) setZoom(fitScale());
+    if (fitting) fit();
   });
-  document.addEventListener("contextmenu", (event) => {
+  document.addEventListener("contextmenu", (event) => event.preventDefault());
+
+  const stopDrag = () => {
+    if (!drag) return;
+    const { pointerId } = drag;
+    drag = undefined;
+    document.body.classList.remove("is-grabbing");
+    if (document.body.hasPointerCapture(pointerId))
+      document.body.releasePointerCapture(pointerId);
+  };
+  document.addEventListener("pointerdown", (event) => {
+    if (event.button !== 2) return;
     event.preventDefault();
-    anchor = { x: event.clientX, y: event.clientY };
-    menu.showPopover();
-    const { clientWidth, clientHeight } = document.documentElement;
-    menu.style.left = `${Math.max(4, Math.min(anchor.x, clientWidth - menu.offsetWidth - 4))}px`;
-    menu.style.top = `${Math.max(4, Math.min(anchor.y, clientHeight - menu.offsetHeight - 4))}px`;
-    items[0].focus({ preventScroll: true });
+    drag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+    document.body.setPointerCapture(event.pointerId);
+    document.body.classList.add("is-grabbing");
   });
-  menu.addEventListener("click", (event) => {
-    const action = event.target.closest("button")?.dataset.zoom;
-    if (!action) return;
-    menu.hidePopover();
-    fitting = action === "fit";
-    if (fitting) {
-      setZoom(fitScale());
-      window.scrollTo(0, 0);
+  document.addEventListener("pointermove", (event) => {
+    if (event.pointerId !== drag?.pointerId) return;
+    if (!(event.buttons & 2)) {
+      stopDrag();
       return;
     }
-    const before = canvas.getBoundingClientRect();
-    const scale = zoom * (action === "in" ? 1.25 : 0.8);
-    const previousZoom = zoom;
-    setZoom(Math.max(Math.min(0.1, fitScale()), Math.min(4, scale)));
-    const after = canvas.getBoundingClientRect();
-    window.scrollBy(
-      after.left + ((anchor.x - before.left) * zoom) / previousZoom - anchor.x,
-      after.top + ((anchor.y - before.top) * zoom) / previousZoom - anchor.y,
-    );
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    if (!dx && !dy) return;
+    fitting = false;
+    x += dx;
+    y += dy;
+    drag.x = event.clientX;
+    drag.y = event.clientY;
+    render();
   });
-  menu.addEventListener("keydown", (event) => {
-    const index = items.indexOf(document.activeElement);
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+  const endDrag = (event) => {
+    if (event.pointerId === drag?.pointerId) stopDrag();
+  };
+  document.addEventListener("pointerup", endDrag);
+  document.addEventListener("pointercancel", endDrag);
+  document.addEventListener("lostpointercapture", endDrag);
+  window.addEventListener("blur", stopDrag);
+
+  document.addEventListener(
+    "wheel",
+    (event) => {
+      if (!drag) return;
       event.preventDefault();
-      const step = event.key === "ArrowDown" ? 1 : -1;
-      items[(index + step + items.length) % items.length].focus();
+      const unit =
+        event.deltaMode === 1
+          ? 16
+          : event.deltaMode === 2
+            ? viewport.clientHeight
+            : 1;
+      const scale = zoom * Math.exp(-event.deltaY * unit * 0.006);
+      zoomAt(
+        Math.max(Math.min(0.1, fitScale()), Math.min(4, scale)),
+        event.clientX,
+        event.clientY,
+      );
+    },
+    { passive: false },
+  );
+  document.addEventListener("keydown", (event) => {
+    if (
+      !(event.metaKey || event.ctrlKey) ||
+      event.altKey ||
+      event.shiftKey ||
+      event.isComposing
+    )
+      return;
+    if (event.key === "0") {
+      event.preventDefault();
+      fit();
+    } else if (event.key === "1") {
+      event.preventDefault();
+      zoomAt(1, viewport.clientWidth / 2, viewport.clientHeight / 2);
     }
   });
 
