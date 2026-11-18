@@ -1,4 +1,27 @@
-export const NOTE_LINK_PREFIX_WIDTH = 24;
+import type { TextStyle } from "./presentation";
+import type { Card } from "./storage";
+
+export const NOTE_LINK_TEXT_STYLE = {
+  fontFamily: "system-ui",
+  fontSize: 13,
+} satisfies TextStyle;
+
+export function noteCardHref(
+  card: Partial<
+    Pick<
+      Card,
+      "kind" | "text" | "locked" | "masked" | "displayMode" | "linkDisabled"
+    >
+  >,
+) {
+  if (
+    card.kind === "text" &&
+    !card.locked &&
+    !card.masked &&
+    card.displayMode !== "small"
+  )
+    return linkTarget(card.text || "", card.linkDisabled);
+}
 
 export function linkTarget(text: string, disabled = false): string | undefined {
   const value = text.trim();
@@ -10,6 +33,7 @@ export function linkTarget(text: string, disabled = false): string | undefined {
     );
   if (match && match[1].length <= 64 && email.length <= 254)
     return `mailto:${encodeURIComponent(match[1]).replaceAll("%2B", "+")}@${match[2]}`;
+  if (!/^(?:https?:|www\.)/i.test(value)) return;
   try {
     const url = new URL(/^www\./i.test(value) ? `https://${value}` : value);
     if ((url.protocol === "https:" || url.protocol === "http:") && url.hostname)

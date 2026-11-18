@@ -46,7 +46,7 @@ for (const [family, names] of Object.entries({
   typography: "Type Bold Italic Underline Strikethrough",
   layout: "Layers PanelsTopLeft PanelsLeftBottom LayoutGrid List",
   tasks: "ListTodo Check MoreHorizontal WrapText ArrowLeftRight",
-  assistance: "Pin MessageSquare CircleHelp Search",
+  assistance: "Pin MessageSquare Mail CircleHelp Search",
   agent: "Bot Send Play Terminal Code2 VSCodeIcon",
   spatial: "Box Network",
   files: "Image ImagePlus FileText Folder",

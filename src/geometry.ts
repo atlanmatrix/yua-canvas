@@ -1,4 +1,4 @@
-import { linkTarget, NOTE_LINK_PREFIX_WIDTH } from "./noteLinks";
+import { noteCardHref, NOTE_LINK_TEXT_STYLE } from "./noteLinks";
 import {
   textCss,
   textSegments,
@@ -34,6 +34,8 @@ type CardGeometry = Pick<Card, "x" | "y" | "width" | "height"> &
       | "title"
       | "contentAspectRatio"
       | "linkDisabled"
+      | "locked"
+      | "masked"
       | "textRuns"
       | "textStyle"
       | "text"
@@ -67,15 +69,40 @@ function previewTextHeight(c: CardGeometry, width: number) {
     width,
     c.textStyle,
     c.textRuns,
-    c.linkDisabled,
   ).height;
   previewTextHeights.set(c, { width, height });
   return height;
 }
+export function pastedLinkWidth(text: string) {
+  textContext.font = `${NOTE_LINK_TEXT_STYLE.fontSize}px system-ui`;
+  // Frame border, horizontal insets, icon and the gap beside it.
+  return Math.min(
+    320,
+    Math.ceil(textContext.measureText(text.trim()).width) + 62,
+  );
+}
+
 export const cardRect = (c: CardGeometry): Rect => {
   const { width, height } = contentCardSize(c);
   if (c.kind !== "canvas" && c.displayMode === "small")
     return { x: c.x, y: c.y, width: 56, height: 56 };
+  if (noteCardHref(c)) {
+    const previewWidth =
+      c.displayMode === "medium"
+        ? c.previewWidth || Math.min(width, 320)
+        : width;
+    const baseSize = c.textStyle?.fontSize || NOTE_LINK_TEXT_STYLE.fontSize;
+    const fontSize = (c.textRuns || []).reduce(
+      (max, run) => Math.max(max, run.style.fontSize || baseSize),
+      baseSize,
+    );
+    return {
+      x: c.x,
+      y: c.y,
+      width: Math.max(64, previewWidth),
+      height: Math.max(32, Math.ceil(fontSize * 1.5)) + 10,
+    };
+  }
   if (c.kind !== "canvas" && c.displayMode === "medium") {
     const scale = pdfGeometry(c)
       ? 1 / 1.5
@@ -211,7 +238,6 @@ export function textSize(
   requestedWidth = TEXT_MAX_WIDTH,
   style?: TextStyle,
   runs?: TextRun[],
-  linkDisabled?: boolean,
 ) {
   const css = textCss(style);
   textContext.font = `${css.fontStyle} ${css.fontWeight} ${css.fontSize}px ${css.fontFamily}`;
@@ -219,8 +245,8 @@ export function textSize(
     inset = 26;
   const width = Math.max(64, Math.min(TEXT_MAX_WIDTH, requestedWidth));
   const contentWidth = width - inset;
-  let used = linkTarget(text, linkDisabled) ? NOTE_LINK_PREFIX_WIDTH : 0,
-    longest = used,
+  let used = 0,
+    longest = 0,
     row = 1,
     height = 0;
   let rowHeight = parseFloat(css.lineHeight);

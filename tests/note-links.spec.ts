@@ -174,7 +174,7 @@ test("www addresses are supported while non-web schemes, mixed text and multilin
   }
 });
 
-test("short and wrapped URLs fit their generated block without cutting off link text", async ({
+test("address capsules keep a fixed icon and truncate only the long address", async ({
   page,
 }) => {
   await page.goto("/");
@@ -182,23 +182,42 @@ test("short and wrapped URLs fit their generated block without cutting off link 
     page.getByRole("button", { name: "添加任务", exact: true }),
   ).toBeEnabled();
   for (const text of [
-    "https://example.com/docs?project=canvas",
+    "https://example.com",
     "https://example.com/" + "segment/".repeat(70) + "?query=end",
   ]) {
     await paste(page, text);
     const card = page.getByTestId("card").last();
-    await expect(card.getByRole("link")).toHaveText(text);
-    const sizes = await card.locator(".note-body").evaluate((el) => ({
-      height: el.clientHeight,
-      content: el.scrollHeight,
-      width: el.clientWidth,
-      contentWidth: el.scrollWidth,
-    }));
-    expect(sizes.content).toBeLessThanOrEqual(sizes.height);
-    expect(sizes.contentWidth).toBeLessThanOrEqual(sizes.width);
+    const link = card.getByRole("link");
+    await expect(link).toHaveText(text);
+    await expect(link).toHaveAttribute("title", text);
+    await expect(card).toHaveCSS("border-radius", "999px");
+    await expect(link).toHaveCSS("text-overflow", "ellipsis");
+    await expect(link).toHaveCSS("white-space", "nowrap");
+    await expect(card.getByRole("button", { name: "链接选项" })).toHaveCSS(
+      "width",
+      "32px",
+    );
+    await expect(card.getByRole("button", { name: "链接选项" })).toHaveCSS(
+      "height",
+      "32px",
+    );
+    const shortened = await link.evaluate(
+      (el) => el.scrollWidth > el.clientWidth,
+    );
+    expect(shortened).toBe(text.length > 100);
     expect(
       await card.evaluate((el) => parseFloat((el as HTMLElement).style.width)),
     ).toBeLessThanOrEqual(await textWidth80(page));
+    if (shortened) {
+      await card.hover();
+      await card.getByRole("button", { name: "切换为滚动模式" }).click();
+      await expect(link).toHaveCSS("overflow-x", "auto");
+      await link.hover();
+      await page.mouse.wheel(120, 0);
+      await expect
+        .poll(() => link.evaluate((el) => el.scrollLeft))
+        .toBeGreaterThan(0);
+    }
   }
 });
 
@@ -223,9 +242,15 @@ test("link icons only offer unlink, and pasted email and web addresses can be re
     const tabs = context.pages().length;
     await expect(addressLink).toHaveAttribute("href", href);
     await expect(icon).toHaveCSS("border-radius", "999px");
-    await expect(icon).toHaveCSS("width", "20px");
-    await expect(icon).toHaveCSS("height", "20px");
-    await expect(icon).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(icon).toHaveCSS("width", "32px");
+    await expect(icon).toHaveCSS("height", "32px");
+    await expect(card).toHaveCSS("background-color", "rgb(237, 240, 244)");
+    await expect(icon).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(icon.locator("svg")).toHaveAttribute(
+      "data-ui-icon",
+      href.startsWith("mailto:") ? "Mail" : "Link2",
+    );
+
     await icon.hover();
     await expect(icon).toHaveCSS("background-color", "rgb(237, 240, 244)");
     await icon.click({ modifiers: ["Control"] });
@@ -264,4 +289,15 @@ test("link icons only offer unlink, and pasted email and web addresses can be re
     await menu.getByRole("menuitem", { name: "设为链接" }).click();
     await expect(addressLink).toHaveAttribute("href", href);
   }
+  await page.emulateMedia({ colorScheme: "dark" });
+  const capsule = page.getByTestId("card").last();
+  await expect(capsule).toHaveCSS("background-color", "rgb(44, 51, 64)");
+  await expect(capsule.getByRole("button", { name: "链接选项" })).toHaveCSS(
+    "background-color",
+    "rgb(35, 40, 50)",
+  );
+  await expect(capsule.getByRole("link")).toHaveCSS(
+    "color",
+    "rgb(224, 230, 239)",
+  );
 });

@@ -152,9 +152,14 @@ export function exportHtml(board: Board) {
       article.style.background = getComputedStyle(frame).backgroundColor;
       const editable =
         !card.masked && !card.locked && card.displayMode !== "small";
-      if (editable && card.kind === "text")
+      if (editable && card.kind === "text") {
+        const icon = frame.querySelector(".note-address .note-link-icon");
+        if (icon) {
+          article.className = "is-link-note";
+          article.append(icon.cloneNode(true));
+        }
         article.append(noteContent(card, frame, doc));
-      else if (editable && card.kind === "todo")
+      } else if (editable && card.kind === "todo")
         article.append(todoContent(card, doc));
       else {
         const image = doc.createElement("img");

@@ -139,14 +139,13 @@ test("scroll mode preserves original lines, fits short content and survives undo
   page,
 }) => {
   await ready(page);
-  const text = "https://example.com/" + "segment/".repeat(30);
+  const text = "普通文本 " + "segment/".repeat(30);
   await paste(page, text);
   const card = page.getByTestId("card").first(),
     body = card.locator(".note-body");
   const wrapHeight = await card.evaluate((el) =>
     parseFloat((el as HTMLElement).style.height),
   );
-  await card.hover();
   await card.hover();
   await card
     .getByRole("toolbar", { name: "组件操作" })

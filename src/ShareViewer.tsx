@@ -1,3 +1,4 @@
+import { noteCardHref } from "./noteLinks";
 import { useCanvasTouch } from "./useCanvasTouch";
 import { ComponentLockDialog, LockedContent } from "./ComponentLock";
 import { unlockIsolated } from "./encryption";
@@ -341,10 +342,12 @@ export function ShareViewer({ token }: { token: string }) {
               .filter((c) => !presentationHidden(board, c.group))
               .map((c) => {
                 const r = cardRect(c);
+                const address = noteCardHref(c);
                 return (
                   <article
                     className={
                       "share-card" +
+                      (address ? " is-link-note" : "") +
                       (c.kind === "miniature" ? " share-miniature" : "")
                     }
                     key={c.id}
@@ -358,7 +361,10 @@ export function ShareViewer({ token }: { token: string }) {
                       background:
                         c.kind === "miniature"
                           ? "transparent"
-                          : surfaceColor(c.color),
+                          : surfaceColor(
+                              c.color,
+                              address ? "var(--surface-muted)" : undefined,
+                            ),
                     }}
                   >
                     {c.locked ? (

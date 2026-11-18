@@ -213,11 +213,10 @@ for (const dpr of [1, 2])
       expect(
         await page.locator(".agent-messages").evaluate((el) => el.clientHeight),
       ).toBeGreaterThanOrEqual(48);
-      expect(
-        await page
-          .locator('[data-card-id="short"] .note-body')
-          .evaluate((el) => el.clientHeight),
-      ).toBeGreaterThanOrEqual(48);
+      await expect(page.locator('[data-card-id="short"]')).toHaveCSS(
+        "height",
+        "42px",
+      );
       const wrapped = await page
         .locator('[data-card-id="short"] .note-body')
         .evaluate((el) => ({

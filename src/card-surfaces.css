@@ -35,6 +35,9 @@
   border-color: var(--card-outline-hover);
   box-shadow: var(--card-hover-shadow);
 }
+:root[data-theme] body .card.is-link-note {
+  --element-radius: 999px;
+}
 :root[data-theme] body .card.is-small {
   --element-radius: 16px;
 }

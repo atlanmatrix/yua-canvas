@@ -184,9 +184,9 @@ export function textCss(s: TextStyle = {}) {
     backgroundColor: s.backgroundColor,
   };
 }
-export function surfaceColor(color?: string) {
+export function surfaceColor(color?: string, fallback = "var(--surface)") {
   return !color || ["#ffffff", "#fff", "#fffdf5"].includes(color.toLowerCase())
-    ? "var(--surface)"
+    ? fallback
     : color;
 }
 export function customColor(color?: string) {

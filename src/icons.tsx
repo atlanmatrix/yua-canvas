@@ -40,6 +40,7 @@ import {
   List as BaseList,
   ListTodo as BaseListTodo,
   LogOut as BaseLogOut,
+  Mail as BaseMail,
   Maximize as BaseMaximize,
   MessageSquare as BaseMessageSquare,
   Minus as BaseMinus,
@@ -126,6 +127,7 @@ export const LayoutGrid = animatedIcon("LayoutGrid", BaseLayoutGrid);
 export const Link2 = animatedIcon("Link2", BaseLink2);
 export const List = animatedIcon("List", BaseList);
 export const ListTodo = animatedIcon("ListTodo", BaseListTodo);
+export const Mail = animatedIcon("Mail", BaseMail);
 export const LogOut = animatedIcon("LogOut", BaseLogOut);
 export const Maximize = animatedIcon("Maximize", BaseMaximize);
 export const MessageSquare = animatedIcon("MessageSquare", BaseMessageSquare);

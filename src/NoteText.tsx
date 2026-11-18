@@ -4,8 +4,8 @@ import {
   type TextRun,
   type TextStyle,
 } from "./presentation";
-import { linkTarget } from "./noteLinks";
-import { Link2 } from "./icons";
+import { linkTarget, NOTE_LINK_TEXT_STYLE } from "./noteLinks";
+import { Link2, Mail } from "./icons";
 import { t as tr } from "./i18n";
 
 export function StyledNoteText({
@@ -31,24 +31,30 @@ export function NoteText({
   textStyle,
   textRuns,
   linkDisabled,
-  showLinkIcon,
+  linkOptions,
 }: {
   text: string;
   mode?: "wrap" | "scroll";
   textStyle?: TextStyle;
   textRuns?: TextRun[];
   linkDisabled?: boolean;
-  showLinkIcon?: boolean;
+  linkOptions?: boolean;
 }) {
-  const content = (
-    <StyledNoteText text={text} textRuns={textRuns} textStyle={textStyle} />
-  );
   const href = linkTarget(text, linkDisabled);
+  const email = href?.startsWith("mailto:");
+  const Icon = email ? Mail : Link2;
+  const style = href ? { ...NOTE_LINK_TEXT_STYLE, ...textStyle } : textStyle;
+  const content = (
+    <StyledNoteText text={text} textRuns={textRuns} textStyle={style} />
+  );
   return (
     <div
-      className={`note-body text-${mode}`}
+      className={`note-body text-${mode}${href ? " note-address" : ""}`}
       onWheel={(e) => {
-        const element = e.currentTarget;
+        const element =
+          href && mode === "scroll"
+            ? e.currentTarget.querySelector(".note-link") || e.currentTarget
+            : e.currentTarget;
         if (
           !e.ctrlKey &&
           !e.metaKey &&
@@ -68,8 +74,8 @@ export function NoteText({
           e.stopPropagation();
       }}
     >
-      <p style={textCss(textRuns?.length ? undefined : textStyle)}>
-        {href && showLinkIcon && (
+      {href &&
+        (linkOptions ? (
           <button
             type="button"
             className="note-link-icon"
@@ -78,14 +84,24 @@ export function NoteText({
             onPointerDown={(e) => e.stopPropagation()}
             onDoubleClick={(e) => e.stopPropagation()}
           >
-            <Link2 size={13} />
+            <Icon size={16} />
           </button>
+        ) : (
+          <span className="note-link-icon" aria-hidden="true">
+            <Icon size={16} />
+          </span>
+        ))}
+      <p
+        style={textCss(
+          textRuns?.length ? (href ? NOTE_LINK_TEXT_STYLE : undefined) : style,
         )}
+      >
         {href ? (
           <a
             className="note-link"
             href={href}
-            target={href.startsWith("mailto:") ? undefined : "_blank"}
+            title={text.trim()}
+            target={email ? undefined : "_blank"}
             rel="noopener noreferrer"
             draggable={false}
             onClick={(e) => {

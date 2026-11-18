@@ -165,6 +165,7 @@ import {
   resizeRect,
   pdfGeometry,
   textSize,
+  pastedLinkWidth,
   TEXT_MAX_WIDTH,
   adjacentCard,
   type ArrowDirection,
@@ -741,7 +742,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               }
             : diagram === undefined
               ? {
-                  ...textSize(text),
+                  ...textSize(
+                    text,
+                    "wrap",
+                    address ? pastedLinkWidth(text) : undefined,
+                  ),
                   textMode: "wrap" as const,
                   textAutoHeight: true,
                 }
@@ -915,7 +920,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 card.width || TEXT_MAX_WIDTH,
                 undefined,
                 runs,
-                card.linkDisabled,
               ),
               textAutoHeight: true,
             }
@@ -1614,7 +1618,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           rect.width,
           original.textStyle,
           original.textRuns,
-          original.linkDisabled,
         ).height;
       const factor = pdfGeometry(original) ? 1.5 : 1;
       const next = {
@@ -2398,7 +2401,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   card.width || TEXT_MAX_WIDTH,
                   card.textStyle,
                   card.textRuns,
-                  !enabled,
                 )),
             }
           : card,

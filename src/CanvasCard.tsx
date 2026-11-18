@@ -27,6 +27,7 @@ import { Diagram } from "./Markdown";
 import { Miniature } from "./Miniature";
 import { miniatureViewUrl } from "./miniatureScene";
 import { NoteText } from "./NoteText";
+import { noteCardHref } from "./noteLinks";
 import { TextEditor } from "./TextEditor";
 import { TodoEditor } from "./TodoEditor";
 import { GroupNameEditor } from "./GroupNameEditor";
@@ -168,6 +169,8 @@ export const CanvasCard = memo(function CanvasCard({
       "--magnet-x": `${activePort(c.id, side, task) ? connectionTarget!.pullX : 0}px`,
       "--magnet-y": `${activePort(c.id, side, task) ? connectionTarget!.pullY : 0}px`,
     }) as React.CSSProperties;
+  const address = !editing && noteCardHref(c);
+  const rect = cardRect(editing ? { ...c, linkDisabled: true } : c);
   return (
     <article
       key={c.id}
@@ -202,7 +205,8 @@ export const CanvasCard = memo(function CanvasCard({
         (isMarkdownFile(c) ? " markdown-file-card" : "") +
         " " +
         (selected ? "selected" : "") +
-        (editing || renaming ? " canvas-editing" : "")
+        (editing || renaming ? " canvas-editing" : "") +
+        (address ? " is-link-note" : "")
       }
       tabIndex={-1}
       title={
@@ -225,10 +229,15 @@ export const CanvasCard = memo(function CanvasCard({
       style={{
         left: c.x,
         top: c.y,
-        width: cardRect(c).width,
-        height: cardRect(c).height,
+        width: rect.width,
+        height: rect.height,
         background:
-          c.kind === "miniature" ? "transparent" : surfaceColor(c.color),
+          c.kind === "miniature"
+            ? "transparent"
+            : surfaceColor(
+                c.color,
+                address ? "var(--surface-muted)" : undefined,
+              ),
       }}
       onPointerDown={(e) => {
         e.stopPropagation();
@@ -515,7 +524,7 @@ export const CanvasCard = memo(function CanvasCard({
               <NoteText
                 text={c.text}
                 linkDisabled={c.linkDisabled}
-                showLinkIcon
+                linkOptions
                 mode={c.textMode}
                 textStyle={c.textStyle}
                 textRuns={c.textRuns}
@@ -739,7 +748,6 @@ export const CanvasCard = memo(function CanvasCard({
                             card.width || TEXT_MAX_WIDTH,
                             card.textStyle,
                             card.textRuns,
-                            card.linkDisabled,
                           ),
                         }
                       : card,
@@ -812,7 +820,9 @@ export const CanvasCard = memo(function CanvasCard({
         selected &&
         (touchMode
           ? ["ne", "nw", "se", "sw"]
-          : (c.kind === "text" && c.textAutoHeight) || c.kind === "vscode"
+          : address ||
+              (c.kind === "text" && c.textAutoHeight) ||
+              c.kind === "vscode"
             ? ["e", "w"]
             : ["n", "s", "e", "w", "ne", "nw", "se", "sw"]
         ).map((edge) => (

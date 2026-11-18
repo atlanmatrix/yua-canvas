@@ -1,3 +1,4 @@
+import { noteCardHref } from "./noteLinks";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { type Board, type Card, groupDepth } from "./storage";
@@ -230,11 +231,12 @@ export async function withExportScene(
                 })}
               </svg>
               {cards.map((c) => {
-                const r = cardRect(c);
+                const r = cardRect(c),
+                  address = noteCardHref(c);
                 return (
                   <div
                     key={c.id}
-                    className={`card card-${c.kind}`}
+                    className={`card card-${c.kind}${address ? " is-link-note" : ""}`}
                     data-custom-color={customColor(c.color)}
                     style={{
                       position: "absolute",
@@ -245,7 +247,10 @@ export async function withExportScene(
                       background:
                         c.kind === "miniature"
                           ? "transparent"
-                          : surfaceColor(c.color),
+                          : surfaceColor(
+                              c.color,
+                              address ? "var(--surface-muted)" : undefined,
+                            ),
                       transform: "none",
                     }}
                   >
