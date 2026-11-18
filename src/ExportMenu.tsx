@@ -1,8 +1,8 @@
-import { Download, PanelsTopLeft, Package, Image } from "./icons";
+import { Download, PanelsTopLeft, Package, Image, Code2 } from "./icons";
 import { ContextSubmenu } from "./CanvasContextMenu";
 import { MenuButton } from "./MenuShortcut";
 import { t as tr } from "./i18n";
-export type ExportFormat = "canvas" | "archive" | "png";
+export type ExportFormat = "canvas" | "archive" | "png" | "html";
 export function ExportMenu({
   onExport,
   disabled,
@@ -46,6 +46,16 @@ export function ExportMenu({
         <Image size={14} />
         <span>{tr("PNG 图像")}</span>
       </MenuButton>
+      {!settings && (
+        <MenuButton
+          role="menuitem"
+          disabled={disabled}
+          onClick={() => onExport("html")}
+        >
+          <Code2 size={14} />
+          <span>{tr("HTML 网页")}</span>
+        </MenuButton>
+      )}
     </ContextSubmenu>
   );
 }

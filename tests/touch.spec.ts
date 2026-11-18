@@ -221,6 +221,34 @@ test("double-tapping empty canvas creates exactly one text and touch ports make 
   await expect(page.locator(".target-active")).toHaveCount(1);
   await touch.send("touchEnd", []);
   await expect(page.locator(".connection-path:not(.draft)")).toHaveCount(1);
+  const halfway = await page.locator(".connection-hit").evaluate((el) => {
+    const path = el as SVGPathElement;
+    const point = path
+      .getPointAtLength(path.getTotalLength() / 2)
+      .matrixTransform(path.getScreenCTM()!);
+    return { x: point.x, y: point.y };
+  });
+  await page.touchscreen.tap(halfway.x, halfway.y);
+  const endpoint = page.getByRole("button", { name: "拖动连线终点" });
+  const start = (await endpoint.boundingBox())!;
+  const third = page.locator(".card").filter({ hasText: "新触屏文本" });
+  const dest = (await third.locator(".port-s").boundingBox())!;
+  await touch.send("touchStart", [
+    { id: 1, x: start.x + start.width / 2, y: start.y + start.height / 2 },
+  ]);
+  await touch.send("touchMove", [
+    { id: 1, x: dest.x + dest.width / 2, y: dest.y + dest.height / 2 },
+  ]);
+  await touch.send("touchEnd", []);
+  await expect(
+    page.locator('.save-indicator[data-state="已保存至本地"]'),
+  ).toBeVisible();
+  const links = await page.evaluate(
+    async () =>
+      (await (await import("/src/storage.ts")).readBoard())!.connections,
+  );
+  expect(links).toHaveLength(1);
+  expect(links![0].to.card).toBe(await third.getAttribute("data-card-id"));
   await touch.close();
 });
 

@@ -2496,3 +2496,26 @@ body .file-detail-modal .file-content-editor {
   white-space: pre;
   overflow-wrap: normal;
 }
+
+.connection-reconnect {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  transform: translate(-50%, -50%) scale(calc(1 / var(--canvas-zoom)));
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+}
+.connection-reconnect::after {
+  content: "";
+  display: block;
+  margin: auto;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: var(--surface);
+}

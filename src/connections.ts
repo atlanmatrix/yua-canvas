@@ -13,6 +13,43 @@ export type Connection = {
   to: Endpoint;
   label?: string;
 };
+export type Reconnect = { id: string; end: "from" | "to" };
+const sameEndpoint = (a: Endpoint, b: Endpoint) =>
+  a.card === b.card && a.side === b.side && a.task === b.task;
+
+// Keep identity, label and order when changing an existing connection.
+export function connectEndpoints(
+  board: Board,
+  fixed: Endpoint,
+  target: Endpoint,
+  reconnect?: Reconnect,
+): Board {
+  const links = board.connections || [];
+  const from = reconnect?.end === "from" ? target : fixed;
+  const to = reconnect?.end === "from" ? fixed : target;
+  if (
+    from.card === to.card ||
+    !validEndpoint(from, board.cards) ||
+    !validEndpoint(to, board.cards) ||
+    links.some(
+      (link) => sameEndpoint(link.from, from) && sameEndpoint(link.to, to),
+    )
+  )
+    return board;
+  if (!reconnect)
+    return {
+      ...board,
+      connections: [...links, { id: crypto.randomUUID(), from, to }],
+    };
+  if (!links.some((link) => link.id === reconnect.id)) return board;
+  return {
+    ...board,
+    connections: links.map((link) =>
+      link.id === reconnect.id ? { ...link, from, to } : link,
+    ),
+  };
+}
+
 export function validEndpoint(
   value: unknown,
   cards: Card[],

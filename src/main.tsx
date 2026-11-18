@@ -170,6 +170,8 @@ import {
 import { cardDownload } from "./downloads";
 import {
   type Endpoint,
+  type Reconnect,
+  connectEndpoints,
   type MagneticTarget,
   type Side,
   endpointPoint,
@@ -264,6 +266,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   const [linkDraft, setLinkDraft] = useState<{
       from: Endpoint;
       to?: MagneticTarget;
+      reconnect?: Reconnect;
       point: { x: number; y: number };
     } | null>(null),
     [selectedConnection, setSelectedConnection] = useState<string>(),
@@ -344,6 +347,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     gesture = useRef<{
       kind: "pan" | "move" | "select" | "resize" | "create" | "link";
       from?: Endpoint;
+      reconnect?: Reconnect;
       createKind?: Card["kind"];
       button?: number;
       link?: string;
@@ -1476,19 +1480,31 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       });
     return nearest;
   };
-  const startConnection = (e: React.PointerEvent, from: Endpoint) => {
+  const startConnection = (
+    e: React.PointerEvent,
+    from: Endpoint,
+    reconnect?: Reconnect,
+  ) => {
     if (e.button !== 0) return;
     e.stopPropagation();
     e.preventDefault();
-    setSelectedConnection(undefined);
+    setSelectedConnection(reconnect?.id);
     setSelection([]);
     setSelectedGroup(undefined);
+    const bounds = surface.current!.getBoundingClientRect();
     setLinkDraft({
+      reconnect,
       from,
-      point: endpointPoint(from, board.cards, taskOffsets),
+      point: reconnect
+        ? {
+            x: (e.clientX - bounds.left - view.x) / view.z,
+            y: (e.clientY - bounds.top - view.y) / view.z,
+          }
+        : endpointPoint(from, board.cards, taskOffsets),
     });
     gesture.current = {
       kind: "link",
+      reconnect,
       from,
       x: e.clientX,
       y: e.clientY,
@@ -1499,7 +1515,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       startY: 0,
       moved: false,
     };
-    e.currentTarget.setPointerCapture(e.pointerId);
+    surface.current!.setPointerCapture(e.pointerId);
   };
   const startToolbarDrag = (e: React.PointerEvent, kind: Card["kind"]) => {
     if (e.button !== 0 || !ready) return;
@@ -1541,6 +1557,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       const to = nearbyPort(e.clientX, e.clientY, g.from);
       setLinkDraft({
         from: g.from,
+        reconnect: g.reconnect,
         to,
         point: to
           ? (() => {
@@ -1681,7 +1698,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     }
     if (g?.kind === "link" && g.from) {
       setLinkDraft(null);
-      if (e.type !== "pointercancel") {
+      if (e.type !== "pointercancel" && (!g.reconnect || g.moved)) {
         const hit = document.elementFromPoint(e.clientX, e.clientY),
           port = hit?.closest<HTMLElement>("[data-port-card]"),
           cardNode = hit?.closest<HTMLElement>("[data-card-id]");
@@ -1715,26 +1732,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               side: to.side,
               ...(to.task ? { task: to.task } : {}),
             };
-          setBoard((b) => {
-            const existing = (b.connections || []).some(
-              (c) =>
-                c.from.card === from.card &&
-                c.from.side === from.side &&
-                c.from.task === from.task &&
-                c.to.card === target.card &&
-                c.to.side === target.side &&
-                c.to.task === target.task,
-            );
-            return existing
-              ? b
-              : {
-                  ...b,
-                  connections: [
-                    ...(b.connections || []),
-                    { id: uid(), from, to: target },
-                  ],
-                };
-          });
+          setBoard((b) => connectEndpoints(b, from, target, g.reconnect));
         }
       }
       return;
@@ -2003,6 +2001,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         );
       } else if (format === "archive") {
         download(await createArchive(snapshot), `${name}.zip`);
+      } else if (format === "html") {
+        const { exportHtml } = await import("./exportHtml");
+        download(await exportHtml(snapshot), `${name}.html`);
       } else {
         const { exportPng } = await import("./exportPng");
         download(await exportPng(fragment ? snapshot : board), `${name}.png`);
@@ -2773,6 +2774,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               {(board.connections || [])
                 .filter(
                   (c) =>
+                    c.id !== linkDraft?.reconnect?.id &&
                     visible.some((card) => card.id === c.from.card) &&
                     visible.some((card) => card.id === c.to.card),
                 )
@@ -2784,6 +2786,16 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       cards={board.cards}
                       offsets={taskOffsets}
                       selected={selectedConnectionIds.has(c.id)}
+                      onReconnect={
+                        selectedConnection === c.id && !linkDraft
+                          ? (e, end) =>
+                              startConnection(
+                                e,
+                                c[end === "from" ? "to" : "from"],
+                                { id: c.id, end },
+                              )
+                          : undefined
+                      }
                       editorLayer={connectionEditors}
                       labelLayer={connectionLabels}
                       onSelect={() => {
@@ -2811,6 +2823,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   fromSide={linkDraft.from.side}
                   toSide={linkDraft.to?.side}
                   zoom={view.z}
+                  reverse={linkDraft.reconnect?.end === "from"}
                   strength={linkDraft.to?.strength}
                 />
               )}
@@ -3383,14 +3396,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       {tr("重命名")}
                     </button>
                   )}
-                  {menuCardIds.length > 1 ? (
-                    <ExportMenu
-                      disabled={archiveBusy}
-                      onExport={(format) =>
-                        void exportChoice(format, menuCardIds)
-                      }
-                    />
-                  ) : (
+                  <ExportMenu
+                    disabled={archiveBusy}
+                    onExport={(format) =>
+                      void exportChoice(format, menuCardIds)
+                    }
+                  />
+                  {menuCardIds.length === 1 && (
                     <button
                       role="menuitem"
                       onClick={() => {

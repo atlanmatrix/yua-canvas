@@ -77,11 +77,14 @@ export const english: Record<string, string> = {
   选择工具: "Selection tool",
   "屏蔽 / 取消屏蔽选中内容；未选中时平移":
     "Mask / unmask selection; pan when nothing is selected",
-  "多选组件间的连线会自动选中。右键「导出」可选择画布 JSON、组件压缩包或 PNG 图像；设置中的画布和压缩包包含整个工作区，PNG 导出当前画布。":
-    "Connections between selected components are selected automatically. Export from the context menu as canvas JSON, a component archive or a PNG image. Settings exports the entire workspace as canvas JSON or an archive, and the current canvas as PNG.",
+  "选中连线后，拖动任一端点可换接到其它组件或 TODO 事项。右键「导出」会包含所选组件之间的连线。导出的 HTML 可离线修改文字和勾选 TODO。设置中的画布和压缩包包含整个工作区，PNG 导出当前画布。":
+    "Select a connection and drag either endpoint to another component or TODO item. Context-menu exports include connections between the selected components. The standalone HTML lets you edit text and check off tasks offline. Settings exports the entire workspace as canvas JSON or an archive, and the current canvas as PNG.",
 
   导出: "Export",
   组件压缩包: "Component archive",
+  "拖动连线起点": "Drag connection start",
+  "拖动连线终点": "Drag connection end",
+  "HTML 网页": "HTML page",
   "PNG 图像": "PNG image",
   导出格式: "Export format",
   没有可导出的内容: "There is no content to export",
@@ -770,8 +773,8 @@ export const english: Record<string, string> = {
     "Export backs up the entire workspace, including parents, siblings, children, components, original files, connections, Pins, saved camera views and navigation. Importing a complete backup replaces the workspace and restores IDs and views. Legacy canvas JSON imports into the current canvas; selection JSON and ZIP exports support partial transfers. Miniature saves its scene URL, latest view and static preview without packaging external website content.",
   "默认自动保存到当前浏览器的 IndexedDB，请定期导出备份。可选云同步需配置云服务并登录；剪切只有在剪贴板及本地缓存保存成功后才移除原内容。右键粘贴需要剪贴板读取权限，权限受限时可用键盘粘贴。":
     "Data is automatically saved in this browser’s IndexedDB. Export regular backups. Optional cloud sync requires a configured cloud service and sign-in. Cut removes content only after the clipboard and local cache are saved. Menu paste needs clipboard permission; keyboard paste remains available when permission is restricted.",
-  "画布空白处右键「新建」，可在右击位置创建文本、图片、文件、Mermaid 或 Miniature。右键菜单的「画布层级」中可创建子画布。「新建工具」中提供 TODO、计算器、汇率计算、温度转换、距离转换、天气与日历。粘贴时自动检测 Markdown、JSON、代码和配置等格式，生成可编辑文件并高亮；普通文字保持文本组件，Mermaid 直接显示图表。新建文件后点击组件编辑内容和文件名；工具栏可上传已有文件。Markdown 直接渲染内容，PDF 悬浮可翻页并记住页码。拖动边框调整尺寸，从边缘的 + 拖出连线。把组件拖到子画布上即可移入，画布也可以嵌套。右键查看复制、剪切、下载、Pin 和外观操作。多选可导出画布、ZIP 或 PNG。":
-    "Right-click empty canvas space and use New to create text, images, editable files, Mermaid diagrams or Miniatures. Use the canvas hierarchy section to create a child canvas. New tool contains TODO, calculator, currency, temperature and distance converters, weather and calendar. Paste structured text to create a file with format detection and syntax highlighting; ordinary prose stays text. Mermaid renders as a diagram, Markdown as a document, and PDF remembers its last page. Resize from the edges, drag a + port to connect, or drag components into a child canvas. Canvases can also be nested. Right-click for Copy, Cut, Download, Pin and display options. Export multiple components as canvas JSON, a component ZIP archive or PNG.",
+  "画布空白处右键「新建」，可在右击位置创建文本、图片、文件、Mermaid 或 Miniature。右键菜单的「画布层级」中可创建子画布。「新建工具」中提供 TODO、计算器、汇率计算、温度转换、距离转换、天气与日历。粘贴时自动检测 Markdown、JSON、代码和配置等格式，生成可编辑文件并高亮；普通文字保持文本组件，Mermaid 直接显示图表。新建文件后点击组件编辑内容和文件名；工具栏可上传已有文件。Markdown 直接渲染内容，PDF 悬浮可翻页并记住页码。拖动边框调整尺寸，从边缘的 + 拖出连线。把组件拖到子画布上即可移入，画布也可以嵌套。右键查看复制、剪切、下载、Pin 和外观操作。可将所选组件导出为画布、ZIP、PNG 或 HTML。":
+    "Right-click empty canvas space and use New to create text, images, editable files, Mermaid diagrams or Miniatures. Use the canvas hierarchy section to create a child canvas. New tool contains TODO, calculator, currency, temperature and distance converters, weather and calendar. Paste structured text to create a file with format detection and syntax highlighting; ordinary prose stays text. Mermaid renders as a diagram, Markdown as a document, and PDF remembers its last page. Resize from the edges, drag a + port to connect, or drag components into a child canvas. Canvases can also be nested. Right-click for Copy, Cut, Download, Pin and display options. Export selected components as canvas JSON, ZIP, PNG or HTML.",
   文件超过大小限制: "File exceeds the size limit",
   请求内容为空: "Request body is empty",
   "JSON 无效": "Invalid JSON",

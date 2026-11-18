@@ -60,7 +60,7 @@ async function contextExport(page: Page) {
   await card(page, "a").click({ button: "right" });
   await page.getByRole("menuitem", { name: "导出", exact: true }).click();
   const menu = page.getByRole("menu", { name: "导出格式", exact: true });
-  await expect(menu.getByRole("menuitem")).toHaveCount(3);
+  await expect(menu.getByRole("menuitem")).toHaveCount(4);
   return menu;
 }
 async function bytes(page: Page, action: () => Promise<unknown>) {
@@ -358,9 +358,7 @@ test.describe("touch export menu", () => {
   });
 });
 
-test("H toggles masking for a selected child canvas", async ({
-  page,
-}) => {
+test("H toggles masking for a selected child canvas", async ({ page }) => {
   await setup(page);
   await page.getByRole("button", { name: "创建子画布", exact: true }).click();
   await page.keyboard.press("h");
@@ -440,4 +438,118 @@ test("PNG waits for cold file previews inside a migrated canvas", async ({
     return count;
   }, image.data.toString("base64"));
   expect(red).toBeGreaterThan(1000);
+});
+
+test("HTML selection opens offline with editable text, persistent checkboxes and only internal links", async ({
+  page,
+  context,
+}) => {
+  await setup(page, [
+    {
+      ...note("list", 120, 300),
+      kind: "todo",
+      tasks: [{ id: "task", text: "准备资料", done: false }],
+    },
+    { ...note("hidden", 380, 305), masked: true, text: "private hidden note" },
+    {
+      ...note("formatted", 630, 300),
+      text: "<标题> 正文",
+      textRuns: [{ from: 0, to: 4, style: { bold: true } }],
+    },
+  ]);
+  await selectPair(page);
+  for (const id of ["list", "hidden", "formatted"])
+    await card(page, id).click({ modifiers: ["Shift"] });
+  const menu = await contextExport(page);
+  const exported = await bytes(page, () =>
+    menu.getByRole("menuitem", { name: "HTML 网页" }).click(),
+  );
+  expect(exported.name).toMatch(/\.html$/);
+  const html = exported.data.toString();
+  expect(html).not.toContain("private hidden note");
+  const url = await page.evaluate(
+    (source) => URL.createObjectURL(new Blob([source], { type: "text/html" })),
+    html,
+  );
+  const file = await context.newPage();
+  const remoteRequests: string[] = [];
+  file.on("request", (req) => {
+    if (/^https?:/.test(req.url())) remoteRequests.push(req.url());
+  });
+  await context.setOffline(true);
+  await file.goto(url);
+  await expect(file.locator("article")).toHaveCount(5);
+  await expect(file.getByText("inside link")).toBeVisible();
+  await expect(file.locator("button,nav,iframe,form")).toHaveCount(0);
+  const first = file.getByRole("textbox").first();
+  await expect(first).toHaveText("a");
+  const before = await file
+    .locator("article")
+    .evaluateAll((els) => els.map((el) => parseFloat(el.style.left)));
+  expect(before[1] - before[0]).toBe(400);
+  await first.fill("修订后的内容");
+  const check = file.getByRole("checkbox", { name: "准备资料" });
+  await check.check();
+  await file.reload();
+  await expect(first).toHaveText("修订后的内容");
+  await expect(check).toBeChecked();
+  await expect(file.getByText("<标题>", { exact: true })).toHaveCSS(
+    "font-weight",
+    "700",
+  );
+  expect(remoteRequests).toEqual([]);
+  await expect(card(page, "a").locator(".note-body")).toHaveText("a");
+  await expect(card(page, "list").getByRole("checkbox")).not.toBeChecked();
+});
+
+test("single component context menu exports a self-contained image preview", async ({
+  page,
+}) => {
+  const picture = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 32;
+    canvas.height = 24;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#16984d";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL();
+  });
+  await setup(page, [
+    {
+      ...note("picture", 120, 310),
+      kind: "image",
+      title: "pixel.png",
+      text: "",
+      blob: picture,
+    },
+  ]);
+  await card(page, "picture").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "导出", exact: true }).click();
+  const file = await bytes(page, () =>
+    page.getByRole("menuitem", { name: "HTML 网页" }).click(),
+  );
+  const result = await page.evaluate(async (html) => {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const img = new Image();
+    img.src = doc.querySelector("article img")!.getAttribute("src")!;
+    await img.decode();
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(
+      img,
+      Math.floor(img.width / 2),
+      Math.floor(img.height / 2),
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+    );
+    return {
+      count: doc.querySelectorAll("article").length,
+      center: [...ctx.getImageData(0, 0, 1, 1).data],
+    };
+  }, file.data.toString());
+  expect(result).toEqual({ count: 1, center: [22, 152, 77, 255] });
 });

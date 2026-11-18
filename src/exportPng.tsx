@@ -73,7 +73,14 @@ function ExportContent({ card }: { card: Card }) {
 }
 
 /** A frozen, readonly scene: never mounts agent settings, live embeds or selection UI. */
-export async function exportPng(board: Board): Promise<Blob> {
+export async function withExportScene(
+  board: Board,
+  capture: (
+    scene: HTMLElement,
+    cards: Card[],
+    pixelRatio: number,
+  ) => Promise<Blob>,
+): Promise<Blob> {
   board = await (await import("./encryption")).sealBoard(board);
   const cards = board.cards.filter((c) => !presentationHidden(board, c.group));
   const groups = board.groups
@@ -308,6 +315,15 @@ export async function exportPng(board: Board): Promise<Blob> {
       8192 / height,
       Math.sqrt(16_000_000 / (width * height)),
     );
+    return await capture(scene, cards, ratio);
+  } finally {
+    root.unmount();
+    host.remove();
+  }
+}
+
+export function exportPng(board: Board): Promise<Blob> {
+  return withExportScene(board, async (scene, _cards, ratio) => {
     const { toBlob } = await import("html-to-image");
     const blob = await toBlob(scene, {
       pixelRatio: ratio,
@@ -317,8 +333,5 @@ export async function exportPng(board: Board): Promise<Blob> {
     });
     if (!blob) throw new Error(tr("导出失败，请重试"));
     return blob;
-  } finally {
-    root.unmount();
-    host.remove();
-  }
+  });
 }

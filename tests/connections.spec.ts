@@ -507,3 +507,75 @@ test("magnetic capture pulls the socket, retains it near the edge, and releases 
     });
   expect(end).toEqual({ x: 600, y: 140 });
 });
+
+test("drag either endpoint to another card or TODO socket, preserve identity and cancel or undo a reconnection", async ({
+  page,
+}) => {
+  await setup(page);
+  await connect(
+    page,
+    page.getByRole("button", { name: "连接 来源 e", exact: true }),
+    page.getByRole("button", { name: "连接 目标 w", exact: true }),
+  );
+  const path = page.locator(".connection-hit");
+  const mid = await path.evaluate((el) => {
+    const p = el as SVGPathElement;
+    const m = p
+      .getPointAtLength(p.getTotalLength() / 2)
+      .matrixTransform(p.getScreenCTM()!);
+    return { x: m.x, y: m.y };
+  });
+  await page.mouse.dblclick(mid.x, mid.y);
+  const editor = page.getByRole("textbox", { name: "连线文字" });
+  await editor.fill("关联");
+  await editor.press("Enter");
+  const original = await path.getAttribute("d");
+  const id = await path.locator("..").getAttribute("data-connection-id");
+  async function dragEnd(
+    name: string,
+    target: { x: number; y: number },
+    cancel = false,
+  ) {
+    const button = page.getByRole("button", { name });
+    const p = (await button.boundingBox())!;
+    await page.mouse.move(p.x + p.width / 2, p.y + p.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(target.x, target.y, { steps: 8 });
+    if (cancel) await page.keyboard.press("Escape");
+    await page.mouse.up();
+  }
+  await dragEnd("拖动连线终点", { x: 1060, y: 350 });
+  await expect(path).toHaveAttribute("d", original!);
+  const socket = (await page
+    .locator('[data-port-task="t2"][data-port-side="e"]')
+    .boundingBox())!;
+  const point = {
+    x: socket.x + socket.width / 2,
+    y: socket.y + socket.height / 2,
+  };
+  await dragEnd("拖动连线起点", point, true);
+  await expect(path).toHaveAttribute("d", original!);
+  await page.getByText("关联", { exact: true }).click();
+  await dragEnd("拖动连线起点", point);
+  await expect(path).not.toHaveAttribute("d", original!);
+  const card = (await page.locator('[data-card-id="来源"]').boundingBox())!;
+  await dragEnd("拖动连线终点", { x: card.x + card.width / 2, y: card.y + 8 });
+  await expect(
+    page.locator('.save-indicator[data-state="已保存至本地"]'),
+  ).toBeVisible();
+  const links = await page.evaluate(
+    async () =>
+      (await (await import("/src/storage.ts")).readBoard())!.connections,
+  );
+  expect(links).toEqual([
+    {
+      id,
+      label: "关联",
+      from: { card: "todo", side: "e", task: "t2" },
+      to: { card: "来源", side: "n" },
+    },
+  ]);
+  await page.keyboard.press("ControlOrMeta+z");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(path).toHaveAttribute("d", original!);
+});

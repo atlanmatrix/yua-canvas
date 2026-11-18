@@ -9,6 +9,7 @@ export function MagneticConnectionDraft(props: {
   toSide?: Side;
   zoom: number;
   strength?: number;
+  reverse?: boolean;
 }) {
   const path = useRef<SVGPathElement>(null);
   const tip = useRef<SVGGElement>(null);
@@ -39,7 +40,19 @@ export function MagneticConnectionDraft(props: {
       const opposite = { e: "w", w: "e", n: "s", s: "n" } as const;
       path.current?.setAttribute(
         "d",
-        curve(p.from, position, p.fromSide, p.toSide ?? opposite[p.fromSide]),
+        p.reverse
+          ? curve(
+              position,
+              p.from,
+              p.toSide ?? opposite[p.fromSide],
+              p.fromSide,
+            )
+          : curve(
+              p.from,
+              position,
+              p.fromSide,
+              p.toSide ?? opposite[p.fromSide],
+            ),
       );
       tip.current?.setAttribute(
         "transform",

@@ -17,6 +17,7 @@ export function ConnectionView({
   editorLayer,
   labelLayer,
   onSelect,
+  onReconnect,
   onLabelChange,
 }: {
   connection: Connection;
@@ -26,6 +27,7 @@ export function ConnectionView({
   editorLayer: RefObject<HTMLDivElement | null>;
   labelLayer: RefObject<SVGSVGElement | null>;
   onSelect: () => void;
+  onReconnect?: (e: React.PointerEvent, end: "from" | "to") => void;
   onLabelChange: (label: string) => void;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -80,6 +82,28 @@ export function ConnectionView({
           edit();
         }}
       />
+      {!editing &&
+        onReconnect &&
+        editorLayer.current &&
+        createPortal(
+          (["from", "to"] as const).map((end) => {
+            const point = end === "from" ? from : to;
+            return (
+              <button
+                type="button"
+                key={end}
+                className="connection-reconnect"
+                aria-label={tr(
+                  end === "from" ? "拖动连线起点" : "拖动连线终点",
+                )}
+                title={tr(end === "from" ? "拖动连线起点" : "拖动连线终点")}
+                style={{ left: point.x, top: point.y }}
+                onPointerDown={(e) => onReconnect(e, end)}
+              />
+            );
+          }),
+          editorLayer.current,
+        )}
       {editing &&
         editorLayer.current &&
         createPortal(
