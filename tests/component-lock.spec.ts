@@ -77,7 +77,11 @@ test("remove encryption authenticates locked components and persists plaintext a
     page.getByRole("menuitem", { name: "密码锁定", exact: true }),
   ).toBeVisible();
   const pending = page.waitForEvent("download");
-  await page.getByRole("menuitem", { name: "下载", exact: true }).click();
+  await page.getByRole("menuitem", { name: "导出", exact: true }).click();
+  await page
+    .getByRole("menu", { name: "导出格式" })
+    .getByRole("menuitem", { name: "文件", exact: true })
+    .click();
   const chunks: Buffer[] = [];
   for await (const chunk of (await (await pending).createReadStream())!)
     chunks.push(chunk);
@@ -577,7 +581,11 @@ test("new and imported content inside an unlocked encrypted canvas inherits prot
       .first()
       .dispatchEvent("contextmenu", { clientX: 400, clientY: 200 });
     const pending = page.waitForEvent("download");
-    await page.getByRole("menuitem", { name: "下载", exact: true }).click();
+    await page.getByRole("menuitem", { name: "导出", exact: true }).click();
+    await page
+      .getByRole("menu", { name: "导出格式" })
+      .getByRole("menuitem", { name: "文件", exact: true })
+      .click();
     const chunks: Buffer[] = [];
     for await (const chunk of (await (await pending).createReadStream())!)
       chunks.push(chunk);

@@ -1338,7 +1338,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     if (
       (e.target as HTMLElement).closest("button,input,textarea,label") &&
       !modifierPan &&
-      !(e.target as Element).closest(".vscode-pill,.canvas-enter")
+      !(e.target as Element).closest(".canvas-enter")
     )
       return;
     if (e.button === 1 || modifierPan) e.preventDefault();
@@ -1851,7 +1851,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             ),
           },
     );
-    setMenu(null);
   };
   const copySelected = async (
     cardIds?: string[],
@@ -1984,22 +1983,27 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   };
   const exportChoice = async (
     format: ExportFormat,
-    ids?: string[],
-    groupId?: string,
+    scope: "workspace" | "canvas" | string[] = "workspace",
   ) => {
     if (archiveBusy) return;
     setMenu(null);
-    if (format === "canvas" && ids === undefined) {
+    if (format === "canvas" && scope === "workspace") {
       await exportAll();
       return;
     }
     setArchiveBusy(true);
     try {
-      const fragment =
-        ids === undefined ? undefined : archiveSelection(board, ids, groupId);
-      const snapshot: Board = fragment
-        ? { version: 1, ...fragment }
-        : latestWorkspace.current.root;
+      if (format === "file") {
+        if (!Array.isArray(scope) || scope.length !== 1) return;
+        const card = board.cards.find((card) => card.id === scope[0]);
+        if (card) await downloadCard(card);
+        return;
+      }
+      const snapshot: Board = Array.isArray(scope)
+        ? { version: 1, ...archiveSelection(board, scope) }
+        : scope === "workspace" && format === "archive"
+          ? latestWorkspace.current.root
+          : board;
       const name = `yua-canvas-${new Date().toISOString().replace(/[:.]/g, "-")}`;
       if (format === "canvas") {
         download(
@@ -2013,7 +2017,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         download(await exportHtml(snapshot), `${name}.html`);
       } else {
         const { exportPng } = await import("./exportPng");
-        download(await exportPng(fragment ? snapshot : board), `${name}.png`);
+        download(await exportPng(snapshot), `${name}.png`);
       }
     } catch (error) {
       notify(error instanceof Error ? error.message : "导出失败，请重试");
@@ -3286,14 +3290,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 </ContextSubmenu>
               </MenuSection>
               <MenuSection label={tr("内容操作")}>
-                {(selection.length > 0 || selectedGroup) && (
-                  <ExportMenu
-                    disabled={archiveBusy}
-                    onExport={(format) =>
-                      void exportChoice(format, selection, selectedGroup)
-                    }
-                  />
-                )}
+                <ExportMenu
+                  disabled={archiveBusy}
+                  onExport={(format) => void exportChoice(format, "canvas")}
+                />
                 <MenuButton
                   shortcut="paste"
                   role="menuitem"
@@ -3346,13 +3346,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             <>
               {menuCard && (
                 <MenuSection label={tr("内容操作")}>
-                  {(menuCard.kind === "text" ||
-                    menuCard.kind === "canvas" ||
+                  {(menuCard.kind === "canvas" ||
                     menuCard.kind === "miniature" ||
                     menuCard.kind === "mermaid" ||
                     menuCard.kind === "file" ||
-                    isApplicationKind(menuCard.kind) ||
-                    menuCard.editableFile) && (
+                    isApplicationKind(menuCard.kind)) && (
                     <MenuButton
                       shortcut={
                         !isApplicationKind(menuCard.kind) &&
@@ -3363,9 +3361,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       role="menuitem"
                       onClick={() => {
                         setMenu(null);
-                        if (menuAddress && !menuCard.linkDisabled)
-                          openLink(menuAddress);
-                        else openCard(menuCard);
+                        openCard(menuCard);
                       }}
                     >
                       <ArrowUpRight size={14} />
@@ -3444,23 +3440,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     </button>
                   )}
                   <ExportMenu
+                    singleComponent={menuCardIds.length === 1}
                     disabled={archiveBusy}
                     onExport={(format) =>
                       void exportChoice(format, menuCardIds)
                     }
                   />
-                  {menuCardIds.length === 1 && (
-                    <button
-                      role="menuitem"
-                      onClick={() => {
-                        setMenu(null);
-                        void downloadCard(menuCard);
-                      }}
-                    >
-                      <Download size={14} />
-                      {tr("下载")}
-                    </button>
-                  )}
                 </MenuSection>
               )}
               {menuCard && menuCard.kind !== "canvas" && (

@@ -561,7 +561,8 @@ test("application associations restore offline under the Pages path and only lau
     );
     await expect(page.locator(".app-terminal pre")).toHaveText(commands);
     assert.deepEqual(await page.evaluate(() => window.__nativeLaunches), []);
-    await page.locator(".vscode-pill").click();
+    await page.locator(".card-vscode").hover();
+    await page.getByRole("button", { name: "在 VS Code 中打开" }).click();
     await page.locator(".card-iterm2").hover();
     await page.getByRole("button", { name: "执行命令" }).click();
     const urls = await page.evaluate(() => window.__nativeLaunches);

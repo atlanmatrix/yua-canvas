@@ -374,7 +374,7 @@ export function ShareViewer({ token }: { token: string }) {
                         ) : isToolKind(c.kind) ? (
                           <ToolCard card={c} />
                         ) : isApplicationKind(c.kind) ? (
-                          <ApplicationCard card={c} readonly />
+                          <ApplicationCard card={c} />
                         ) : c.kind === "miniature" ? (
                           <Miniature card={c} />
                         ) : c.kind === "canvas" ? (

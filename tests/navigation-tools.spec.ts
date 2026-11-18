@@ -161,22 +161,23 @@ test("pin colors support all states, dismissal, undo and persistence for cards a
   await pin(page, "根级内容");
   const rail = page.getByRole("navigation", { name: "Pin 定位" });
   const item = rail.getByRole("button", { name: "根级内容", exact: true });
+  await item.click({ button: "right" });
   for (const [value, label, color] of [
     ["info", "Pin 颜色：蓝色", "rgb(29, 78, 216)"],
     ["warn", "Pin 颜色：橙色", "rgb(180, 83, 9)"],
     ["danger", "Pin 颜色：红色", "rgb(185, 28, 28)"],
     ["normal", "Pin 颜色：默认", "rgb(75, 85, 99)"],
   ]) {
-    await item.click({ button: "right" });
     await expect(page.getByRole("menuitemradio")).toHaveCount(4);
     await expect(page.getByRole("menuitemradio")).toHaveText(["", "", "", ""]);
     await page.getByRole("menuitemradio", { name: label, exact: true }).click();
-    await expect(page.getByRole("menu")).toHaveCount(0);
+    await expect(
+      page.getByRole("menuitemradio", { name: label, exact: true }),
+    ).toHaveAttribute("aria-checked", "true");
     await expect(item).toHaveAttribute("data-pin-color", value);
     await page.mouse.move(10, 500);
     await expect(item).toHaveCSS("color", color);
   }
-  await item.click({ button: "right" });
   await expect(
     page.getByRole("menuitemradio", { name: "Pin 颜色：默认" }),
   ).toBeFocused();
@@ -187,6 +188,7 @@ test("pin colors support all states, dismissal, undo and persistence for cards a
   await page.keyboard.press("Home");
   await page.keyboard.press("Enter");
   await expect(item).toHaveAttribute("data-pin-color", "info");
+  await page.keyboard.press("Escape");
   await page.keyboard.press("ControlOrMeta+z");
   await expect(item).toHaveAttribute("data-pin-color", "normal");
   await page.keyboard.press("ControlOrMeta+Shift+z");

@@ -131,7 +131,7 @@ test("VS Code links encode local paths and the Mac installer validates as a shel
   expect(() => launcherInstaller("not-a-pairing-key")).toThrow();
 });
 
-test("application submenu follows New; VS Code capsules launch once, drag without launching and retain edits", async ({
+test("application submenu follows New; VS Code toolbar opens the path while capsules remain draggable and retain edits", async ({
   page,
 }) => {
   await page
@@ -152,18 +152,20 @@ test("application submenu follows New; VS Code capsules launch once, drag withou
   await page.getByRole("textbox", { name: "本地路径" }).fill(path);
   await page.getByRole("button", { name: "保存关联" }).click();
   const card = page.locator(".card-vscode");
-  const pill = card.getByRole("button", {
-    name: "使用 VS Code 打开 demo folder",
-    exact: true,
-  });
+  const pill = card.locator(".vscode-pill");
+  const open = card
+    .getByRole("toolbar", { name: "组件操作" })
+    .getByRole("button", { name: "在 VS Code 中打开" });
   await expect(pill.locator(".vscode-icon")).toBeVisible();
   await expect(pill).toHaveCSS("background-color", "rgb(18, 18, 18)");
   await expect(pill).toHaveCSS("color", "rgb(255, 255, 255)");
   await expect(card.locator(".card-top,footer,.card-download")).toHaveCount(0);
   expect(await launches(page)).toHaveLength(0);
   await pill.click();
+  expect(await launches(page)).toHaveLength(0);
+  await open.click();
   expect(await launches(page)).toEqual([vscodeUrl(path)]);
-  await pill.focus();
+  await open.focus();
   await page.keyboard.press("Enter");
   await page.keyboard.press("Space");
   expect(await launches(page)).toHaveLength(3);
@@ -218,16 +220,18 @@ test("iTerm2 preserves multiline commands, copies exactly and only launches a pa
   );
   await expect(card.locator(".card-top,footer,.card-download")).toHaveCount(0);
   await page.mouse.move(20, 400);
-  await expect(card.locator(".app-terminal-actions")).toHaveCSS("opacity", "0");
+  const toolbar = card.getByRole("toolbar", { name: "组件操作" });
+  await expect(toolbar).toHaveCSS("opacity", "0");
   await card.hover();
-  await expect(card.locator(".app-terminal-actions")).toHaveCSS("opacity", "1");
-  await expect(card.locator(".app-terminal-actions button")).toHaveCount(2);
-  await card.getByRole("button", { name: "复制命令" }).click();
+  await expect(toolbar).toHaveCSS("opacity", "1");
+  await expect(toolbar.getByRole("button", { name: "复制命令" })).toBeVisible();
+  await expect(toolbar.getByRole("button", { name: "执行命令" })).toBeVisible();
+  await toolbar.getByRole("button", { name: "复制命令" }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     commands,
   );
   expect(await launches(page)).toHaveLength(0);
-  await card.getByRole("button", { name: "执行命令" }).click();
+  await toolbar.getByRole("button", { name: "执行命令" }).click();
   const setup = page.getByRole("dialog", { name: "设置 iTerm2 本地打开器" });
   await expect(setup).toBeVisible();
   expect(await launches(page)).toHaveLength(0);
@@ -263,7 +267,7 @@ test("iTerm2 preserves multiline commands, copies exactly and only launches a pa
   await expect(card.locator("pre code")).toHaveText(commands);
   expect(await launches(page)).toHaveLength(0);
   await card.hover();
-  await card.getByRole("button", { name: "执行命令" }).click();
+  await toolbar.getByRole("button", { name: "执行命令" }).click();
   expect(await launches(page)).toHaveLength(1);
   await expect(setup).toHaveCount(0);
   await card.dblclick({ position: { x: 40, y: 90 } });

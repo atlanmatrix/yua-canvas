@@ -31,7 +31,8 @@ export function PinBar({
   const [editing, setEditing] = useState<string>(),
     [name, setName] = useState("");
   const [menu, setMenu] = useState<{
-    pin: PinnedItem;
+    pinId: string;
+    pinKind: PinnedItem["kind"];
     x: number;
     y: number;
     trigger: HTMLButtonElement;
@@ -54,6 +55,9 @@ export function PinBar({
   }, [menu]);
   const pins = collectPins(board, path);
   if (!pins.length) return null;
+  const menuPin =
+    menu &&
+    pins.find((pin) => pin.id === menu.pinId && pin.kind === menu.pinKind);
   return (
     <>
       <nav className="pin-bar" aria-label={tr("Pin 定位")}>
@@ -91,7 +95,8 @@ export function PinBar({
                 e.preventDefault();
                 e.stopPropagation();
                 setMenu({
-                  pin,
+                  pinId: pin.id,
+                  pinKind: pin.kind,
                   x: e.clientX,
                   y: e.clientY,
                   trigger: e.currentTarget,
@@ -112,6 +117,7 @@ export function PinBar({
         })}
       </nav>
       {menu &&
+        menuPin &&
         createPortal(
           <div
             ref={menuRef}
@@ -151,11 +157,8 @@ export function PinBar({
                   label={tr("Pin 颜色")}
                   optionLabel={tr("Pin 颜色")}
                   colors={colors}
-                  value={menu.pin.color || "normal"}
-                  onChange={(color) => {
-                    onColorChange(menu.pin, color);
-                    closeMenu();
-                  }}
+                  value={menuPin.color || "normal"}
+                  onChange={(color) => onColorChange(menuPin, color)}
                 />
               </MenuSection>
             </CanvasContextMenu>

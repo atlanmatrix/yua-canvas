@@ -1,16 +1,25 @@
-import { Download, PanelsTopLeft, Package, Image, Code2 } from "./icons";
+import {
+  Download,
+  PanelsTopLeft,
+  Package,
+  Image,
+  Code2,
+  FileText,
+} from "./icons";
 import { ContextSubmenu } from "./CanvasContextMenu";
 import { MenuButton } from "./MenuShortcut";
 import { t as tr } from "./i18n";
-export type ExportFormat = "canvas" | "archive" | "png" | "html";
+export type ExportFormat = "canvas" | "archive" | "png" | "html" | "file";
 export function ExportMenu({
   onExport,
   disabled,
   settings = false,
+  singleComponent = false,
 }: {
   onExport: (format: ExportFormat) => void;
   disabled?: boolean;
   settings?: boolean;
+  singleComponent?: boolean;
 }) {
   return (
     <ContextSubmenu
@@ -24,19 +33,19 @@ export function ExportMenu({
       <MenuButton
         role="menuitem"
         disabled={disabled}
+        onClick={() => onExport(singleComponent ? "file" : "archive")}
+      >
+        {singleComponent ? <FileText size={14} /> : <Package size={14} />}
+        <span>{tr(singleComponent ? "文件" : "组件压缩包")}</span>
+      </MenuButton>
+      <MenuButton
+        role="menuitem"
+        disabled={disabled}
         shortcut={settings ? "export" : undefined}
         onClick={() => onExport("canvas")}
       >
         <PanelsTopLeft size={14} />
         <span>{tr("画布")}</span>
-      </MenuButton>
-      <MenuButton
-        role="menuitem"
-        disabled={disabled}
-        onClick={() => onExport("archive")}
-      >
-        <Package size={14} />
-        <span>{tr("组件压缩包")}</span>
       </MenuButton>
       <MenuButton
         role="menuitem"

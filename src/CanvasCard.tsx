@@ -11,6 +11,9 @@ import {
   WrapText,
   ArrowLeftRight,
   Download,
+  Copy,
+  Play,
+  ArrowUpRight,
 } from "./icons";
 import type { Card, Task } from "./storage";
 import { replaceBoard, type useCanvasWorkspace } from "./workspace";
@@ -202,6 +205,11 @@ export const CanvasCard = memo(function CanvasCard({
         (editing || renaming ? " canvas-editing" : "")
       }
       tabIndex={-1}
+      title={
+        c.kind === "vscode" && !c.masked && c.displayMode !== "small"
+          ? c.text
+          : undefined
+      }
       aria-label={
         c.masked
           ? tr("已遮罩组件")
@@ -233,18 +241,6 @@ export const CanvasCard = memo(function CanvasCard({
         pointerDown(e, c.id);
       }}
       onClick={(e) => {
-        if (
-          !c.masked &&
-          c.displayMode !== "small" &&
-          c.kind === "vscode" &&
-          !lastPointerMoved.current &&
-          !e.ctrlKey &&
-          !e.metaKey &&
-          !e.shiftKey &&
-          e.detail < 2 &&
-          !(e.target as Element).closest(".connection-port,.resize-handle")
-        )
-          runApplication(c);
         if (
           !c.masked &&
           c.displayMode !== "small" &&
@@ -353,18 +349,7 @@ export const CanvasCard = memo(function CanvasCard({
               }
             />
           ) : isApplicationKind(c.kind) ? (
-            <ApplicationCard
-              card={c}
-              onOpen={(fromKeyboard) => {
-                if (
-                  c.kind !== "vscode" ||
-                  fromKeyboard ||
-                  !lastPointerMoved.current
-                )
-                  runApplication(c);
-              }}
-              onCopy={() => void copyCommands(c.text)}
-            />
+            <ApplicationCard card={c} />
           ) : c.kind === "miniature" ? (
             preview3D ? null : (
               <Miniature
@@ -688,6 +673,44 @@ export const CanvasCard = memo(function CanvasCard({
         onClick={(e) => e.stopPropagation()}
         onDoubleClick={(e) => e.stopPropagation()}
       >
+        {!c.masked &&
+          !c.locked &&
+          c.displayMode !== "small" &&
+          isApplicationKind(c.kind) && (
+            <>
+              {c.kind === "iterm2" && (
+                <button
+                  type="button"
+                  aria-label={tr("复制命令")}
+                  title={tr("复制命令")}
+                  onClick={() => void copyCommands(c.text)}
+                >
+                  <Copy size={17} />
+                </button>
+              )}
+              <button
+                type="button"
+                aria-label={tr(
+                  c.kind === "vscode" ? "在 VS Code 中打开" : "执行命令",
+                )}
+                title={tr(
+                  c.kind === "vscode"
+                    ? "在 VS Code 中打开"
+                    : "在 iTerm2 中执行",
+                )}
+                onClick={(e) => {
+                  if (e.detail < 2 && !e.ctrlKey && !e.metaKey && !e.shiftKey)
+                    runApplication(c);
+                }}
+              >
+                {c.kind === "vscode" ? (
+                  <ArrowUpRight size={17} />
+                ) : (
+                  <Play size={17} />
+                )}
+              </button>
+            </>
+          )}
         {!c.masked &&
           !c.locked &&
           c.displayMode !== "small" &&

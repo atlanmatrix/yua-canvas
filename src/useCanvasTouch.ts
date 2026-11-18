@@ -15,7 +15,7 @@ type Context = {
   y: number;
 };
 const controls =
-  "button:not(.group-title):not(.vscode-pill),input,textarea,select,a,[contenteditable=true],.connection-label-editor,.resize-handle";
+  "button:not(.group-title),input,textarea,select,a,[contenteditable=true],.connection-label-editor,.resize-handle";
 function scrollParent(
   target: Element,
   surface: HTMLElement,

@@ -107,8 +107,7 @@ function ComponentPreview({ card }: { card: Card }) {
         }
       </pre>
     );
-  if (isApplicationKind(card.kind))
-    return <ApplicationCard card={card} readonly />;
+  if (isApplicationKind(card.kind)) return <ApplicationCard card={card} />;
   if (card.kind === "mermaid")
     return (
       <div className="mermaid-preview">

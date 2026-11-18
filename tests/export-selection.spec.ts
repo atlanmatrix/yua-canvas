@@ -60,7 +60,12 @@ async function contextExport(page: Page) {
   await card(page, "a").click({ button: "right" });
   await page.getByRole("menuitem", { name: "导出", exact: true }).click();
   const menu = page.getByRole("menu", { name: "导出格式", exact: true });
-  await expect(menu.getByRole("menuitem")).toHaveCount(4);
+  await expect(menu.getByRole("menuitem")).toHaveText([
+    "组件压缩包",
+    "画布",
+    "PNG 图像",
+    "HTML 网页",
+  ]);
   return menu;
 }
 async function bytes(page: Page, action: () => Promise<unknown>) {
@@ -246,11 +251,11 @@ test("dialogs are opaque, controls are lighter, and menu shortcuts remain access
   await page.getByRole("button", { name: "导出", exact: true }).focus();
   await page.keyboard.press("ArrowRight");
   await expect(
-    page.getByRole("menuitem", { name: "画布", exact: true }),
+    page.getByRole("menuitem", { name: "组件压缩包", exact: true }),
   ).toBeFocused();
   await page.keyboard.press("ArrowDown");
   await expect(
-    page.getByRole("menuitem", { name: "组件压缩包", exact: true }),
+    page.getByRole("menuitem", { name: "画布", exact: true }),
   ).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(
@@ -607,4 +612,81 @@ test("single component context menu exports a self-contained image preview", asy
     };
   }, file.data.toString());
   expect(result).toEqual({ count: 1, center: [22, 152, 77, 255] });
+});
+
+test("exporting from empty space in a child canvas includes its drawing and excludes the parent", async ({
+  page,
+}) => {
+  const stroke = {
+    id: "ink",
+    color: "#ff0000",
+    width: 5,
+    points: [
+      { x: 30, y: 90 },
+      { x: 640, y: 210 },
+    ],
+  };
+  await setup(page, [
+    {
+      ...note("child", 300, 300),
+      kind: "canvas",
+      title: "子画布",
+      text: "",
+      canvas: {
+        version: 1,
+        groups: [],
+        cards: [note("child-note", 190, 110)],
+        strokes: [stroke],
+      },
+    },
+  ]);
+  await page.getByRole("button", { name: "进入子画布 子画布" }).click();
+  await expect(card(page, "child-note")).toBeVisible();
+  await expect(page.locator(".card.selected")).toHaveCount(0);
+  const fromCanvas = async (format: string) => {
+    await page
+      .locator(".canvas")
+      .click({ button: "right", position: { x: 8, y: 8 } });
+    await page.getByRole("menuitem", { name: "导出", exact: true }).click();
+    const choices = page.getByRole("menu", { name: "导出格式" });
+    return bytes(page, () =>
+      choices.getByRole("menuitem", { name: format, exact: true }).click(),
+    );
+  };
+  const json = JSON.parse((await fromCanvas("画布")).data.toString());
+  expect(json.cards.map((item: { id: string }) => item.id)).toEqual([
+    "child-note",
+  ]);
+  expect(json.strokes).toEqual([stroke]);
+  const zip = unzipSync((await fromCanvas("组件压缩包")).data);
+  const metadata = JSON.parse(strFromU8(zip["yua-canvas.metadata.json"]));
+  expect(metadata.cards.map((item: { id: string }) => item.id)).toEqual([
+    "child-note",
+  ]);
+  expect(metadata.strokes).toEqual([stroke]);
+  const html = (await fromCanvas("HTML 网页")).data.toString();
+  expect(html).toContain('data-stroke-id="ink"');
+  expect(html).toContain("child-note");
+  expect(html).not.toContain(">outside<");
+  const image = (await fromCanvas("PNG 图像")).data.toString("base64");
+  const includesInk = await page.evaluate(async (base64) => {
+    const bitmap = new Image();
+    bitmap.src = "data:image/png;base64," + base64;
+    await bitmap.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(bitmap, 0, 0);
+    return ctx
+      .getImageData(0, 0, canvas.width, canvas.height)
+      .data.some(
+        (value, index, data) =>
+          index % 4 === 0 &&
+          value === 255 &&
+          data[index + 1] === 0 &&
+          data[index + 2] === 0,
+      );
+  }, image);
+  expect(includesInk).toBe(true);
 });

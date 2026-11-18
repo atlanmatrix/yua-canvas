@@ -167,7 +167,7 @@ test("selection has no toolbar; context menus group capabilities for multiple se
     ).toBeVisible();
   await expect(
     popup.getByRole("group", { name: "内容操作" }).getByRole("menuitem"),
-  ).toHaveText(["打开", /^复制/, /^剪切/, "Pin", /^导出/]);
+  ).toHaveText([/^复制/, /^剪切/, "Pin", /^导出/]);
   await expect(popup.getByRole("group", { name: "分组操作" })).toHaveCount(0);
   await expect(
     popup

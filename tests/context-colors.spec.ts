@@ -93,6 +93,7 @@ async function color(page: Page, target: Locator, name: string) {
   await page
     .getByRole("menuitemradio", { name: `背景色：${name}`, exact: true })
     .click();
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toHaveCount(0);
 }
 async function bytes(page: Page, action: string, rightMenu = false) {
@@ -117,7 +118,7 @@ function rgb(hex: string) {
   return `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(", ")})`;
 }
 
-test("text menus copy, download and open the clicked text; file menus download original bytes and names", async ({
+test("text menus copy and export the clicked text, while attachments export original bytes and names", async ({
   page,
   context,
 }) => {
@@ -133,34 +134,37 @@ test("text menus copy, download and open the clicked text; file menus download o
   );
   await page.keyboard.press("Escape");
   await menu(page, note);
-  const text = await bytes(page, "下载", true);
+  await expect(
+    page.getByRole("menuitem", { name: "打开", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("menuitem", { name: "下载", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("menuitem", { name: "导出", exact: true }).click();
+  const formats = page.getByRole("menu", { name: "导出格式" });
+  await expect(formats.getByRole("menuitem")).toHaveText([
+    "文件",
+    "画布",
+    "PNG 图像",
+    "HTML 网页",
+  ]);
+  const text = await bytes(page, "文件", true);
   expect(text.name).toMatch(/^\d{4}-\d{2}-\d{2}_.*\.txt$/);
   expect(text.data.toString()).toBe("普通文本");
-  await menu(page, note);
-  await page.getByRole("menuitem", { name: "打开", exact: true }).click();
-  await expect(page.getByRole("textbox", { name: "文本内容" })).toHaveText(
-    "普通文本",
-  );
-  await page.keyboard.press("Escape");
   await menu(page, card(page, "配置.env"));
-  const file = await bytes(page, "下载", true);
+  await page.getByRole("menuitem", { name: "导出", exact: true }).click();
+  const file = await bytes(page, "文件", true);
   expect(file.name).toBe("配置.env");
   expect(file.data).toEqual(raw);
   await menu(page, card(page, "图片.png"));
-  const image = await bytes(page, "下载", true);
+  await page.getByRole("menuitem", { name: "导出", exact: true }).click();
+  const image = await bytes(page, "文件", true);
   expect(image.name).toBe("图片.png");
   expect(image.data).toEqual(Buffer.from(pixel, "base64"));
-  await context.route("https://example.com/**", (route) =>
-    route.fulfill({ body: "<title>Opened</title>", contentType: "text/html" }),
-  );
   await menu(page, card(page, "链接"));
-  const pending = context.waitForEvent("page");
-  await page.getByRole("menuitem", { name: "打开", exact: true }).click();
-  const tab = await pending;
-  await tab.waitForLoadState();
-  expect(tab.url()).toBe("https://example.com/canvas");
-  expect(await tab.evaluate(() => window.opener)).toBeNull();
-  await tab.close();
+  await expect(
+    page.getByRole("menuitem", { name: "打开", exact: true }),
+  ).toHaveCount(0);
 });
 
 test("seven horizontal pastel choices color every card type, preserve edges, undo and round-trip through JSON and ZIP", async ({
@@ -245,6 +249,17 @@ test("palette keyboard navigation does not move elements and expanded menus stay
     original,
   );
   await page.keyboard.press("Enter");
+  await expect(note).toHaveCSS("background-color", rgb(palette[1][1]));
+  await expect(
+    page.getByRole("menuitemradio", { name: "背景色：浅粉" }),
+  ).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("menuitemradio", { name: "背景色：浅橙" }).click();
+  await expect(
+    page.getByRole("menuitemradio", { name: "背景色：浅橙" }),
+  ).toHaveAttribute("aria-checked", "true");
+  await expect(note).toHaveCSS("background-color", rgb(palette[2][1]));
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("ControlOrMeta+z");
   await expect(note).toHaveCSS("background-color", rgb(palette[1][1]));
   await page.keyboard.press("ControlOrMeta+z");
   await expect(note).toHaveCSS("background-color", "rgb(255, 255, 255)");

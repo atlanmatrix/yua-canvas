@@ -1363,9 +1363,8 @@ body .file-detail-modal .file-content-editor {
 .share-card:has(.vscode-pill), .share-card:has(.app-terminal) { padding: 0; overflow: visible; }
 .share-card:has(.vscode-pill) { border: 0; border-radius: 999px; box-shadow: none; }
 .share-card:has(.app-terminal) { border-color: #30343b; border-radius: 12px; }
-.vscode-pill { display: flex; width: 100%; height: 100%; min-height: 40px; padding: 10px 20px; border-radius: 999px; background: #121212; color: var(--surface); font-size: 14px; font-weight: 500; cursor: pointer; }
+.vscode-pill { display: flex; width: 100%; height: 100%; min-height: 40px; padding: 10px 20px; border-radius: 999px; background: #121212; color: var(--surface); font-size: 14px; font-weight: 500; cursor: inherit; }
 .vscode-pill > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.vscode-pill:disabled { opacity: 1; cursor: default; }
 .card-iterm2 { border-color: #30343b; border-radius: 12px; box-shadow: 0 4px 14px #0002; }
 .app-terminal { position: relative; width: 100%; height: 100%; min-height: 0; overflow: hidden; border-radius: inherit; background: #17191e; color: var(--border); }
 .app-terminal pre { position: absolute; inset: 34px 0 0; margin: 0; padding: 10px 16px 16px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; scrollbar-width: thin; }
@@ -1374,10 +1373,6 @@ body .file-detail-modal .file-content-editor {
 .app-terminal-dots i { width: 8px; height: 8px; border-radius: 50%; background: #ff5f57; }
 .app-terminal-dots i:nth-child(2) { background: #febc2e; }
 .app-terminal-dots i:nth-child(3) { background: #28c840; }
-.app-terminal-actions { position: absolute; right: 8px; top: 6px; display: flex; gap: 4px; opacity: 0; pointer-events: none; transition: opacity 150ms ease; }
-.card-iterm2:hover .app-terminal-actions, .card-iterm2:focus-within .app-terminal-actions { opacity: 1; pointer-events: auto; }
-.app-terminal-actions button { width: 28px; height: 28px; padding: 0; border-radius: 6px; color: var(--border); }
-.app-terminal-actions button:hover { background: #ffffff18; }
 .application-dialog { width: 460px; }
 .application-dialog label { display: block; font-size: 13px; }
 .application-dialog input, .application-dialog textarea {
@@ -1407,7 +1402,6 @@ body .file-detail-modal .file-content-editor {
 }
 .local-launcher-setup-link { margin-inline-end: auto; }
 .local-launcher-dialog ol { margin: 8px 0; padding-inline-start: 20px; font-size: 13px; line-height: 1.55; }
-@media (hover: none) { .app-terminal-actions { opacity: 1; pointer-events: auto; } }
 .mermaid-preview { position: relative; flex: 1; min-width: 0; min-height: 0; width: 100%; height: 100%; padding: 12px; overflow: hidden; }
 .mermaid-preview .markdown-diagram { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .mermaid-preview .markdown-diagram > div { width: 100%; height: 100%; }

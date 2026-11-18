@@ -174,7 +174,7 @@ test("touch drags a node, double-tap edits once, long-press opens node and backg
   r = (await card.boundingBox())!;
   await touch.send("touchStart", [{ id: 1, x: r.x + 45, y: r.y + 25 }]);
   await expect(
-    page.getByRole("menuitem", { name: "下载", exact: true }),
+    page.getByRole("menuitem", { name: "导出", exact: true }),
   ).toBeVisible();
   await touch.send("touchEnd", []);
   await page.touchscreen.tap(30, 270);
@@ -366,7 +366,7 @@ test("small finger jitter preserves node position during long-press, and a secon
   await touch.send("touchStart", [a]);
   await touch.send("touchMove", [{ ...a, x: a.x + 3, y: a.y + 2 }]);
   await expect(
-    page.getByRole("menuitem", { name: "下载", exact: true }),
+    page.getByRole("menuitem", { name: "导出", exact: true }),
   ).toBeVisible();
   await touch.send("touchEnd", []);
   expect(await layout(page)).toEqual(original);

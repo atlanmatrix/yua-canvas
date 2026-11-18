@@ -175,7 +175,7 @@ test("multi-selected component menu downloads whole selection rather than clicke
   expect(meta.cards.map((c: any) => c.id).sort()).toEqual(["file", "text"]);
   await expect(page.getByRole("button", { name: "批量下载" })).toHaveCount(0);
 });
-test("box selection survives right click on blank canvas and downloads every selected item", async ({
+test("right click on blank canvas exports the full canvas while preserving box selection", async ({
   page,
 }) => {
   await setup(page);
@@ -203,7 +203,15 @@ test("box selection survives right click on blank canvas and downloads every sel
     .locator(".canvas")
     .click({ button: "right", position: { x: 10, y: 10 } });
   const { meta } = await zipFromMenu(page);
-  expect(meta.cards.map((c: any) => c.id).sort()).toEqual(selected.sort());
+  expect(meta.cards.map((c: any) => c.id).sort()).toEqual([
+    "child",
+    "file",
+    "image",
+    "outside",
+    "text",
+    "todo",
+  ]);
+  await expect(page.locator(".card.selected")).toHaveCount(selected.length);
 });
 test("Pin list is vertical, ordinary cards share file borders and shadows, curves are lighter gray", async ({
   page,

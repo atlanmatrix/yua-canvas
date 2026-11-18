@@ -147,8 +147,6 @@ export function groupFrame(g: Group) {
 export function StaticContent({
   card,
   onPdfPageChange,
-  onRunApplication,
-  onCopyCommands,
   onOpenCanvas,
   onToggleTask,
   onUnlock,
@@ -158,8 +156,6 @@ export function StaticContent({
 }: {
   card: Card;
   onPdfPageChange?: (page: number) => void;
-  onRunApplication?: (card: Card) => void;
-  onCopyCommands?: (text: string) => void;
   onOpenCanvas?: (card: Card) => void;
   onToggleTask?: (card: Card, id: string) => void;
   onUnlock?: (card: Card) => void;
@@ -202,14 +198,7 @@ export function StaticContent({
       </div>
     );
   if (card.kind === "vscode" || card.kind === "iterm2")
-    return (
-      <ApplicationCard
-        card={card}
-        readonly={!onRunApplication}
-        onOpen={() => onRunApplication?.(card)}
-        onCopy={() => onCopyCommands?.(card.text)}
-      />
-    );
+    return <ApplicationCard card={card} />;
   if (card.kind === "todo")
     return (
       <div className="todo-list">
