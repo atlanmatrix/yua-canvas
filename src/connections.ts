@@ -14,7 +14,7 @@ export type Connection = {
   label?: string;
 };
 export type Reconnect = { id: string; end: "from" | "to" };
-const sameEndpoint = (a: Endpoint, b: Endpoint) =>
+export const sameEndpoint = (a: Endpoint, b: Endpoint) =>
   a.card === b.card && a.side === b.side && a.task === b.task;
 
 // Keep identity, label and order when changing an existing connection.

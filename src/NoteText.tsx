@@ -4,7 +4,7 @@ import {
   type TextRun,
   type TextStyle,
 } from "./presentation";
-import { linkTarget, NOTE_LINK_TEXT_STYLE } from "./noteLinks";
+import { addressStyle, linkTarget, NOTE_LINK_TEXT_STYLE } from "./noteLinks";
 import { Link2, Mail } from "./icons";
 import { t as tr } from "./i18n";
 
@@ -31,14 +31,14 @@ export function NoteText({
   textStyle,
   textRuns,
   linkDisabled,
-  linkOptions,
+  onLinkMenu,
 }: {
   text: string;
   mode?: "wrap" | "scroll";
   textStyle?: TextStyle;
   textRuns?: TextRun[];
   linkDisabled?: boolean;
-  linkOptions?: boolean;
+  onLinkMenu?: (button: HTMLButtonElement) => void;
 }) {
   const href = linkTarget(text, linkDisabled);
   const email = href?.startsWith("mailto:");
@@ -49,6 +49,7 @@ export function NoteText({
   );
   return (
     <div
+      style={href ? addressStyle : undefined}
       className={`note-body text-${mode}${href ? " note-address" : ""}`}
       onWheel={(e) => {
         const element =
@@ -75,12 +76,15 @@ export function NoteText({
       }}
     >
       {href &&
-        (linkOptions ? (
+        (onLinkMenu ? (
           <button
             type="button"
             className="note-link-icon"
             aria-label={tr("链接选项")}
             aria-haspopup="menu"
+            onClick={(e) => {
+              if (e.detail === 0) onLinkMenu(e.currentTarget);
+            }}
             onPointerDown={(e) => e.stopPropagation()}
             onDoubleClick={(e) => e.stopPropagation()}
           >

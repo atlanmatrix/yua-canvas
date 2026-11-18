@@ -104,20 +104,7 @@ aside {
 }
 
 article.is-link-note {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 4px 14px 4px 4px;
   border-radius: 999px;
-}
-.is-link-note .note-link-icon {
-  display: grid;
-  flex: 0 0 32px;
-  height: 32px;
-  place-items: center;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: var(--surface);
 }
 .is-link-note .note {
   flex: 1;
@@ -129,6 +116,7 @@ article.is-link-note {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.is-link-note .note.scroll,
 .is-link-note .note:focus {
   overflow: auto;
   white-space: pre;

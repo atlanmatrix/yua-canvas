@@ -1,6 +1,7 @@
+import { cardPorts } from "./connectionPorts";
 import { AgentCard } from "./AgentCard";
 import { LockedContent } from "./ComponentLock";
-import React, { memo } from "react";
+import React, { memo, useEffect, useState } from "react";
 import {
   ListTodo,
   FileText,
@@ -19,7 +20,7 @@ import type { Card, Task } from "./storage";
 import { replaceBoard, type useCanvasWorkspace } from "./workspace";
 import { cardRect, textSize, TEXT_MAX_WIDTH } from "./geometry";
 import { isTextFile, isMarkdownFile, isPdfFile } from "./clipboard";
-import { type Side, type Endpoint } from "./connections";
+import { sameEndpoint, type Endpoint } from "./connections";
 import { isApplicationKind } from "./appAssociations";
 import { ApplicationCard } from "./ApplicationCard";
 import { Attachment } from "./Attachment";
@@ -60,9 +61,10 @@ export type CanvasCardActions = {
   setRenamingCanvas: (id?: string) => void;
   pointerDown: (e: React.PointerEvent, id?: string, group?: string) => void;
   resizeCard: (e: React.PointerEvent, card: Card, edge: string) => void;
+  chooseConnectionTarget: (from: Endpoint) => void;
   startConnection: (e: React.PointerEvent, endpoint: Endpoint) => void;
   runApplication: (card: Card) => void;
-  copyCommands: (text: string) => void;
+  copyCommands: (text: string) => Promise<boolean>;
   openCard: (
     card: Card,
     task?: string,
@@ -76,6 +78,25 @@ export type CanvasCardActions = {
   finishEditing: (id: string, cancelled?: boolean) => void;
   downloadCard: (card: Card) => void;
 };
+function CopyCommandButton({ copy }: { copy: () => Promise<boolean> }) {
+  const [copiedAt, setCopiedAt] = useState(0);
+  useEffect(() => {
+    if (!copiedAt) return;
+    const timer = setTimeout(() => setCopiedAt(0), 1500);
+    return () => clearTimeout(timer);
+  }, [copiedAt]);
+  return (
+    <button
+      type="button"
+      aria-label={tr("复制命令")}
+      title={tr(copiedAt ? "命令已复制" : "复制命令")}
+      data-copied={copiedAt ? true : undefined}
+      onClick={async () => setCopiedAt((await copy()) ? performance.now() : 0)}
+    >
+      {copiedAt ? <Check size={17} /> : <Copy size={17} />}
+    </button>
+  );
+}
 const emptyOffsets: Record<string, { y: number; visible: boolean }> = {};
 export const CanvasCard = memo(function CanvasCard({
   card: c,
@@ -160,15 +181,16 @@ export const CanvasCard = memo(function CanvasCard({
       { recordHistory: false, preserveLayout: true },
     );
   };
-  const activePort = (id: string, side: Side, task?: string) =>
-    connectionTarget?.card === id &&
-    connectionTarget.side === side &&
-    connectionTarget.task === task;
-  const magneticStyle = (side: Side, task?: string): React.CSSProperties =>
-    ({
-      "--magnet-x": `${activePort(c.id, side, task) ? connectionTarget!.pullX : 0}px`,
-      "--magnet-y": `${activePort(c.id, side, task) ? connectionTarget!.pullY : 0}px`,
-    }) as React.CSSProperties;
+  const ports = cardPorts(c);
+  const [lastPort, setLastPort] = useState<Endpoint>();
+  const portTabStop =
+    ports.find(
+      ({ endpoint }) =>
+        lastPort &&
+        sameEndpoint(endpoint, lastPort) &&
+        (!endpoint.task ||
+          taskOffsets[`${c.id}:${endpoint.task}`]?.visible !== false),
+    )?.endpoint ?? ports[0].endpoint;
   const address = !editing && noteCardHref(c);
   const rect = cardRect(editing ? { ...c, linkDisabled: true } : c);
   return (
@@ -524,7 +546,19 @@ export const CanvasCard = memo(function CanvasCard({
               <NoteText
                 text={c.text}
                 linkDisabled={c.linkDisabled}
-                linkOptions
+                onLinkMenu={(button) => {
+                  const rect = button.getBoundingClientRect();
+                  setSelectedGroup(undefined);
+                  setSelectedConnection(undefined);
+                  setSelection([c.id]);
+                  setMenu({
+                    id: c.id,
+                    kind: "card",
+                    x: rect.left,
+                    y: rect.bottom + 4,
+                    noteLinkIcon: true,
+                  });
+                }}
                 mode={c.textMode}
                 textStyle={c.textStyle}
                 textRuns={c.textRuns}
@@ -617,63 +651,68 @@ export const CanvasCard = memo(function CanvasCard({
         </PreviewFrame>
       )}
       {!c.masked && <Remark text={c.remark} />}
-      {(c.kind === "todo" ? ["n", "s"] : ["n", "e", "s", "w"]).map((value) => {
-        const side = value as Side;
+      {ports.map(({ endpoint, label, row }) => {
+        const { side, task } = endpoint;
+        const magnet =
+          connectionTarget && sameEndpoint(connectionTarget, endpoint)
+            ? connectionTarget
+            : undefined;
+        const offset = task ? taskOffsets[`${c.id}:${task}`] : undefined;
         return (
           <button
-            key={side}
-            style={magneticStyle(side)}
-            className={`connection-port port-${side} ${activePort(c.id, side) ? "target-active" : ""}`}
-            aria-label={tr(
-              "连接 {0} {1}",
-              c.masked || c.displayMode === "small"
-                ? "组件"
-                : c.title || c.text.slice(0, 20) || "任务",
-              side,
-            )}
+            key={JSON.stringify(endpoint)}
+            style={
+              {
+                "--magnet-x": `${magnet?.pullX ?? 0}px`,
+                "--magnet-y": `${magnet?.pullY ?? 0}px`,
+                top:
+                  row !== undefined
+                    ? (offset?.y ?? 54 + row * 32) - 1
+                    : undefined,
+                visibility: offset && !offset.visible ? "hidden" : undefined,
+              } as React.CSSProperties
+            }
+            className={`connection-port ${task ? "task-port " : ""}port-${side} ${magnet ? "target-active" : ""}`}
+            aria-label={label}
+            aria-haspopup="dialog"
+            tabIndex={endpoint === portTabStop ? 0 : -1}
+            onFocus={() => setLastPort(endpoint)}
+            onKeyDown={(e) => {
+              if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+              const step = {
+                ArrowUp: -1,
+                ArrowLeft: -1,
+                ArrowDown: 1,
+                ArrowRight: 1,
+              }[e.key];
+              if (!step) return;
+              e.preventDefault();
+              e.stopPropagation();
+              const siblings = Array.from(
+                e.currentTarget.parentElement!.querySelectorAll<HTMLButtonElement>(
+                  ":scope > .connection-port",
+                ),
+              ).filter(
+                (port) => getComputedStyle(port).visibility === "visible",
+              );
+              const index = siblings.indexOf(e.currentTarget);
+              siblings[
+                (index + step + siblings.length) % siblings.length
+              ]?.focus({ preventScroll: true });
+            }}
             data-port-card={c.id}
             data-port-side={side}
-            onPointerDown={(e) => startConnection(e, { card: c.id, side })}
+            data-port-task={task}
+            onPointerDown={(e) => startConnection(e, endpoint)}
+            onClick={(e) => {
+              if (e.detail === 0) actions.chooseConnectionTarget(endpoint);
+            }}
             onDoubleClick={(e) => e.stopPropagation()}
           >
-            <Plus size={12} />
+            <Plus size={12} aria-hidden="true" />
           </button>
         );
       })}
-      {!c.masked &&
-        c.displayMode !== "small" &&
-        c.kind === "todo" &&
-        (c.tasks || []).flatMap((task, index) =>
-          ["w", "e"].map((value) => {
-            const side = value as Side,
-              offset = taskOffsets[`${c.id}:${task.id}`];
-            return (
-              <button
-                key={`${task.id}:${side}`}
-                className={`connection-port task-port port-${side} ${activePort(c.id, side, task.id) ? "target-active" : ""}`}
-                style={{
-                  ...magneticStyle(side, task.id),
-                  top: (offset?.y ?? 54 + index * 32) - 1,
-                  visibility: offset && !offset.visible ? "hidden" : undefined,
-                }}
-                aria-label={tr("连接任务 {0} {1}", task.text, side)}
-                data-port-card={c.id}
-                data-port-side={side}
-                data-port-task={task.id}
-                onPointerDown={(e) =>
-                  startConnection(e, {
-                    card: c.id,
-                    task: task.id,
-                    side,
-                  })
-                }
-                onDoubleClick={(e) => e.stopPropagation()}
-              >
-                <Plus size={12} />
-              </button>
-            );
-          }),
-        )}
       <div
         className="card-toolbar"
         role="toolbar"
@@ -688,14 +727,7 @@ export const CanvasCard = memo(function CanvasCard({
           isApplicationKind(c.kind) && (
             <>
               {c.kind === "iterm2" && (
-                <button
-                  type="button"
-                  aria-label={tr("复制命令")}
-                  title={tr("复制命令")}
-                  onClick={() => void copyCommands(c.text)}
-                >
-                  <Copy size={17} />
-                </button>
+                <CopyCommandButton copy={() => copyCommands(c.text)} />
               )}
               <button
                 type="button"

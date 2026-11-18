@@ -17,7 +17,7 @@
 :root[data-theme]
   body
   .card:not(:is(.card-canvas, .card-miniature, .card-vscode, .card-iterm2)) {
-  --element-radius: 28px;
+  --element-radius: var(--radius-card);
   border-color: var(--card-outline);
   box-shadow: var(--card-rest-shadow);
   transition:
@@ -36,7 +36,7 @@
   box-shadow: var(--card-hover-shadow);
 }
 :root[data-theme] body .card.is-link-note {
-  --element-radius: 999px;
+  --element-radius: var(--radius-pill);
 }
 :root[data-theme] body .card.is-small {
   --element-radius: 16px;
@@ -49,10 +49,12 @@
   z-index: 7;
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 4px;
+  gap: var(--toolbar-gap);
+  padding: var(--toolbar-inset);
   border: 1px solid var(--card-outline);
-  border-radius: 16px;
+  border-radius: calc(
+    var(--toolbar-button-radius) + var(--toolbar-inset) + 1px
+  );
   background: var(--surface);
   box-shadow: var(--control-shadow);
   opacity: 0;
@@ -90,10 +92,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: var(--toolbar-button-size);
+  height: var(--toolbar-button-size);
   padding: 0;
-  border-radius: 12px !important;
+  border-radius: var(--toolbar-button-radius) !important;
   background: transparent;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
@@ -119,16 +121,23 @@
   color: var(--accent);
   background: var(--accent-soft);
 }
+:root[data-theme] body .card-toolbar > button[data-copied] {
+  color: var(--success-ink);
+  background: var(--success-surface);
+}
 body .card-toolbar > button:enabled:active {
   transform: scale(0.94);
 }
 
 :root[data-theme] body .card > .connection-port {
-  width: 22px;
-  height: 22px;
-  background: var(--accent);
+  width: var(--port-hit);
+  height: var(--port-hit);
+  padding: var(--port-inset);
+  background-clip: content-box;
+  border-color: transparent;
+  background-color: var(--accent);
   color: var(--surface);
-  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.12);
+  box-shadow: none;
   transition:
     opacity 140ms ease-out,
     transform 160ms cubic-bezier(0.22, 1.4, 0.36, 1),
@@ -136,8 +145,8 @@ body .card-toolbar > button:enabled:active {
     background-color 140ms ease-out;
 }
 :root[data-theme] body .card > .connection-port:is(:hover, :focus-visible) {
-  background: var(--accent-strong);
-  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.18);
+  background-color: var(--accent-strong);
+  box-shadow: none;
 }
 .card[data-menu-open] > .connection-port {
   opacity: 1;
@@ -151,13 +160,10 @@ body .card-toolbar > button:enabled:active {
     pointer-events: auto;
     transform: none;
   }
-  :root[data-theme] body .card-toolbar > button {
-    width: 36px;
-    height: 36px;
-  }
-  :root[data-theme] body .card > .connection-port {
-    width: 28px;
-    height: 28px;
+  :root {
+    --toolbar-button-size: 36px;
+    --port-hit: 28px;
+    --port-inset: 4px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -169,5 +175,53 @@ body .card-toolbar > button:enabled:active {
   .card-toolbar,
   :root[data-theme] body .card-toolbar > button {
     transition: none;
+  }
+}
+
+/* Inset rings stay inside clipped docks and coexist with active fills. */
+:root[data-theme]
+  body
+  :is(
+    .card-toolbar,
+    .bottom-tools,
+    .zoom-controls,
+    .canvas-overview,
+    .context-menu,
+    .text-format-toolbar,
+    .connection-target-dialog
+  )
+  :is(button, select, input):focus-visible,
+:root[data-theme]
+  body
+  :is(
+    .note-link-icon,
+    .connection-port,
+    .connection-reconnect,
+    .floating-button
+  ):focus-visible {
+  outline: var(--focus-width) solid var(--accent);
+  outline-offset: var(--focus-inset);
+}
+:root[data-theme] body .connection-target-dialog {
+  width: min(360px, calc(100vw - 32px));
+  padding: 20px;
+  color: var(--ink);
+  background: var(--surface);
+}
+.connection-target-dialog::backdrop {
+  background: rgb(15 23 42 / 32%);
+}
+.connection-target-dialog select {
+  width: 100%;
+  min-height: var(--action-height);
+  padding-inline: var(--action-pad-x);
+  color: var(--ink);
+}
+@media (forced-colors: active) {
+  :root {
+    --accent: Highlight;
+  }
+  :root[data-theme="dark"] {
+    --accent: Highlight;
   }
 }

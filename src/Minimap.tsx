@@ -187,7 +187,7 @@ export function Minimap({
           <ConnectionArrow
             id="minimap-connection-arrow"
             size={4 / scale}
-            color="#d1d5db"
+            color="var(--connection-color)"
           />
         </defs>
         <g

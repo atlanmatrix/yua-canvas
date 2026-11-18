@@ -195,7 +195,9 @@ import { PinBar } from "./PinBar";
 import { HelpDialog } from "./HelpDialog";
 import { type PinnedItem } from "./pins";
 import { useMinimapGeometry } from "./minimapGeometry";
+import { ConnectionTargetDialog } from "./ConnectionTargetDialog";
 import "./style.css";
+import "./address.css";
 import "./tools.css";
 import "./theme.css";
 import "./controls.css";
@@ -266,6 +268,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     path: string[];
     card: string;
   }>();
+  const [connectionPicker, setConnectionPicker] = useState<{
+    from: Endpoint;
+    reconnect?: Reconnect;
+  }>();
+  const chooseConnectionTarget = (from: Endpoint, reconnect?: Reconnect) =>
+    setConnectionPicker({ from, reconnect });
   const [linkDraft, setLinkDraft] = useState<{
       from: Endpoint;
       to?: MagneticTarget;
@@ -937,6 +945,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     );
   };
   const clearCanvasUI = () => {
+    setConnectionPicker(undefined);
     cancelViewAnimation();
     if (editSession.current) finishEditing(editSession.current.id);
     cancelGesture();
@@ -1214,8 +1223,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     try {
       await navigator.clipboard.writeText(text);
       notify("命令已复制");
+      return true;
     } catch {
       notify("无法复制命令，请允许剪贴板访问后重试");
+      return false;
     }
   };
   const addTodo = (point?: { x: number; y: number }) => {
@@ -2045,6 +2056,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   // Keyboard commands must see the ready canvas before the saved state paints.
   useLayoutEffect(() => {
     const down = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing || e.keyCode === 229) return;
       if (
         preview3D ||
         importBusy ||
@@ -2193,7 +2205,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       } else if (
         key === "enter" &&
         selection.length === 1 &&
-        !target?.closest("button")
+        !target?.closest("button, a[href]")
       ) {
         e.preventDefault();
         const card = board.cards.find((c) => c.id === selection[0]);
@@ -2519,6 +2531,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       setRenamingCanvas,
       pointerDown,
       resizeCard,
+      chooseConnectionTarget,
       startConnection,
       runApplication,
       copyCommands,
@@ -2803,12 +2816,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 <ConnectionArrow
                   id="canvas-connection-arrow"
                   size={10 / view.z}
-                  color="#d1d5db"
+                  color="var(--connection-color)"
                 />
                 <ConnectionArrow
                   id="canvas-connection-arrow-selected"
                   size={10 / view.z}
-                  color="#2563eb"
+                  color="var(--accent)"
                 />
               </defs>
               {(board.connections || [])
@@ -2835,6 +2848,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                                 { id: c.id, end },
                               )
                           : undefined
+                      }
+                      onKeyboardReconnect={(end) =>
+                        chooseConnectionTarget(
+                          c[end === "from" ? "to" : "from"],
+                          { id: c.id, end },
+                        )
                       }
                       editorLayer={connectionEditors}
                       labelLayer={connectionLabels}
@@ -3107,7 +3126,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           >
             <Minus size={16} />
           </button>
-          <button title={tr("重置缩放 (1)")} onClick={() => zoom(1 / view.z)}>
+          <button
+            className="zoom-percentage"
+            title={tr("重置缩放 (1)")}
+            onClick={() => zoom(1 / view.z)}
+          >
             {Math.round(view.z * 100)}%
           </button>
           <button
@@ -3176,11 +3199,44 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           e.target.value = "";
         }}
       />
-      {menu && (
+      {connectionPicker && (
+        <ConnectionTargetDialog
+          cards={visible}
+          from={connectionPicker.from}
+          connections={board.connections}
+          reconnect={connectionPicker.reconnect}
+          onClose={() => setConnectionPicker(undefined)}
+          onConnect={(target) => {
+            setBoard((b) =>
+              connectEndpoints(
+                b,
+                connectionPicker.from,
+                target,
+                connectionPicker.reconnect,
+              ),
+            );
+            setConnectionPicker(undefined);
+          }}
+        />
+      )}
+      {menu && (menu.kind === "canvas" || menuCard || menuGroup) && (
         <CanvasContextMenu x={menu.x} y={menu.y}>
           {menu.noteLinkIcon && menuCard ? (
             <button
               role="menuitem"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setMenu(null);
+                  surface.current
+                    ?.querySelector<HTMLButtonElement>(
+                      `[data-card-id="${CSS.escape(menuCard.id)}"] .note-link-icon`,
+                    )
+                    ?.focus({ preventScroll: true });
+                }
+              }}
               onClick={() => setNoteLink(menuCard.id, false)}
             >
               <Unlink size={14} />

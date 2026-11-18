@@ -579,3 +579,55 @@ test("drag either endpoint to another card or TODO socket, preserve identity and
   await page.keyboard.press("ControlOrMeta+z");
   await expect(path).toHaveAttribute("d", original!);
 });
+
+test("keyboard ports create, cancel and reconnect without changing the line hit width", async ({
+  page,
+}) => {
+  await setup(page);
+  const port = page.locator('[data-card-id="来源"] .port-e');
+  const sourcePorts = page.locator('[data-card-id="来源"] .connection-port');
+  await expect(
+    page.locator('[data-card-id="来源"] .connection-port[tabindex="0"]'),
+  ).toHaveCount(1);
+  await sourcePorts.first().focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(port).toBeFocused();
+  await page.keyboard.press("Space");
+  const picker = page.getByRole("dialog", { name: "选择连线目标" });
+  await expect(picker.getByRole("combobox")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(port).toBeFocused();
+  await expect(page.locator(".connection-hit")).toHaveCount(0);
+
+  await page.keyboard.press("Enter");
+  await picker.getByRole("combobox").selectOption({ label: "连接 目标 w" });
+  await picker
+    .getByRole("button", { name: "连接", exact: true })
+    .press("Enter");
+  const line = page.locator(".connection-hit");
+  await line.focus();
+  await expect(line).toHaveCSS("stroke-width", "14px");
+  await expect(page.locator(".connection-path")).toHaveCSS(
+    "stroke-width",
+    "3.5px",
+  );
+  await line.press("F2");
+  const label = page.getByRole("textbox", { name: "连线文字" });
+  await label.fill("keyboard");
+  await label.press("Enter");
+  await expect(line).toBeFocused();
+  await line.press("Enter");
+  const end = page.getByRole("button", { name: "拖动连线终点" });
+  await end.press("Enter");
+  await picker
+    .getByRole("combobox")
+    .selectOption({ label: "连接任务 第一项 e" });
+  const initial = await line.getAttribute("d");
+  await picker
+    .getByRole("button", { name: "连接", exact: true })
+    .press("Enter");
+  await expect(line).not.toHaveAttribute("d", initial!);
+  await expect(line).toHaveCount(1);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(line).toHaveAttribute("d", initial!);
+});

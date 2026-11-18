@@ -74,6 +74,12 @@ export const english: Record<string, string> = {
   请允许登录弹窗: "Allow the login popup",
   服务器地址无效: "Invalid server address",
 
+  选择连线目标: "Choose connection target",
+  连接: "Connect",
+  目标端点: "Target endpoint",
+  "组件 {0} · {1}": "Component {0} · {1}",
+  "当前画布没有可用的目标端点。": "This canvas has no available target endpoints.",
+  "方向键切换同一组件的端点。端点上按 Enter 或空格选择目标，Esc 取消。连线上按 F2 编辑文字。": "Use the arrow keys to cycle through a component’s endpoints. Press Enter or Space on an endpoint to choose a target, or Escape to cancel. Press F2 on a connection to edit its label.",
   选择工具: "Selection tool",
   "屏蔽 / 取消屏蔽选中内容；未选中时平移":
     "Mask / unmask selection; pan when nothing is selected",

@@ -1,5 +1,21 @@
+import type { CSSProperties } from "react";
 import type { TextStyle } from "./presentation";
 import type { Card } from "./storage";
+
+export const addressLayout = {
+  icon: 32,
+  inset: 4,
+  end: 14,
+  gap: 10,
+  border: 1,
+} as const;
+export const addressStyle = {
+  "--address-icon": `${addressLayout.icon}px`,
+  "--address-inset": `${addressLayout.inset}px`,
+  "--address-end": `${addressLayout.end}px`,
+  "--address-gap": `${addressLayout.gap}px`,
+  "--address-border": `${addressLayout.border}px`,
+} as CSSProperties;
 
 export const NOTE_LINK_TEXT_STYLE = {
   fontFamily: "system-ui",

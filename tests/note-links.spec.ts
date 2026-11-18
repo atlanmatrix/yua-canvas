@@ -301,3 +301,30 @@ test("link icons only offer unlink, and pasted email and web addresses can be re
     "rgb(224, 230, 239)",
   );
 });
+
+test("address geometry and options menu are usable from the keyboard in either theme", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(
+    page.getByRole("button", { name: "添加任务", exact: true }),
+  ).toBeEnabled();
+  await paste(page, "person@example.org");
+  const card = page.getByTestId("card"),
+    icon = card.getByRole("button", { name: "链接选项" });
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    await expect(card).toHaveCSS("height", "42px");
+    await expect(icon).toHaveCSS("width", "32px");
+    await icon.press("Enter");
+    const unlink = page.getByRole("menuitem", { name: "取消链接" });
+    await expect(unlink).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(icon).toBeFocused();
+    await expect(icon).toHaveCSS("outline-width", "2px");
+  }
+  await icon.press("Space");
+  await page.getByRole("menuitem", { name: "取消链接" }).press("Enter");
+  await expect(card.getByRole("link")).toHaveCount(0);
+  await expect(card).toContainText("person@example.org");
+});

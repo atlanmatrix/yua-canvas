@@ -20,6 +20,8 @@ dsh web
 
 `npm run pack:dsh` 生成可安装的 `dist/dsh-yua-canvas-1.0.0.tgz`。插件保留本地 IndexedDB 与 JSON/ZIP 备份；原网站数据需导出后导入。`npm run test:dsh` 验证插件打包、路由、导航及嵌入画布。
 
+像素尺寸、主题、响应式布局和键盘交互的验收规则见[前端 UI 设计规范](docs/frontend-ui.md)。
+
 ## 开发与验证
 
 需要 Node.js 22.12+，当前验证环境为 Node.js 24。

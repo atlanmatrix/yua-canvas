@@ -18,7 +18,7 @@ body
     )
   ) {
   border: 1px solid transparent !important;
-  border-radius: 999px !important;
+  border-radius: var(--radius-pill) !important;
   box-shadow: none;
 }
 body :is(button, a, input, textarea, select):focus-visible {
@@ -79,7 +79,7 @@ body
     .canvas3d-layer-title
   ) {
   border: 1px solid transparent !important;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   box-shadow: var(--control-shadow);
 }
 body :is(.modal, .cloud-panel, .pwa-error, .component-remark) {
@@ -88,7 +88,7 @@ body :is(.modal, .cloud-panel, .pwa-error, .component-remark) {
   box-shadow: var(--panel-shadow);
 }
 body .modal {
-  border-radius: 18px;
+  border-radius: var(--radius-panel);
 }
 body
   :is(
@@ -106,7 +106,7 @@ body :is(.zoom-controls i, .paint-controls-divider) {
 }
 body .context-menu {
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-menu);
   box-shadow: var(--panel-shadow);
   padding: 8px;
 }
@@ -165,7 +165,7 @@ body .context-menu :is(button:focus-visible, .color-swatch:focus-visible) {
   padding: 4px;
   border: 1px solid transparent;
   background: var(--surface-muted);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   box-shadow: var(--control-shadow);
   isolation: isolate;
   touch-action: none;
@@ -176,7 +176,7 @@ body .context-menu :is(button:focus-visible, .color-swatch:focus-visible) {
   bottom: 4px;
   left: 4px;
   width: var(--segment);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface);
   box-shadow: none;
   transform: translateX(calc(var(--position) * 100%));
@@ -278,7 +278,7 @@ body input:is([type="checkbox"], [type="radio"]) {
   height: 16px;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-muted);
   box-shadow: none;
   cursor: pointer;
@@ -306,17 +306,17 @@ body input[type="color"]::-webkit-color-swatch-wrapper {
 }
 body input[type="color"]::-webkit-color-swatch {
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 body input[type="color"]::-moz-color-swatch {
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 body input[type="range"]:not(.preference-range) {
   appearance: none;
   height: 5px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-muted);
   box-shadow: none;
 }
@@ -325,7 +325,7 @@ body input[type="range"]:not(.preference-range)::-webkit-slider-thumb {
   width: 15px;
   height: 15px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   box-shadow: none;
 }
@@ -333,7 +333,7 @@ body input[type="range"]:not(.preference-range)::-moz-range-thumb {
   width: 15px;
   height: 15px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   box-shadow: none;
 }
@@ -341,21 +341,21 @@ body .display-mode-options > button {
   min-width: 0;
   padding-inline: 6px;
   border: 1px solid transparent !important;
-  border-radius: 999px !important;
+  border-radius: var(--radius-pill) !important;
 }
 body :is(.cloud-login, .share-viewer > header a) {
   border: 1px solid transparent !important;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   box-shadow: none;
 }
 body :is(.toast, .share-viewer > header) {
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   box-shadow: var(--panel-shadow);
 }
 /* The overview keeps its full rectangular projection and hit area. */
 body .minimap {
-  border-radius: 12px !important;
+  border-radius: var(--radius-menu) !important;
   padding: 0;
 }
 /* Floating groups only intercept input on their actual controls, never in gaps. */

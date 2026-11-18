@@ -72,7 +72,12 @@ test("component and Pin palettes keep wider spacing and all focus rings inside m
       expect(layout.overflow).toBe(false);
       expect(layout.gap / layout.options[0].diameter).toBeCloseTo(1 / 3, 2);
       expect(layout.options.every((option) => option.fits)).toBe(true);
-      await popup.getByRole("menuitemradio").last().click();
+      const choices = popup.locator(".color-palette").getByRole("menuitemradio");
+      await choices.last().click();
+      await expect(choices.last()).toHaveAttribute("aria-checked", "true");
+      await choices.first().click();
+      await expect(choices.first()).toHaveAttribute("aria-checked", "true");
+      await page.keyboard.press("Escape");
       await expect(popup).toHaveCount(0);
     }
   }
@@ -84,8 +89,10 @@ test.describe("touch palette", () => {
   test("all seven swatches stay circular on one row", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "添加任务", exact: true }).tap();
+    await page.locator(".todo-editor input:not([type=checkbox])").first().fill("触屏色板");
+    await page.keyboard.press("ControlOrMeta+Enter");
     await page.locator(".card-todo").click({ button: "right", position: { x: 40, y: 30 } });
-    const swatches = page.getByRole("menuitemradio");
+    const swatches = page.locator(".color-palette").getByRole("menuitemradio");
     await expect(swatches).toHaveCount(7);
     const bounds = await swatches.evaluateAll((buttons) =>
       buttons.map((button) => {
@@ -99,6 +106,10 @@ test.describe("touch palette", () => {
       expect(swatch.top).toBe(bounds[0].top);
     }
     await swatches.last().tap();
+    await expect(swatches.last()).toHaveAttribute("aria-checked", "true");
+    await swatches.first().tap();
+    await expect(swatches.first()).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("Escape");
     await expect(swatches).toHaveCount(0);
   });
 });

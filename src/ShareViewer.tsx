@@ -307,7 +307,7 @@ export function ShareViewer({ token }: { token: string }) {
               <ConnectionArrow
                 id="canvas-connection-arrow"
                 size={8}
-                color="#d1d5db"
+                color="var(--connection-color)"
               />
               {board.connections
                 ?.filter((c) =>
@@ -324,7 +324,7 @@ export function ShareViewer({ token }: { token: string }) {
                     <g key={c.id}>
                       <path
                         d={curve(from, to, c.from.side, c.to.side)}
-                        stroke="#d1d5db"
+                        stroke="var(--connection-color)"
                         strokeWidth="2"
                         fill="none"
                         markerEnd="url(#canvas-connection-arrow)"

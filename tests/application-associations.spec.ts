@@ -227,6 +227,9 @@ test("iTerm2 preserves multiline commands, copies exactly and only launches a pa
   await expect(toolbar.getByRole("button", { name: "复制命令" })).toBeVisible();
   await expect(toolbar.getByRole("button", { name: "执行命令" })).toBeVisible();
   await toolbar.getByRole("button", { name: "复制命令" }).click();
+  await expect(
+    toolbar.getByRole("button", { name: "复制命令" }),
+  ).toHaveAttribute("data-copied", "true");
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     commands,
   );

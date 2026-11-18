@@ -230,7 +230,7 @@ test("pin colors support all states, dismissal, undo and persistence for cards a
     .getByRole("menuitemradio", { name: "Pin 颜色：橙色", exact: true })
     .click();
   await expect(nested).toHaveAttribute("data-pin-color", "warn");
-  await nested.click({ button: "right" });
+  await expect(page.getByRole("menu")).toBeVisible();
   await page.getByRole("button", { name: "返回父画布", exact: true }).click();
   await expect(page.getByRole("menu")).toHaveCount(0);
   await expect(renamed).toHaveAttribute("data-pin-color", "info");

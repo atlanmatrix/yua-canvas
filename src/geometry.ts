@@ -1,4 +1,4 @@
-import { noteCardHref, NOTE_LINK_TEXT_STYLE } from "./noteLinks";
+import { addressLayout, noteCardHref, NOTE_LINK_TEXT_STYLE } from "./noteLinks";
 import {
   textCss,
   textSegments,
@@ -78,7 +78,12 @@ export function pastedLinkWidth(text: string) {
   // Frame border, horizontal insets, icon and the gap beside it.
   return Math.min(
     320,
-    Math.ceil(textContext.measureText(text.trim()).width) + 62,
+    Math.ceil(textContext.measureText(text.trim()).width) +
+      addressLayout.border * 2 +
+      addressLayout.icon +
+      addressLayout.inset +
+      addressLayout.end +
+      addressLayout.gap,
   );
 }
 
@@ -100,7 +105,9 @@ export const cardRect = (c: CardGeometry): Rect => {
       x: c.x,
       y: c.y,
       width: Math.max(64, previewWidth),
-      height: Math.max(32, Math.ceil(fontSize * 1.5)) + 10,
+      height:
+        Math.max(addressLayout.icon, Math.ceil(fontSize * 1.5)) +
+        2 * (addressLayout.inset + addressLayout.border),
     };
   }
   if (c.kind !== "canvas" && c.displayMode === "medium") {

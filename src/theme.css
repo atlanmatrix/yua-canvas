@@ -1,5 +1,21 @@
 :root {
   --action-height: 32px;
+  --toolbar-button-size: 32px;
+  --toolbar-inset: 4px;
+  --toolbar-gap: 2px;
+  --toolbar-button-radius: 12px;
+  --port-hit: 24px;
+  --port-inset: 3px;
+  --focus-width: 2px;
+  --focus-inset: -3px;
+  --radius-pill: 999px;
+  --radius-menu: 12px;
+  --radius-panel: 18px;
+  --radius-card: 28px;
+  --success-ink: #177047;
+  --success-surface: #e6f5eb;
+  --level-current: #626262;
+  --level-idle: #a5afbd;
   --action-pad-x: 12px;
   --action-gap: 8px;
   --surface: #ffffff;
@@ -18,6 +34,10 @@
   }
 }
 :root[data-theme="dark"] {
+  --success-ink: #8fdfb0;
+  --success-surface: #234239;
+  --level-current: #dce4ef;
+  --level-idle: #798697;
   --surface: #232832;
   --surface-muted: #2c3340;
   --canvas-bg: #171b22;

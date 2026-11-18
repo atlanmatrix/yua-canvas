@@ -18,6 +18,7 @@ export function ConnectionView({
   labelLayer,
   onSelect,
   onReconnect,
+  onKeyboardReconnect,
   onLabelChange,
 }: {
   connection: Connection;
@@ -28,12 +29,15 @@ export function ConnectionView({
   labelLayer: RefObject<SVGSVGElement | null>;
   onSelect: () => void;
   onReconnect?: (e: React.PointerEvent, end: "from" | "to") => void;
+  onKeyboardReconnect: (end: "from" | "to") => void;
   onLabelChange: (label: string) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const [editing, setEditing] = useState(false),
     [value, setValue] = useState("");
   const finished = useRef(false);
+  const hit = useRef<SVGPathElement>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
   const from = endpointPoint(connection.from, cards, offsets),
     to = endpointPoint(connection.to, cards, offsets);
   const d = curve(from, to, connection.from.side, connection.to.side);
@@ -70,12 +74,46 @@ export function ConnectionView({
         markerEnd={`url(#canvas-connection-arrow${selected || hovered ? "-selected" : ""})`}
       />
       <path
+        ref={hit}
         className="connection-hit"
         d={d}
         role="button"
         aria-label={tr("选择连线")}
         aria-pressed={selected}
-        onPointerDown={(e) => e.stopPropagation()}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " " || e.key === "F2") {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.repeat) return;
+            if (e.key === "F2") edit();
+            else onSelect();
+          }
+        }}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          touchStart.current =
+            e.pointerType === "touch" ? { x: e.clientX, y: e.clientY } : null;
+        }}
+        onPointerCancel={() => {
+          touchStart.current = null;
+        }}
+        onPointerMove={(e) => {
+          const start = touchStart.current;
+          if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 6)
+            touchStart.current = null;
+        }}
+        onPointerUp={(e) => {
+          // A tap directly after a touch drag may have no compatibility click.
+          const start = touchStart.current;
+          touchStart.current = null;
+          if (
+            e.pointerType === "touch" &&
+            start &&
+            Math.hypot(e.clientX - start.x, e.clientY - start.y) <= 6
+          )
+            onSelect();
+        }}
         onClick={onSelect}
         onDoubleClick={(e) => {
           e.stopPropagation();
@@ -99,6 +137,10 @@ export function ConnectionView({
                 title={tr(end === "from" ? "拖动连线起点" : "拖动连线终点")}
                 style={{ left: point.x, top: point.y }}
                 onPointerDown={(e) => onReconnect(e, end)}
+                onClick={(e) => {
+                  if (e.detail === 0) onKeyboardReconnect(end);
+                }}
+                aria-haspopup="dialog"
               />
             );
           }),
@@ -120,13 +162,16 @@ export function ConnectionView({
             onBlur={save}
             onKeyDown={(e) => {
               e.stopPropagation();
+              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
               if (e.key === "Enter") {
                 e.preventDefault();
                 save();
+                hit.current?.focus({ preventScroll: true });
               }
               if (e.key === "Escape") {
                 finished.current = true;
                 setEditing(false);
+                hit.current?.focus({ preventScroll: true });
               }
             }}
           />,

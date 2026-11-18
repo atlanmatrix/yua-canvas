@@ -455,6 +455,7 @@ test("HTML selection opens offline with editable text, persistent checkboxes and
       kind: "todo",
       tasks: [{ id: "task", text: "准备资料", done: false }],
     },
+    { ...note("address", 840, 130), text: "person@example.org" },
     { ...note("hidden", 380, 305), masked: true, text: "private hidden note" },
     {
       ...note("formatted", 630, 300),
@@ -463,7 +464,7 @@ test("HTML selection opens offline with editable text, persistent checkboxes and
     },
   ]);
   await selectPair(page);
-  for (const id of ["list", "hidden", "formatted"])
+  for (const id of ["list", "hidden", "formatted", "address"])
     await card(page, id).click({ modifiers: ["Shift"] });
   const menu = await contextExport(page);
   const exported = await bytes(page, () =>
@@ -484,7 +485,12 @@ test("HTML selection opens offline with editable text, persistent checkboxes and
   });
   await context.setOffline(true);
   await file.goto(url);
-  await expect(file.locator("article")).toHaveCount(5);
+  await expect(file.locator("article")).toHaveCount(6);
+  const address = file.locator("article.note-address");
+  await expect(address).toHaveCSS("height", "42px");
+  await expect(address.locator(".note-link-icon")).toHaveCSS("width", "32px");
+  await expect(address).toHaveCSS("padding", "4px 14px 4px 4px");
+  await expect(address).toHaveCSS("gap", "10px");
   await expect(file.getByText("inside link")).toBeVisible();
   await expect(file.locator("button:visible,nav,iframe,form")).toHaveCount(0);
   const first = file.getByRole("textbox").first();

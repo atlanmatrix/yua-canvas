@@ -2,6 +2,8 @@ import { toPng } from "html-to-image";
 import { withExportScene } from "./exportPng";
 import type { Board, Card } from "./storage";
 import { t as tr } from "./i18n";
+import { addressStyle } from "./noteLinks";
+import addressCss from "./address.css?raw";
 import css from "./htmlExport/page.css?raw";
 import runtime from "./htmlExport/page.js?raw";
 
@@ -118,7 +120,7 @@ export function exportHtml(board: Board) {
     viewport.name = "viewport";
     viewport.content = "width=device-width, initial-scale=1";
     const style = doc.createElement("style");
-    style.textContent = css;
+    style.textContent = css + addressCss;
     doc.head.prepend(charset, policy, viewport);
     doc.head.append(style);
     const colors = getComputedStyle(scene);
@@ -135,6 +137,8 @@ export function exportHtml(board: Board) {
         name,
         colors.getPropertyValue(name),
       );
+    for (const [name, value] of Object.entries(addressStyle))
+      doc.documentElement.style.setProperty(name, value);
     const canvas = doc.createElement("main");
     canvas.dataset.export = nonce;
     canvas.style.width = scene.style.width;
@@ -149,13 +153,19 @@ export function exportHtml(board: Board) {
       const frame = frames[i],
         article = doc.createElement("article");
       article.style.cssText = frame.style.cssText;
-      article.style.background = getComputedStyle(frame).backgroundColor;
+      const frameStyle = getComputedStyle(frame);
+      article.style.background = frameStyle.backgroundColor;
+      article.style.borderRadius = frameStyle.borderRadius;
+      if (frame.dataset.customColor === "true") {
+        for (const name of ["--ink", "--muted", "--surface", "--border"])
+          article.style.setProperty(name, frameStyle.getPropertyValue(name));
+      }
       const editable =
         !card.masked && !card.locked && card.displayMode !== "small";
       if (editable && card.kind === "text") {
         const icon = frame.querySelector(".note-address .note-link-icon");
         if (icon) {
-          article.className = "is-link-note";
+          article.className = "is-link-note note-address";
           article.append(icon.cloneNode(true));
         }
         article.append(noteContent(card, frame, doc));
