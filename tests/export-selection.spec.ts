@@ -769,6 +769,7 @@ async function pdfPageColors(page: Page, file: Buffer, pageNumber: number) {
       const ctx = canvas.getContext("2d")!;
       ctx.drawImage(img, 0, 0);
       const { data: pixels } = ctx.getImageData(0, 0, img.width, img.height);
+      const inkWidth = new Uint32Array(canvas.height);
       let green = 0,
         red = 0,
         dark = 0,
@@ -782,12 +783,29 @@ async function pdfPageColors(page: Page, file: Buffer, pageNumber: number) {
         if (Math.min(r, g, b) < 250) {
           const x = (i / 4) % img.width,
             y = Math.floor(i / (4 * img.width));
+          inkWidth[y]++;
           marginX = Math.min(marginX, x, img.width - x - 1);
           marginY = Math.min(marginY, y, img.height - y - 1);
         }
       }
       img.close();
-      return { green, red, dark, marginX, marginY, bitmapWidth: canvas.width };
+      const firstInk = inkWidth.findIndex((n) => n > 0);
+      const lastInk = inkWidth.findLastIndex((n) => n > 0);
+      // PDF viewers can antialias the outer pixel of a horizontal rule.
+      const topRule =
+        Math.max(inkWidth[firstInk], inkWidth[firstInk + 1]) / canvas.width;
+      const bottomRule =
+        Math.max(inkWidth[lastInk], inkWidth[lastInk - 1]) / canvas.width;
+      return {
+        green,
+        red,
+        dark,
+        marginX,
+        marginY,
+        bitmapWidth: canvas.width,
+        topRule,
+        bottomRule,
+      };
     },
     { data: file.toString("base64"), last: pageNumber },
   );
@@ -935,3 +953,48 @@ test("PDF includes mind map branches outside the card width", async ({
   expect(sheet.getWidth()).toBeGreaterThan(900 * 0.75);
   expect((await pdfPageColors(page, file.data, 1)).green).toBeGreaterThan(100);
 });
+
+for (const extraRows of [0, 95]) {
+  test(
+    "PDF preserves the closing rule of a wrapped table with " +
+      extraRows +
+      " continuation rows",
+    async ({ page }) => {
+      const md = [
+        "# 数据需求",
+        "",
+        "|模块|依赖数据|来源系统|用途|",
+        "|---|---|---|---|",
+        "|用户|院内/电厂用户&组织架构数据|需确认（可能存在不同的用户管理体系）|用户同步、单点登录等|",
+        "|项目计划管理|项目计划数据|项目管理辅助系统|同步年度技改项目、计划数据|",
+        "|知识库模块|提问报告|ECM|历史经验的提取分析，问答，指导报告生成|",
+        "|OBS|观察指导|人因管理系统|通过观察指导文件自动生成 OBS|",
+        "|AFI|标准准则、程序|BDX|AFI业绩准则参考|",
+        ...Array(extraRows).fill("|模块|数据|系统|用途|"),
+        "|OE|事件、事件报告、SOER 等|经验反馈系统|数据分析、报告生成、经验库沉淀|",
+      ].join("\n");
+      await setup(page, [
+        {
+          ...note("table", 100, 300),
+          kind: "file",
+          title: "数据需求.md",
+          mime: "text/markdown",
+          displayMode: "custom",
+          customSize: { width: 978, height: 350, base: "large" },
+          blob:
+            "data:text/markdown;base64," + Buffer.from(md).toString("base64"),
+        },
+      ]);
+      const file = await downloadCardPdf(page, "table");
+      const pages = (await PDFDocument.load(file.data)).getPageCount();
+      if (extraRows) expect(pages).toBeGreaterThan(1);
+      else expect(pages).toBe(1);
+      for (let n = 1; n <= pages; n++) {
+        const ink = await pdfPageColors(page, file.data, n);
+        if (n > 1)
+          expect(ink.topRule, "top of page " + n).toBeGreaterThan(0.75);
+        expect(ink.bottomRule, "bottom of page " + n).toBeGreaterThan(0.75);
+      }
+    },
+  );
+}

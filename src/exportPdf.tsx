@@ -87,8 +87,9 @@ async function content(
 }
 
 // Keep rows, images and individual text lines together where they fit on a page.
-function pageEnds(world: HTMLElement, height: number, pageHeight: number) {
-  if (height <= pageHeight) return [height];
+function pageSlices(world: HTMLElement, height: number, pageHeight: number) {
+  if (height <= pageHeight) return [{ start: 0, end: height }];
+  const rowBorders = new Set<number>();
   const origin = world.parentElement!.getBoundingClientRect().top;
   const spans: { top: number; bottom: number }[] = [];
   function span(rect: DOMRect) {
@@ -96,9 +97,16 @@ function pageEnds(world: HTMLElement, height: number, pageHeight: number) {
       bottom = Math.round(rect.bottom - origin);
     if (bottom > top && bottom - top < pageHeight) spans.push({ top, bottom });
   }
-  world
-    .querySelectorAll("tr,img,.markdown-diagram")
-    .forEach((el) => span(el.getBoundingClientRect()));
+  world.querySelectorAll("tr,img,.markdown-diagram").forEach((el) => {
+    const rect = el.getBoundingClientRect();
+    span(rect);
+    if (
+      el instanceof HTMLTableRowElement &&
+      el.rowIndex > 0 &&
+      el.closest(".markdown")
+    )
+      rowBorders.add(Math.round(rect.top - origin));
+  });
   const walker = document.createTreeWalker(world, NodeFilter.SHOW_TEXT);
   const range = document.createRange();
   while (walker.nextNode()) {
@@ -125,7 +133,15 @@ function pageEnds(world: HTMLElement, height: number, pageHeight: number) {
     start = end;
   }
   ends.push(height);
-  return ends;
+  // A collapsed border belongs to both adjacent rows. Include that same
+  // pixel on both sheets when a Markdown table continues across a page break.
+  return ends.map((end, index) => {
+    const start = ends[index - 1] ?? 0;
+    return {
+      start: index > 0 && rowBorders.has(start) ? start - 1 : start,
+      end: end < height && rowBorders.has(end) ? end + 1 : end,
+    };
+  });
 }
 
 export async function exportPdf(input: Board): Promise<Blob> {
@@ -231,11 +247,19 @@ export async function exportPdf(input: Board): Promise<Blob> {
     const scene = host.firstElementChild as HTMLElement;
     const world = scene.firstElementChild as HTMLElement;
     await waitForExportContent(scene);
+    // The SVG snapshot reapplies each row's computed height. Whole CSS pixels
+    // keep fractional row heights from accumulating differently in that layout.
+    const rows = Array.from(world.querySelectorAll("tr"), (row) => ({
+      row,
+      height: Math.ceil(row.getBoundingClientRect().height),
+    }));
+    for (const { row, height } of rows) row.style.height = height + "px";
     const articles = world.querySelectorAll<HTMLElement>(":scope > article");
     items.forEach((item, i) => {
       const el = articles[i];
-      const width = Math.max(el.offsetWidth, el.scrollWidth),
-        height = Math.max(1, el.offsetHeight, el.scrollHeight);
+      const rect = el.getBoundingClientRect();
+      const width = Math.max(rect.width, el.scrollWidth),
+        height = Math.max(1, rect.height, el.scrollHeight);
       let y = item.y;
       for (const prev of placed)
         if (
@@ -281,7 +305,7 @@ export async function exportPdf(input: Board): Promise<Blob> {
     world.style.left = -left + "px";
     world.style.top = -top + "px";
     scene.style.width = width + "px";
-    const ends = pageEnds(
+    const slices = pageSlices(
       world,
       height,
       Math.max(1056, Math.min(1600, Math.round(width * Math.SQRT2))),
@@ -299,8 +323,7 @@ export async function exportPdf(input: Board): Promise<Blob> {
       items.length === 1 && !strokes.length ? items[0].card : undefined,
     );
     const paperWidth = width + 2 * insetX;
-    let start = 0;
-    for (const end of ends) {
+    for (const { start, end } of slices) {
       const h = end - start;
       const ratio = Math.min(
         2,
@@ -338,7 +361,6 @@ export async function exportPdf(input: Board): Promise<Blob> {
         width: width * scale,
         height: h * scale,
       });
-      start = end;
     }
     return new Blob([new Uint8Array(await pdf.save())], {
       type: "application/pdf",
