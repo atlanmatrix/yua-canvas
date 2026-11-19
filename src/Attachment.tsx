@@ -6,6 +6,8 @@ import { readPreviewText } from "./previewCache";
 import { memo, useEffect, useRef, useState } from "react";
 import { FileText } from "./icons";
 import type { Card } from "./storage";
+import { XlsxPreview } from "./XlsxPreview";
+import { isXlsxFile } from "./files";
 import { PdfPreview } from "./PdfPreview";
 import { isTextFile, isMarkdownFile, isPdfFile } from "./clipboard";
 const AttachmentContent = memo(function AttachmentContent({
@@ -74,6 +76,8 @@ const AttachmentContent = memo(function AttachmentContent({
     setAsset({ url: u, blob: card.blob, mime: card.mime });
     return () => URL.revokeObjectURL(u);
   }, [card.blob, card.mime, card.kind, large]);
+  if (card.kind === "file" && isXlsxFile(card))
+    return <XlsxPreview blob={card.blob} large={large} />;
   if (!large && isPdfFile(card))
     return (
       <PdfPreview

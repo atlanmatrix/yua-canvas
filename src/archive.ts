@@ -16,7 +16,8 @@ import { cardsFromFiles, fileMime } from "./files";
 export const METADATA = "yua-canvas.metadata.json";
 export const isZip = (file: File) =>
   /\.zip$/i.test(file.name) ||
-  ["application/zip", "application/x-zip-compressed"].includes(file.type);
+  (!/\.xlsx$/i.test(file.name) &&
+    ["application/zip", "application/x-zip-compressed"].includes(file.type));
 export function archiveSelection(
   board: Board,
   selection: string[],

@@ -1,4 +1,10 @@
 export const english: Record<string, string> = {
+  "Excel 表格": "Excel spreadsheet",
+  "正在读取工作表…": "Reading worksheet…",
+  "无法预览此工作簿": "Unable to preview this workbook",
+  "首个工作表为空": "The first worksheet is empty",
+  "首个工作表": "First worksheet",
+  "首个工作表（预览前 {0} 行、{1} 列）": "First worksheet (showing the first {0} rows and {1} columns)",
   流程图: "Flowchart",
   编辑流程图: "Edit flowchart",
   流程图画布: "Flowchart canvas",

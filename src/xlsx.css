@@ -1,0 +1,34 @@
+.xlsx-preview {
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 12px;
+}
+.xlsx-preview.expanded {
+  align-self: stretch;
+  overflow: auto;
+}
+.xlsx-preview table {
+  border-collapse: collapse;
+  min-width: 100%;
+  text-align: start;
+}
+.xlsx-preview caption,
+.xlsx-status {
+  padding: 8px;
+  color: var(--muted);
+  text-align: start;
+}
+.xlsx-preview td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  max-width: 24em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+.xlsx-preview.expanded td {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

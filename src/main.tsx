@@ -366,6 +366,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   const surface = useRef<HTMLDivElement>(null),
     connectionEditors = useRef<HTMLDivElement>(null),
     connectionLabels = useRef<SVGSVGElement>(null),
+    xlsxInput = useRef<HTMLInputElement>(null),
     fileInput = useRef<HTMLInputElement>(null),
     directoryInput = useRef<HTMLInputElement>(null),
     imageInput = useRef<HTMLInputElement>(null),
@@ -521,7 +522,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       (gesture.current?.kind === "pan" && gesture.current.button === 2),
   });
   useEffect(() => {
-    const inputs = [fileInput.current, imageInput.current];
+    const inputs = [fileInput.current, imageInput.current, xlsxInput.current];
     const cancel = () => {
       pendingUpload.current = undefined;
     };
@@ -1017,7 +1018,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setSelectedGroup(undefined);
     setMenu(null);
   };
-  const createFromMenu = (kind: Card["kind"]) => {
+  const createFromMenu = (kind: Card["kind"] | "xlsx") => {
     if (!menu || !ready || !surface.current) return;
     const rect = surface.current.getBoundingClientRect();
     const point = {
@@ -1025,6 +1026,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       y: (menu.y - rect.top - view.y) / view.z,
     };
     setMenu(null);
+    if (kind === "xlsx") {
+      pendingUpload.current = point;
+      xlsxInput.current?.click();
+      return;
+    }
     if (kind === "text") addText(point);
     else if (kind === "todo") addTodo(point);
     else if (kind === "agent" || isToolKind(kind)) {
@@ -3228,6 +3234,17 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         }}
       />
       <input
+        ref={xlsxInput}
+        type="file"
+        accept=".xlsx"
+        hidden
+        onChange={(e) => {
+          void addFiles(e.target.files, pendingUpload.current);
+          pendingUpload.current = undefined;
+          e.target.value = "";
+        }}
+      />
+      <input
         ref={imageInput}
         data-testid="images"
         type="file"
@@ -3335,6 +3352,14 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   >
                     <FileText size={14} />
                     {tr("文件")}
+                  </button>
+                  <button
+                    role="menuitem"
+                    disabled={!ready}
+                    onClick={() => createFromMenu("xlsx")}
+                  >
+                    <LayoutGrid size={14} />
+                    {tr("Excel 表格")}
                   </button>
                   <button
                     role="menuitem"

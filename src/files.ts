@@ -1,6 +1,11 @@
 import { cardRect } from "./geometry";
 import { type Card } from "./storage";
 import { isTextFile } from "./clipboard";
+export const xlsxMime =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+export function isXlsxFile(file: Pick<Card, "title" | "mime">) {
+  return file.mime === xlsxMime || /\.xlsx$/i.test(file.title);
+}
 export function fileMime(name: string) {
   const extension = name.split(".").pop()?.toLowerCase();
   const types: Record<string, string> = {
@@ -18,6 +23,7 @@ export function fileMime(name: string) {
     mdown: "text/markdown",
     json: "application/json",
     pdf: "application/pdf",
+    xlsx: xlsxMime,
     csv: "text/csv",
     html: "text/html",
     css: "text/css",
@@ -64,11 +70,14 @@ export async function cardsFromFiles(
 ): Promise<Card[]> {
   const cards = await Promise.all(
     files.map(async (file): Promise<Card> => {
-      const mime = file.type || fileMime(file.name);
+      const mime = isXlsxFile({ title: file.name, mime: file.type })
+        ? xlsxMime
+        : file.type || fileMime(file.name);
       const kind = mime.startsWith("image/") ? "image" : "file";
       let size = isTextFile({ title: file.name, mime } as Card)
         ? { width: 320, height: 240 }
         : { width: 240, height: 250 };
+      if (mime === xlsxMime) size = { width: 400, height: 260 };
       if (mime === "application/pdf") size = { width: 360, height: 480 };
       if (kind === "image") {
         const url = URL.createObjectURL(file);
