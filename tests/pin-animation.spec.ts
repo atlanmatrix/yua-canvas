@@ -330,7 +330,10 @@ test("switching canvases stops the old animation and retains each canvas's view"
     .click();
   await page.clock.runFor(animationDuration + 50);
   await expectView(page, { x: 65, y: 55, z: 1 });
-  await page.getByRole("button", { name: "返回父画布", exact: true }).click();
+  await page
+    .getByRole("button", { name: "返回父画布", exact: true })
+    .locator("svg")
+    .click();
   await expectView(page, rootView);
 });
 

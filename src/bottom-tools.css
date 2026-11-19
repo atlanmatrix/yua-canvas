@@ -277,9 +277,6 @@ body .bottom-tools[data-drawing="true"] .paint-controls {
   body .canvas-navigation {
     max-width: calc(100% - 106px);
   }
-  .canvas-navigation span {
-    min-width: 0;
-  }
   .zoom-controls {
     right: 12px;
   }

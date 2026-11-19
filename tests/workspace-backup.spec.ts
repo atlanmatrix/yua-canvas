@@ -182,6 +182,11 @@ async function seed(page: Page) {
   await expect(page.locator(".canvas-navigation")).toHaveText("深层画布");
 }
 
+async function goToParent(page: Page) {
+  const current = page.url();
+  await page.getByRole("button", { name: "返回父画布", exact: true }).click();
+  await expect(page).not.toHaveURL(current);
+}
 async function snapshot(page: Page) {
   return page.evaluate(async () => {
     // @ts-expect-error Vite browser source modules.
@@ -276,8 +281,8 @@ test("whole-workspace restore replaces parents and siblings from any canvas and 
   await seed(page);
   const original = await snapshot(page),
     bytes = await backup(page);
-  await page.getByRole("button", { name: "返回父画布", exact: true }).click();
-  await page.getByRole("button", { name: "返回父画布", exact: true }).click();
+  await goToParent(page);
+  await goToParent(page);
   await page.keyboard.press("n");
   await page
     .getByRole("textbox", { name: "文本内容" })
@@ -346,9 +351,9 @@ test("failed storage transaction keeps both the current canvas and saved workspa
 }) => {
   await seed(page);
   const bytes = await backup(page);
-  await page.getByRole("button", { name: "返回父画布", exact: true }).click();
-  await page.getByRole("button", { name: "返回父画布", exact: true }).click();
-  await page.getByRole("button", { name: "返回父画布", exact: true }).click();
+  await goToParent(page);
+  await goToParent(page);
+  await goToParent(page);
   await saved(page);
   const original = await snapshot(page);
   await upload(page, bytes);
@@ -415,7 +420,7 @@ test("export captures an edit immediately, before autosave, and legacy canvas im
   );
   await page.getByRole("button", { name: "确认替换" }).click();
   await expect(page.locator('[data-card-id="old"]')).toHaveText(/旧版内容/);
-  await page.getByRole("button", { name: "返回父画布", exact: true }).click();
+  await goToParent(page);
   await expect(page.locator(".card-text")).toHaveText(/尚未等待自动保存的内容/);
 });
 
@@ -460,8 +465,8 @@ test("a slow restore suspends pending autosave until the imported workspace is a
   await saved(page);
   const bytes = await backup(page);
   await page.clock.install();
-  await page.getByRole("button", { name: "返回父画布", exact: true }).click();
-  await page.getByRole("button", { name: "返回父画布", exact: true }).click();
+  await goToParent(page);
+  await goToParent(page);
   await upload(page, bytes);
   await page.evaluate(() => {
     const transaction = IDBDatabase.prototype.transaction,

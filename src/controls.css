@@ -511,26 +511,15 @@ body .settings-popover .pwa-error {
   display: block;
 }
 body .canvas-navigation {
-  max-width: calc(100% - 60px);
-  padding: 4px 14px 4px 4px;
+  padding: 0;
   background: #fff;
   color: #334155;
-}
-body .canvas-navigation .floating-button {
-  background: transparent;
-  color: inherit;
-}
-body .canvas-navigation span {
-  color: inherit;
 }
 @media (max-width: 700px) {
   body .settings-popover {
     top: 62px;
     right: 12px;
     max-height: calc(100dvh - 74px);
-  }
-  body .canvas-navigation span {
-    max-width: min(55vw, 240px);
   }
 }
 /* Filled fields remain distinct without inset or drop shadows in either theme. */

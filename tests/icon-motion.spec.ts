@@ -946,7 +946,8 @@ test("subcanvas dividers expand through the top left while the parent arrow wrap
     .getByRole("button", { name: "进入子画布 子画布", exact: true })
     .click();
   const back = page.getByRole("button", { name: "返回父画布", exact: true });
-  await back.hover();
+  const name = back.locator(".canvas-name");
+  await name.hover();
   const travel = await back.locator("svg").evaluate((svg) => {
     const path = svg.querySelector("path")!;
     const sample = (time: number) => {
@@ -956,7 +957,7 @@ test("subcanvas dividers expand through the top left while the parent arrow wrap
       }
       return new DOMMatrix(getComputedStyle(path).transform).e;
     };
-    const out = [sample(96), sample(294), sample(300), sample(600)];
+    const out = [sample(374), sample(638), sample(649), sample(1100)];
     svg.closest("button")!.dispatchEvent(
       new PointerEvent("pointerout", {
         bubbles: true,
@@ -964,7 +965,7 @@ test("subcanvas dividers expand through the top left while the parent arrow wrap
         relatedTarget: document.body,
       }),
     );
-    return { out, back: [sample(96), sample(294), sample(300), sample(600)] };
+    return { out, back: [sample(374), sample(638), sample(649), sample(1100)] };
   });
   expect(travel.out[0]).toBeGreaterThan(1);
   expect(travel.out[1]).toBeLessThan(-24);
@@ -974,7 +975,7 @@ test("subcanvas dividers expand through the top left while the parent arrow wrap
   expect(travel.back[1]).toBeGreaterThan(24);
   expect(travel.back[2]).toBeLessThan(-24);
   expect(travel.back[3]).toBeCloseTo(0);
-  await back.click();
+  await name.click();
   await expect(page.locator(".card-canvas")).toHaveCount(1);
 });
 

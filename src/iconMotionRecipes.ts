@@ -176,36 +176,54 @@ export function iconMotionRecipe(
     });
   // These gestures are directional journeys, including a fully clipped wrap.
   // Keep the wrap discrete: interpolation across the viewport would flash it.
-  const wrap = (nodes: Elements, axis: "X" | "Y", part: string) => {
+  if (phase === "hover" || phase === "leave" || phase === "click") {
     const sign = phase === "leave" ? 1 : -1;
-    result.push({
-      nodes,
-      name: part,
-      duration: 600,
-      frames: [
-        { transform: `translate${axis}(0px)` },
-        { transform: `translate${axis}(${-sign * 2}px)`, offset: 0.16 },
-        {
-          transform: `translate${axis}(${sign * 28}px)`,
-          offset: 0.49,
-          easing: "steps(1, end)",
-        },
-        { transform: `translate${axis}(${-sign * 28}px)`, offset: 0.5 },
-        { transform: `translate${axis}(0px)` },
-      ],
-    });
-  };
-  if (
-    (phase === "hover" || phase === "leave" || phase === "click") &&
-    ((name === "ArrowLeft" && !!svg.closest(".canvas-navigation")) ||
-      (["FileUp", "FolderUp"].includes(name) && !!svg.closest(".toolbar")))
-  ) {
-    wrap(
-      name === "ArrowLeft" ? shapes : linear(shapes),
-      name === "ArrowLeft" ? "X" : "Y",
-      "travel-arrow",
-    );
-    return result;
+    if (name === "ArrowLeft" && svg.closest(".canvas-navigation")) {
+      result.push({
+        nodes: shapes,
+        name: "travel-arrow",
+        duration: 1100,
+        frames: [
+          { transform: "translateX(0px)", easing: "ease-in-out" },
+          {
+            transform: `translateX(${-sign * 3}px)`,
+            offset: 0.34,
+            easing: "ease-in",
+          },
+          {
+            transform: `translateX(${sign * 28}px)`,
+            offset: 0.58,
+            easing: "steps(1, end)",
+          },
+          {
+            transform: `translateX(${-sign * 28}px)`,
+            offset: 0.59,
+            easing: "ease-out",
+          },
+          { transform: "translateX(0px)" },
+        ],
+      });
+      return result;
+    }
+    if (["FileUp", "FolderUp"].includes(name) && svg.closest(".toolbar")) {
+      result.push({
+        nodes: linear(shapes),
+        name: "travel-arrow",
+        duration: 600,
+        frames: [
+          { transform: "translateY(0px)" },
+          { transform: `translateY(${-sign * 2}px)`, offset: 0.16 },
+          {
+            transform: `translateY(${sign * 28}px)`,
+            offset: 0.49,
+            easing: "steps(1, end)",
+          },
+          { transform: `translateY(${-sign * 28}px)`, offset: 0.5 },
+          { transform: "translateY(0px)" },
+        ],
+      });
+      return result;
+    }
   }
   if (svg.closest(".bottom-tools") && phase !== "press" && phase !== "busy") {
     const reverse = phase === "leave";

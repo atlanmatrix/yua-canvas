@@ -945,7 +945,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       cards.map((card) => (card.id === id ? { ...card, tasks } : card)),
     );
   };
+  const titleClickTimer = useRef<number | undefined>(undefined);
   const clearCanvasUI = () => {
+    window.clearTimeout(titleClickTimer.current);
     setConnectionPicker(undefined);
     cancelViewAnimation();
     if (editSession.current) finishEditing(editSession.current.id);
@@ -987,6 +989,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   });
   useEffect(() => {
     setRenamingCurrentCanvas(false);
+    return () => window.clearTimeout(titleClickTimer.current);
   }, [JSON.stringify(path)]);
   const addCanvas = (point = center()) => {
     const card = canvasCard(newBoard(), tr("子画布"), point);
@@ -2614,14 +2617,40 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           {path.length > 0 && (
             <nav className="canvas-navigation" aria-label={tr("画布路径")}>
               <button
-                className="floating-button"
+                className="canvas-back"
                 aria-label={tr("返回父画布")}
+                aria-describedby={
+                  renamingCurrentCanvas ? undefined : "current-canvas-name"
+                }
                 title={tr("返回父画布")}
-                onClick={() => navigateCanvas(path.slice(0, -1))}
+                onClick={(event) => {
+                  window.clearTimeout(titleClickTimer.current);
+                  const back = () => navigateCanvas(path.slice(0, -1));
+                  // A second click on the name starts inline renaming.
+                  if (
+                    event.detail &&
+                    (event.target as Element).closest(".canvas-name")
+                  ) {
+                    if (event.detail === 1)
+                      titleClickTimer.current = window.setTimeout(back, 400);
+                  } else {
+                    back();
+                  }
+                }}
               >
                 <ArrowLeft size={18} />
+                {!renamingCurrentCanvas && (
+                  <span
+                    id="current-canvas-name"
+                    className="canvas-name"
+                    title={names.join(" / ")}
+                    onDoubleClick={() => setRenamingCurrentCanvas(true)}
+                  >
+                    {names.at(-1)}
+                  </span>
+                )}
               </button>
-              {renamingCurrentCanvas ? (
+              {renamingCurrentCanvas && (
                 <GroupNameEditor
                   name={names.at(-1) || ""}
                   label={tr("画布名称")}
@@ -2638,13 +2667,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     setRenamingCurrentCanvas(false);
                   }}
                 />
-              ) : (
-                <span
-                  title={names.join(" / ")}
-                  onDoubleClick={() => setRenamingCurrentCanvas(true)}
-                >
-                  {names.at(-1)}
-                </span>
               )}
             </nav>
           )}

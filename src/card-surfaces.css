@@ -188,7 +188,8 @@ body .card-toolbar > button:enabled:active {
     .canvas-overview,
     .context-menu,
     .text-format-toolbar,
-    .connection-target-dialog
+    .connection-target-dialog,
+    .canvas-navigation
   )
   :is(button, select, input):focus-visible,
 :root[data-theme]

@@ -253,6 +253,31 @@ test("double-click renames canvas titles inline with save, cancel, undo and pers
   await expect(title).toHaveText("内部重命名");
 });
 
+test("navigation uses the available width for the full canvas name", async ({
+  page,
+}) => {
+  const name = "设计评审与交互细节".repeat(6);
+  await page.goto("/");
+  await saved(page);
+  await page.getByRole("button", { name: "创建子画布", exact: true }).click();
+  await rename(page, page.locator(".card-canvas"), name);
+  await page
+    .getByRole("button", { name: `进入子画布 ${name}`, exact: true })
+    .click();
+  const title = page.locator(".canvas-navigation .canvas-name");
+  const clipped = () => title.evaluate((el) => el.scrollWidth > el.clientWidth);
+  await expect(title).toHaveText(name);
+  expect(await clipped()).toBe(false);
+  await page.setViewportSize({ width: 320, height: 720 });
+  expect(await clipped()).toBe(true);
+  await expect(title).toHaveCSS("text-overflow", "ellipsis");
+  await expect(title).toHaveAttribute("title", name);
+  const box = await page.locator(".canvas-navigation").boundingBox();
+  expect(box!.x + box!.width).toBeLessThanOrEqual(320);
+  await title.click();
+  await expect(page.locator(".card-canvas")).toHaveCount(1);
+});
+
 test("toolbar and background create nested canvases with separate views, content, navigation and reload restoration", async ({
   page,
 }) => {
