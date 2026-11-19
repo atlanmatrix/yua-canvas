@@ -516,7 +516,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   );
   useCanvasWheelGuard(surface, {
     forceCanvas: () =>
-      gesture.current?.kind === "pan" && gesture.current.button === 2,
+      gesture.current?.kind === "select" ||
+      (gesture.current?.kind === "pan" && gesture.current.button === 2),
   });
   useEffect(() => {
     const inputs = [fileInput.current, imageInput.current];
@@ -1621,6 +1622,39 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     if (!suppressToolbarClick.current) action();
     suppressToolbarClick.current = false;
   };
+  const updateMarquee = (clientX: number, clientY: number) => {
+    const g = gesture.current;
+    if (g?.kind !== "select" || !surface.current) return;
+    const bounds = surface.current.getBoundingClientRect();
+    const endX = (clientX - bounds.left - view.x) / view.z;
+    const endY = (clientY - bounds.top - view.y) / view.z;
+    const x = Math.min(g.startX, endX),
+      y = Math.min(g.startY, endY),
+      w = Math.abs(endX - g.startX),
+      h = Math.abs(endY - g.startY);
+    setMarquee({ x, y, w, h });
+    setSelection([
+      ...new Set([
+        ...g.ids,
+        ...visible
+          .filter(
+            (c) =>
+              c.x < x + w &&
+              c.x + cardRect(c).width > x &&
+              c.y < y + h &&
+              c.y + cardRect(c).height > y,
+          )
+          .map((c) => c.id),
+      ]),
+    ]);
+  };
+  useLayoutEffect(() => {
+    const g = gesture.current;
+    if (g?.kind === "select") {
+      const { x, y } = pointer.current ?? g;
+      updateMarquee(x, y);
+    }
+  }, [view]);
   const pointerMove = (e: React.PointerEvent) => {
     const g = gesture.current;
     if (!g) return;
@@ -1741,27 +1775,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         return proposed;
       });
     }
-    if (g.kind === "select") {
-      const x = Math.min(g.startX, g.startX + dx / g.view.z),
-        y = Math.min(g.startY, g.startY + dy / g.view.z),
-        w = Math.abs(dx / g.view.z),
-        h = Math.abs(dy / g.view.z);
-      setMarquee({ x, y, w, h });
-      setSelection([
-        ...new Set([
-          ...g.ids,
-          ...visible
-            .filter(
-              (c) =>
-                c.x < x + w &&
-                c.x + cardRect(c).width > x &&
-                c.y < y + h &&
-                c.y + cardRect(c).height > y,
-            )
-            .map((c) => c.id),
-        ]),
-      ]);
-    }
+    if (g.kind === "select") updateMarquee(e.clientX, e.clientY);
   };
   const pointerUp = (e: React.PointerEvent) => {
     setDragCursor(false);
@@ -2595,6 +2609,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         pointer.current = undefined;
       }}
       onPointerDownCapture={(e) => {
+        pointer.current = { x: e.clientX, y: e.clientY };
         setTouchMode(e.pointerType === "touch");
         cancelViewAnimation();
         setLinkModifier(e.metaKey || e.ctrlKey);

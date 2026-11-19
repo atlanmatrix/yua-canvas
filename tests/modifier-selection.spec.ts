@@ -166,3 +166,54 @@ for (const modifier of ["Meta", "Control"] as const) {
     expect(await selection(page)).toEqual([]);
   });
 }
+
+test("marquee keeps its canvas anchor and follows the pointer through pan and zoom", async ({
+  page,
+}) => {
+  await setup(page);
+  const file = card(page, "file");
+  const box = (await file.boundingBox())!;
+  const x = Math.round(box.x + 30);
+  const y = Math.round(box.y - 25);
+  const marquee = page.locator(".marquee");
+  async function expectTip(px: number, py: number) {
+    await expect
+      .poll(async () => {
+        const rect = await marquee.boundingBox();
+        if (!rect) return Infinity;
+        return Math.max(
+          Math.abs(rect.x + rect.width - px),
+          Math.abs(rect.y + rect.height - py),
+        );
+      })
+      .toBeLessThan(1);
+  }
+
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.wheel(15, 50);
+  await expect(file).toHaveClass(/selected/);
+  await expectTip(x, y);
+  const anchor = (await marquee.boundingBox())!;
+  expect(anchor.x).toBeCloseTo(x - 15, 0);
+  expect(anchor.y).toBeCloseTo(y - 50, 0);
+
+  for (const delta of [-60, 90]) {
+    const before = await view(page);
+    await page.keyboard.down("Control");
+    await page.mouse.wheel(0, delta);
+    await page.keyboard.up("Control");
+    await expect.poll(() => view(page)).not.toBe(before);
+    await expectTip(x, y);
+    await page.mouse.move(x + 20, y + 15);
+    await expectTip(x + 20, y + 15);
+    await page.mouse.move(x, y);
+  }
+
+  await page.mouse.wheel(0, -35);
+  await expect(file).not.toHaveClass(/selected/);
+  await expectTip(x, y);
+  await page.mouse.up();
+  await expect(marquee).toHaveCount(0);
+  await expect(file).not.toHaveClass(/selected/);
+});
