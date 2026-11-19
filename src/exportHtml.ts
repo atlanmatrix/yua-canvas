@@ -131,6 +131,8 @@ export function exportHtml(board: Board) {
       "--border",
       "--muted",
       "--surface",
+      "--surface-muted",
+      "--radius-card",
       "--connection-color",
     ])
       doc.documentElement.style.setProperty(

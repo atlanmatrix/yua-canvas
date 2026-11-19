@@ -1,20 +1,20 @@
 :root {
   --primary-ink: #fff;
-  --glass-surface: color-mix(in srgb, var(--surface) 61%, transparent);
+  --glass-surface: color-mix(in srgb, var(--float-surface) 92%, transparent);
   --glass-field: color-mix(in srgb, var(--surface-muted) 88%, transparent);
   --glass-thumb: color-mix(in srgb, var(--surface) 67%, transparent);
-  --glass-filter: blur(18px) saturate(145%);
+  --glass-filter: blur(12px);
   --todo-marker: #b8c2cf40;
   --glass-field-filter: blur(8px);
-  --preference-track-surface: #e2e7ef;
-  --preference-thumb-surface: #fafcff;
+  --preference-track-surface: #f1f5f9;
+  --preference-thumb-surface: #fff;
   --preference-label: #475569;
   --preference-active-label: #1d4ed8;
 }
 :root[data-theme="dark"] {
-  --primary-ink: #132442;
-  --preference-track-surface: #3b4a60;
-  --preference-thumb-surface: #64748b;
+  --primary-ink: #0b111e;
+  --preference-track-surface: #22304a;
+  --preference-thumb-surface: #2e3e5c;
   --preference-label: #c4cfdf;
   --preference-active-label: #fafcff;
 }
@@ -70,7 +70,7 @@
   body
   :is(.toolbar, .paint-controls, .canvas-navigation)
   button:is(:enabled:hover, :focus-visible, [aria-pressed="true"]) {
-  background: color-mix(in srgb, var(--accent-soft) 61%, transparent);
+  background: var(--accent-tint);
 }
 :root[data-theme] body .preference-slider {
   background: var(--glass-field);
@@ -114,23 +114,11 @@
   button:enabled:hover {
   background-color: color-mix(in srgb, var(--accent-soft) 63%, transparent);
 }
-/* A blurred pseudo-surface keeps nested fixed submenus in viewport coordinates. */
+/* A solid menu keeps nested fixed submenus in viewport coordinates. */
 :root[data-theme] body div.context-menu {
-  isolation: isolate;
-  background: transparent;
-  -webkit-backdrop-filter: none;
+  background: var(--float-surface);
   backdrop-filter: none;
-}
-:root[data-theme] body .context-menu::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  background: var(--glass-surface);
-  -webkit-backdrop-filter: var(--glass-filter);
-  backdrop-filter: var(--glass-filter);
-  pointer-events: none;
+  -webkit-backdrop-filter: none;
 }
 :root[data-theme]
   body
@@ -143,8 +131,8 @@
   outline-offset: -4px;
 }
 :root[data-theme] body nav.canvas-navigation {
-  background: rgb(255 255 255 / 63%);
-  color: #334155;
+  background: var(--glass-surface);
+  color: var(--ink);
 }
 :root[data-theme]
   body
@@ -177,7 +165,7 @@
     backdrop-filter: none;
   }
   :root[data-theme] body nav.canvas-navigation {
-    background: white;
+    background: var(--float-surface);
   }
 }
 :root[data-theme]
@@ -209,7 +197,7 @@
   )
   button:is(:enabled:hover, :focus-visible, [aria-pressed="true"]),
 :root[data-theme] body .floating-button[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--accent-soft) 61%, transparent);
+  background: var(--accent-tint);
   color: var(--accent-strong);
 }
 
@@ -287,24 +275,25 @@
     div.settings-popover,
     section.cloud-panel
   ) {
-  background: var(--surface);
+  background: var(--float-surface);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   --glass-filter: none;
   --glass-field-filter: none;
-  --glass-surface: var(--surface);
+  --glass-surface: var(--float-surface);
 }
 .modal-backdrop {
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  background: rgb(15 23 42 / 42%);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 .menu-shortcut {
   margin-left: auto;
   padding-left: 12px;
   flex-shrink: 0;
   color: var(--muted);
-  opacity: 0.7;
-  font: 10px/1.2 system-ui;
+  opacity: 1;
+  font: 12px/16px ui-monospace, monospace;
   letter-spacing: 0.02em;
   white-space: nowrap;
   pointer-events: none;
@@ -314,4 +303,74 @@
 }
 .context-submenu-host .submenu-arrow {
   margin-left: auto;
+}
+
+:root[data-theme] body :is(.toolbar, .zoom-controls, .floating-button, .canvas3d-actions > button, .minimap, .settings-popover, .context-menu) {
+  border: 1px solid var(--float-edge) !important;
+}
+:root[data-theme] body :is(.floating-button, .canvas3d-actions > button, .minimap-layer-view):where(:enabled:hover),
+:root[data-theme] body .context-menu button:not(.color-swatch, .danger):is(:enabled:hover, [aria-expanded="true"]),
+:root[data-theme] body .settings-action:is(:enabled:hover, [aria-expanded="true"]) {
+  background: var(--accent-tint);
+  color: var(--accent-strong);
+}
+.settings-action:is(:hover, [aria-expanded="true"]) svg { color: inherit; }
+:root[data-theme] body :is(.paint-tool-toggle[aria-pressed="true"], .settings-trigger[aria-expanded="true"], .canvas3d-layer.current > .canvas3d-layer-title) {
+  color: var(--primary-ink);
+  background: var(--accent);
+}
+.canvas3d-layer.current > .canvas3d-layer-title > span { color: inherit; }
+:root[data-theme] body .context-menu button.danger:hover { background: var(--danger-tint); color: var(--danger); }
+:root[data-theme] body .context-menu-section + .context-menu-section { border-top: 1px solid var(--float-edge) !important; }
+:root[data-theme] body .context-menu .color-swatch[aria-checked="true"]::after { content: none; }
+:root[data-theme] body .context-menu .color-swatch[aria-checked="true"] {
+  box-shadow: 0 0 0 1px var(--float-surface), 0 0 0 3px var(--accent);
+}
+:root[data-theme] body :is(.floating-button, .bottom-tools button, .zoom-controls button, .canvas3d-actions > button):enabled:active {
+  scale: .94;
+}
+:root[data-theme] body :is(.floating-button, .paint-tool-toggle, .zoom-controls button, .canvas3d-actions > button) {
+  transition-property: color, background-color, scale;
+  transition-duration: var(--motion-state), var(--motion-state), var(--motion-micro);
+}
+:root[data-theme] body .bottom-tools button:disabled,
+:root[data-theme] body .zoom-controls button:disabled { opacity: .38; }
+:root[data-theme] body .modal :is(input:not([type]), input[type="password"], input[type="url"], input[type="text"], input[type="email"]) {
+  min-height: max(40px, var(--action-height));
+  border-radius: 10px !important;
+  border-color: var(--float-edge) !important;
+}
+:root[data-theme] body .modal input:focus-visible { border-color: var(--focus-color) !important; }
+dialog.modal::backdrop {
+  background: rgb(15 23 42 / 42%);
+  backdrop-filter: blur(8px);
+}
+.control-tooltip {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 5px 10px;
+  max-width: calc(100vw - 16px);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--ink);
+  color: var(--surface);
+  font-weight: 500;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 18px;
+  pointer-events: none;
+  box-shadow: var(--control-shadow);
+}
+@keyframes menu-appear { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: no-preference) {
+  .context-menu, .settings-popover:popover-open { animation: menu-appear var(--motion-overlay) var(--ease-state); }
+  .modal { animation: menu-appear var(--motion-morph) var(--ease-morph); }
+  .canvas3d-page { animation: menu-appear var(--motion-spatial) var(--ease-morph); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] body :is(.floating-button, .bottom-tools button, .zoom-controls button, .canvas3d-actions > button) { transition: none; }
+}
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  .modal-backdrop, dialog.modal::backdrop { backdrop-filter: none; }
 }

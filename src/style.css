@@ -84,7 +84,7 @@ main {
   inset: 0;
   overflow: hidden;
   background-color: var(--canvas-bg);
-  background-image: radial-gradient(circle, var(--canvas-dot) 0.85px, transparent 0.9px);
+  background-image: radial-gradient(circle, var(--canvas-dot) 0.75px, transparent 0.9px);
   touch-action: none;
   user-select: none;
 }
@@ -1035,7 +1035,7 @@ body .file-detail-modal .file-content-editor {
 .context-menu {
   position: fixed;
   z-index: 80;
-  width: 208px;
+  width: 220px;
   max-width: calc(100vw - 16px);
   max-height: calc(100dvh - 16px);
   overflow-y: auto;
@@ -1333,9 +1333,9 @@ body .file-detail-modal .file-content-editor {
   stroke-width: 0.8;
 }
 .minimap-viewport {
-  fill: #2563eb0a;
+  fill: color-mix(in srgb, var(--accent) 8%, transparent);
   stroke: var(--accent);
-  stroke-width: 1;
+  stroke-width: 1.5;
   pointer-events: none;
 }
 @media (max-width: 1050px) {
@@ -1646,10 +1646,10 @@ body .note-address button.note-link-icon:is(:hover, :focus-visible) {
   padding-top: 4px;
 }
 .context-menu button.danger {
-  color: #dc2626;
+  color: var(--danger);
 }
 .context-menu button.danger:hover {
-  background: #fff1f2;
+  background: var(--danger-tint);
 }
 
 .canvas-card-preview {
@@ -1672,18 +1672,18 @@ body .note-address button.note-link-icon:is(:hover, :focus-visible) {
 }
 .canvas-card-inner-border {
   position: absolute;
-  inset: 6px;
-  width: calc(100% - 12px);
-  height: calc(100% - 12px);
+  inset: 10px;
+  width: calc(100% - 20px);
+  height: calc(100% - 20px);
   pointer-events: none;
 }
 .canvas-card-inner-border rect {
   width: calc(100% - 1px);
   height: calc(100% - 1px);
   fill: none;
-  stroke: #cbd5e1;
-  stroke-width: 1px;
-  stroke-dasharray: 12 7;
+  stroke: var(--border);
+  stroke-width: 1.5px;
+  stroke-dasharray: 5 4;
 }
 .card-canvas .group-name-editor {
   position: static;
@@ -1796,7 +1796,7 @@ body .note-address button.note-link-icon:is(:hover, :focus-visible) {
 .share-viewer > p { margin: 16px var(--action-pad-x); }
 .share-surface { position: relative; flex: 1; min-height: 0; overflow: hidden; touch-action: none; }
 .share-world { position: absolute; transform-origin: 0 0; }
-.share-card { position: absolute; border: 1px solid #ddd; border-radius: 8px; padding: 12px; overflow: auto; max-height: 1200px; box-shadow: 0 2px 8px #0001; }
+.share-card { position: absolute; border: 1px solid var(--card-outline); border-radius: var(--radius-card); padding: 12px; overflow: auto; max-height: 1200px; box-shadow: 0 2px 8px #0001; }
 .share-card img { width: 100%; height: auto; display: block; }
 .share-card ul { list-style: none; padding: 0; }
 .share-group { position: absolute; border: 1px solid #ccc; border-radius: 12px; opacity: .65; }
@@ -1856,6 +1856,7 @@ body .note-address button.note-link-icon:is(:hover, :focus-visible) {
 .card:not(.card-canvas):not(.card-miniature) { border: 1px solid var(--card-border); box-shadow: 0 3px 4px #373f5105, 0 12px 20px #373f5104; }
 
 .context-submenu-host { position: relative; }
+.submenu-bridge { position: fixed; z-index: 20; }
 .context-submenu-host > button { display: flex; justify-content: space-between; }
 .context-submenu-host > button[aria-expanded="true"] { background: var(--accent-soft); }
 .submenu-arrow { margin-left: 24px; font-size: 18px; line-height: 14px; color: var(--muted); }
@@ -1977,9 +1978,9 @@ body .note-address button.note-link-icon:is(:hover, :focus-visible) {
   border-radius: 7px !important;
 }
 .display-mode-options > button[aria-checked="true"] {
-  background: #18181b !important;
-  color: white !important;
-  border-color: #18181b !important;
+  background: var(--accent) !important;
+  color: var(--primary-ink) !important;
+  border-color: var(--accent) !important;
 }
 .group-boundary:has(> .group-list) {
   pointer-events: auto;
@@ -2529,3 +2530,10 @@ body .note-address button.note-link-icon:is(:hover, :focus-visible) {
   border-radius: 50%;
   background: var(--surface);
 }
+
+
+/* The transformed world keeps its own card and connector stacking order. */
+.floating-top, .bottom-tools, .zoom-controls, .help-button, .pin-bar, .canvas-overview { z-index: 20; }
+.context-menu { z-index: 30; }
+.modal-backdrop { z-index: 40; }
+.toast { z-index: 50; }

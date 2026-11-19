@@ -167,8 +167,8 @@ test("the gray canvas frame matches the full overview area across zoom, filters 
       return {
         x: -m.e / m.a,
         y: -m.f / m.d,
-        width: 200 / m.a,
-        height: 132 / m.d,
+        width: 180 / m.a,
+        height: 116 / m.d,
       };
     });
     for (const key of ["x", "y", "width", "height"] as const)

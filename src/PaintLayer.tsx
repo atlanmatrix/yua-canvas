@@ -75,9 +75,12 @@ export function PaintLayer({
       y: (p.clientY - r.top - view.y) / view.z,
     }));
   };
+  const diameter = Math.max(8, Math.round(width * view.z));
+  const cursor = `<svg xmlns="http://www.w3.org/2000/svg" width="${diameter + 4}" height="${diameter + 4}" viewBox="-2 -2 ${diameter + 4} ${diameter + 4}"><circle cx="${diameter/2}" cy="${diameter/2}" r="${diameter/2}" fill="none" stroke="white" stroke-width="3"/><circle cx="${diameter/2}" cy="${diameter/2}" r="${diameter/2}" fill="none" stroke="black"/></svg>`;
   return (
     <svg
       ref={surface}
+      style={active ? { cursor: `url("data:image/svg+xml,${encodeURIComponent(cursor)}") ${Math.round(diameter / 2) + 2} ${Math.round(diameter / 2) + 2}, crosshair` } : undefined}
       className={`paint-layer ${active ? "paint-active" : ""}`}
       aria-label={tr("画笔图层")}
       onPointerDown={(e) => {

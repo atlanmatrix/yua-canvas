@@ -152,6 +152,7 @@ export function ShareViewer({ token }: { token: string }) {
     view,
     tapsEnabled: false,
     minZoom: 0.05,
+    maxZoom: 3,
     onViewChange: setView,
     onCancel: () => {
       drag.current = undefined;

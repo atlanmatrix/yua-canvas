@@ -416,7 +416,7 @@ test("English and dark/system preferences update live, preserve user content and
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.locator(".canvas")).toHaveCSS(
     "background-color",
-    "rgb(23, 27, 34)",
+    "rgb(11, 17, 30)",
   );
   await page
     .locator(".canvas")

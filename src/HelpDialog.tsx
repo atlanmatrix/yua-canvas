@@ -1,3 +1,4 @@
+import { ModalBackdrop } from "./ModalBackdrop";
 import { t as tr } from "./i18n";
 import { useEffect, useState } from "react";
 import { CircleHelp, X } from "./icons";
@@ -57,13 +58,13 @@ export function HelpDialog() {
       <button
         className="help-button floating-button"
         aria-label={tr("使用说明")}
-        title={tr("使用说明 (?)")}
+        data-tooltip={tr("使用说明 (?)")}
         onClick={() => setOpen(true)}
       >
         <CircleHelp size={19} />
       </button>
       {open && (
-        <div
+        <ModalBackdrop
           className="modal-backdrop"
           onClick={(e) => {
             if (e.target === e.currentTarget) setOpen(false);
@@ -177,7 +178,7 @@ export function HelpDialog() {
               </dl>
             </div>
           </section>
-        </div>
+        </ModalBackdrop>
       )}
     </>
   );

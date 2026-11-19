@@ -157,7 +157,7 @@ export function CanvasOverview({
       <button
         className="minimap-layer-view"
         aria-label={tr("分层视图")}
-        title={tr("分层视图")}
+        data-tooltip={tr("分层视图")}
         onClick={() => {
           setMenu(undefined);
           onPreview3D();

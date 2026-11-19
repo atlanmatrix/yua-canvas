@@ -1,3 +1,4 @@
+import { ModalBackdrop } from "./ModalBackdrop";
 import { t as tr } from "./i18n";
 import { useState } from "react";
 import { Download, X } from "./icons";
@@ -18,7 +19,7 @@ export function LocalLauncherDialog({
   const [downloaded, setDownloaded] = useState(false);
   const [error, setError] = useState("");
   return (
-    <div className="modal-backdrop">
+    <ModalBackdrop className="modal-backdrop">
       <div
         className="modal compact local-launcher-dialog"
         role="dialog"
@@ -81,6 +82,6 @@ export function LocalLauncherDialog({
           </button>
         </div>
       </div>
-    </div>
+    </ModalBackdrop>
   );
 }

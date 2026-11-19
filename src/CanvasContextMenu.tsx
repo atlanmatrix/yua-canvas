@@ -1,3 +1,4 @@
+import { navigateMenu } from "./menuKeyboard";
 import { t as tr } from "./i18n";
 import { ChevronRight } from "./icons";
 import {
@@ -8,6 +9,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type CSSProperties,
   type Dispatch,
   type SetStateAction,
   type RefObject,
@@ -125,6 +127,12 @@ export function CanvasContextMenu({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!ref.current?.contains(document.activeElement))
+      ref.current
+        ?.querySelector<HTMLButtonElement>("button:enabled")
+        ?.focus({ preventScroll: true });
+  }, []);
   const [position, setPosition] = useState({
     x: Number.isFinite(x) ? x : 8,
     y: Number.isFinite(y) ? y : 8,
@@ -165,6 +173,7 @@ export function CanvasContextMenu({
         ref={ref}
         className="context-menu"
         role="menu"
+        onKeyDown={navigateMenu}
         onKeyDownCapture={() => {
           mode.current = "keyboard";
         }}
@@ -207,7 +216,11 @@ export function ContextSubmenu({
           value ? id : current === id ? undefined : current,
         )
       : setLocalOpen(value);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState<{
+    x: number;
+    y: number;
+    bridge?: CSSProperties;
+  }>({ x: 0, y: 0 });
   const trigger = useRef<HTMLButtonElement>(null);
   const submenu = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -219,37 +232,59 @@ export function ContextSubmenu({
     if (!open) return;
     const place = () => {
       const anchor = trigger.current?.getBoundingClientRect();
-      const bounds = submenu.current?.getBoundingClientRect();
-      if (!anchor || !bounds) return;
-      const preferred = anchor.right + 4;
+      const element = submenu.current;
+      if (!anchor || !element) return;
+      const bounds = element.getBoundingClientRect();
+      const parent =
+        trigger.current
+          ?.closest(".context-menu, .settings-popover")
+          ?.getBoundingClientRect() ?? anchor;
+      const inset =
+        element.clientTop + parseFloat(getComputedStyle(element).paddingTop);
+      const preferred = parent.right + 8;
       const below =
         preferred + bounds.width > innerWidth - 8 &&
-        anchor.left - bounds.width - 4 < 8;
-      setPosition({
-        x: Math.max(
-          8,
-          Math.min(
-            below
-              ? anchor.left
-              : preferred + bounds.width <= innerWidth - 8
-                ? preferred
-                : anchor.left - bounds.width - 4,
-            innerWidth - bounds.width - 8,
-          ),
+        parent.left - bounds.width - 8 < 8;
+      const opensRight = preferred + bounds.width <= innerWidth - 8;
+      const x = Math.max(
+        8,
+        Math.min(
+          below
+            ? anchor.left
+            : opensRight
+              ? preferred
+              : parent.left - bounds.width - 8,
+          innerWidth - bounds.width - 8,
         ),
-        y: Math.max(
-          8,
-          Math.min(
-            below
-              ? anchor.bottom + 4 + bounds.height <= innerHeight - 8
-                ? anchor.bottom + 4
-                : anchor.top - bounds.height - 4
-              : anchor.top -
-                  parseFloat(getComputedStyle(submenu.current!).paddingTop),
-            innerHeight - bounds.height - 8,
-          ),
+      );
+      const y = Math.max(
+        8,
+        Math.min(
+          below
+            ? anchor.bottom + 8 + bounds.height <= innerHeight - 8
+              ? anchor.bottom + 8
+              : anchor.top - bounds.height - 8
+            : anchor.top - inset,
+          innerHeight - bounds.height - 8,
         ),
-      });
+      );
+      // Span the gap from the trigger edge to both near corners of the panel.
+      // The clipped hit area stays out of adjacent rows while moving diagonally.
+      const top = Math.min(y, anchor.top);
+      const near = opensRight ? "0%" : "100%";
+      const far = opensRight ? "100%" : "0%";
+      const bridge = below
+        ? undefined
+        : {
+            left: opensRight ? anchor.right : x + bounds.width,
+            top,
+            width: opensRight
+              ? x - anchor.right
+              : anchor.left - x - bounds.width,
+            height: Math.max(anchor.bottom, y + bounds.height) - top,
+            clipPath: `polygon(${near} ${anchor.top - top}px, ${far} ${y - top}px, ${far} ${y + bounds.height - top}px, ${near} ${anchor.bottom - top}px)`,
+          };
+      setPosition({ x, y, bridge });
       if (focusFirst.current) {
         submenu.current
           ?.querySelector<HTMLButtonElement>("button:not(:disabled)")
@@ -259,7 +294,10 @@ export function ContextSubmenu({
     };
     place();
     window.addEventListener("resize", place);
+    const panel = trigger.current?.closest(".settings-popover, .context-menu");
+    panel?.addEventListener("scroll", place);
     return () => {
+      panel?.removeEventListener("scroll", place);
       window.removeEventListener("resize", place);
       cancelClose();
     };
@@ -307,7 +345,11 @@ export function ContextSubmenu({
           setOpen(true);
         }}
         onKeyDown={(e) => {
-          if (["ArrowRight", "ArrowDown"].includes(e.key)) {
+          const settings = !!trigger.current?.closest(".settings-popover");
+          if (
+            e.key === "ArrowRight" ||
+            (settings ? e.key === "ArrowLeft" : e.key === "ArrowDown")
+          ) {
             e.preventDefault();
             e.stopPropagation();
             focusFirst.current = true;
@@ -328,6 +370,13 @@ export function ContextSubmenu({
         <span>{label}</span>
         <ChevronRight className="submenu-arrow" size={14} aria-hidden="true" />
       </button>
+      {open && position.bridge && (
+        <span
+          aria-hidden="true"
+          className="submenu-bridge"
+          style={position.bridge}
+        />
+      )}
       {open && (
         <div
           ref={submenu}
@@ -336,32 +385,17 @@ export function ContextSubmenu({
           aria-label={menuLabel || tr("{0}组件", label)}
           style={{ left: position.x, top: position.y }}
           onKeyDown={(e) => {
-            if (["Escape", "ArrowLeft"].includes(e.key)) {
+            if (
+              ["Escape", "ArrowLeft"].includes(e.key) ||
+              (e.key === "ArrowRight" &&
+                trigger.current?.closest(".settings-popover"))
+            ) {
               e.stopPropagation();
               e.preventDefault();
               close();
               return;
             }
-            if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key))
-              return;
-            e.stopPropagation();
-            e.preventDefault();
-            const items = [
-              ...e.currentTarget.querySelectorAll<HTMLButtonElement>(
-                "button:not(:disabled)",
-              ),
-            ];
-            const current = items.indexOf(
-              document.activeElement as HTMLButtonElement,
-            );
-            const next =
-              e.key === "Home"
-                ? 0
-                : e.key === "End"
-                  ? items.length - 1
-                  : (current + (e.key === "ArrowUp" ? -1 : 1) + items.length) %
-                    items.length;
-            items[next]?.focus();
+            navigateMenu(e);
           }}
         >
           {children}

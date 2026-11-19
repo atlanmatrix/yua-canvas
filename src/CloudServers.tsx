@@ -1,3 +1,4 @@
+import { ModalBackdrop } from "./ModalBackdrop";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { ContextSubmenu } from "./CanvasContextMenu";
@@ -126,7 +127,7 @@ export function CloudServers(props: {
       ))}
       {adding &&
         createPortal(
-          <div className="modal-backdrop">
+          <ModalBackdrop className="modal-backdrop">
             <form
               className="modal compact cloud-panel"
               role="dialog"
@@ -193,11 +194,11 @@ export function CloudServers(props: {
                 />
               </label>
               {error && <p role="alert">{tr(error)}</p>}
-              <button type="submit" className="cloud-primary">
+              <button type="submit" className="cloud-primary" disabled={!name.trim() || !address.trim()}>
                 {tr("确认")}
               </button>
             </form>
-          </div>,
+          </ModalBackdrop>,
           document.body,
         )}
     </>

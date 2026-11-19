@@ -1,3 +1,4 @@
+import { ModalBackdrop } from "./ModalBackdrop";
 import { t as tr } from "./i18n";
 import { useEffect, useRef, useState } from "react";
 import { Box, X } from "./icons";
@@ -258,7 +259,7 @@ export function MiniatureDialog({
   const [value, setValue] = useState(card.text);
   const [error, setError] = useState("");
   return (
-    <div
+    <ModalBackdrop
       className="modal-backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -346,6 +347,6 @@ export function MiniatureDialog({
           </button>
         </div>
       </form>
-    </div>
+    </ModalBackdrop>
   );
 }

@@ -124,7 +124,7 @@ test("moving cards, zooming and rejecting invalid imports", async ({
   const after = await card.boundingBox();
   expect(after!.x - before!.x).toBeCloseTo(100, 0);
   await expect(page.getByTestId("card")).toHaveCount(2);
-  await page.getByTitle("重置缩放 (1)").click();
+  await page.locator(".zoom-percentage").click();
   await page.getByRole("button", { name: "放大", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "120%", exact: true }),

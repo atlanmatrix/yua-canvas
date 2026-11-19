@@ -361,3 +361,41 @@
     gap: 5px;
   }
 }
+
+.tool-calculator { container-type: size; }
+.tool-calculator .tool-heading { flex: none; padding: 10px 16px 6px; min-height: 32px; }
+.tool-calculator .tool-body {
+  --key-space: 8px;
+  --key-size: clamp(24px, min((100cqw - 56px) / 4, (100cqh - 126px) / 5), 48px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 16px 8px;
+}
+:root body input.calculator-display {
+  min-height: 0;
+  flex: 1 1 64px;
+  max-height: 64px;
+  width: 100%;
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 10px !important;
+  font: 500 clamp(16px, 10cqw, 24px)/1.25 ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.calculator-keys {
+  justify-content: center;
+  grid-template-columns: repeat(4, var(--key-size));
+  grid-auto-rows: var(--key-size);
+  gap: var(--key-space);
+}
+.calculator-keys button { width: 100%; min-height: 0; padding: 0; }
+.calculator-history:empty { display: none; }
+.calculator-history:not(:empty) {
+  flex: 0 1 auto;
+  max-height: 35px;
+  min-height: 16px;
+  overflow: auto;
+  margin: 0;
+}
+.tool-calculator .tool-error { margin: 0; }

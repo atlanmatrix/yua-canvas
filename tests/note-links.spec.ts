@@ -35,7 +35,7 @@ test("pasted web URLs highlight only with modifiers, preserve text and remain ed
   await expect(card).toHaveCount(1);
   await expect(link).toHaveText(text.trim());
   await expect(card.locator(".note-body")).toHaveText(text);
-  await expect(link).toHaveCSS("color", "rgb(51, 65, 85)");
+  await expect(link).toHaveCSS("color", "rgb(15, 23, 42)");
   await expect(link).toHaveCSS("text-decoration-line", "none");
   await expect(link).toHaveCSS("cursor", "grab");
   for (const modifier of ["Meta", "Control"]) {
@@ -244,7 +244,7 @@ test("link icons only offer unlink, and pasted email and web addresses can be re
     await expect(icon).toHaveCSS("border-radius", "999px");
     await expect(icon).toHaveCSS("width", "32px");
     await expect(icon).toHaveCSS("height", "32px");
-    await expect(card).toHaveCSS("background-color", "rgb(237, 240, 244)");
+    await expect(card).toHaveCSS("background-color", "rgb(241, 245, 249)");
     await expect(icon).toHaveCSS("background-color", "rgb(255, 255, 255)");
     await expect(icon.locator("svg")).toHaveAttribute(
       "data-ui-icon",
@@ -252,7 +252,7 @@ test("link icons only offer unlink, and pasted email and web addresses can be re
     );
 
     await icon.hover();
-    await expect(icon).toHaveCSS("background-color", "rgb(237, 240, 244)");
+    await expect(icon).toHaveCSS("background-color", "rgb(241, 245, 249)");
     await icon.click({ modifiers: ["Control"] });
     await expect(page.getByRole("menu")).toHaveCount(0);
     expect(context.pages()).toHaveLength(tabs);
@@ -291,14 +291,14 @@ test("link icons only offer unlink, and pasted email and web addresses can be re
   }
   await page.emulateMedia({ colorScheme: "dark" });
   const capsule = page.getByTestId("card").last();
-  await expect(capsule).toHaveCSS("background-color", "rgb(44, 51, 64)");
+  await expect(capsule).toHaveCSS("background-color", "rgb(34, 48, 74)");
   await expect(capsule.getByRole("button", { name: "链接选项" })).toHaveCSS(
     "background-color",
-    "rgb(35, 40, 50)",
+    "rgb(19, 28, 46)",
   );
   await expect(capsule.getByRole("link")).toHaveCSS(
     "color",
-    "rgb(224, 230, 239)",
+    "rgb(248, 250, 252)",
   );
 });
 

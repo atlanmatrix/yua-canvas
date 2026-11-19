@@ -1,3 +1,4 @@
+import { ModalBackdrop } from "./ModalBackdrop";
 import { t as tr } from "./i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -369,7 +370,7 @@ export function CloudPanel({
     <>
       {open &&
         createPortal(
-          <div className="modal-backdrop">
+          <ModalBackdrop className="modal-backdrop">
             <section
               className="modal compact cloud-panel"
               inert={confirmLogout}
@@ -632,13 +633,13 @@ export function CloudPanel({
                 </>
               )}
             </section>
-          </div>,
+          </ModalBackdrop>,
           document.body,
         )}
       {open &&
         confirmLogout &&
         createPortal(
-          <div className="modal-backdrop cloud-confirm-backdrop">
+          <ModalBackdrop className="modal-backdrop cloud-confirm-backdrop">
             <section
               className="modal compact cloud-panel"
               role="alertdialog"
@@ -678,7 +679,7 @@ export function CloudPanel({
                 </button>
               </div>
             </section>
-          </div>,
+          </ModalBackdrop>,
           document.body,
         )}
     </>

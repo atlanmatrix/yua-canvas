@@ -102,7 +102,7 @@ function CopyCommandButton({ copy }: { copy: () => Promise<boolean> }) {
     <button
       type="button"
       aria-label={tr("复制命令")}
-      title={tr(copiedAt ? "命令已复制" : "复制命令")}
+      data-tooltip={tr(copiedAt ? "命令已复制" : "复制命令")}
       data-copied={copiedAt ? true : undefined}
       onClick={async () => setCopiedAt((await copy()) ? performance.now() : 0)}
     >
@@ -805,7 +805,7 @@ export const CanvasCard = memo(function CanvasCard({
                 aria-label={tr(
                   c.kind === "vscode" ? "在 VS Code 中打开" : "执行命令",
                 )}
-                title={tr(
+                data-tooltip={tr(
                   c.kind === "vscode"
                     ? "在 VS Code 中打开"
                     : "在 iTerm2 中执行",
@@ -834,7 +834,7 @@ export const CanvasCard = memo(function CanvasCard({
                   ? tr("切换为换行模式")
                   : tr("切换为滚动模式")
               }
-              title={c.textMode === "scroll" ? tr("换行") : tr("滚动")}
+              data-tooltip={c.textMode === "scroll" ? tr("换行") : tr("滚动")}
               aria-pressed={c.textMode === "scroll"}
               onClick={() => {
                 const textMode = c.textMode === "scroll" ? "wrap" : "scroll";
@@ -879,7 +879,7 @@ export const CanvasCard = memo(function CanvasCard({
                       ? "Mermaid"
                       : "文本"),
               )}
-              title={tr("下载")}
+              data-tooltip={tr("下载")}
               onPointerDown={(e) => {
                 e.stopPropagation();
               }}
@@ -895,7 +895,7 @@ export const CanvasCard = memo(function CanvasCard({
         <button
           className="card-more"
           aria-label={tr("更多组件操作")}
-          title={tr("更多")}
+          data-tooltip={tr("更多")}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           onClick={(e) => {

@@ -30,7 +30,7 @@ body.is-grabbing * {
 article {
   position: absolute;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   box-shadow: 0 3px 12px #0001;
 }
 article > img {

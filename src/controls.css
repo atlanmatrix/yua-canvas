@@ -1,9 +1,9 @@
 :root {
-  --control-shadow: 0 2px 6px #25344d0a, 0 5px 16px #25344d0a;
+  --control-shadow: 0 4px 16px rgb(15 23 42 / 8%);
   --panel-shadow: 0 8px 28px #25344d16, 0 24px 64px #25344d0c;
 }
 :root[data-theme="dark"] {
-  --control-shadow: 0 2px 8px #0003, 0 5px 18px #0002;
+  --control-shadow: 0 8px 24px rgb(0 0 0 / 42%);
   --panel-shadow: 0 10px 32px #0005, 0 24px 64px #0003;
 }
 /* Controls are flat by default; only standalone surfaces opt into elevation. */
@@ -108,18 +108,17 @@ body .context-menu {
   border: 0;
   border-radius: var(--radius-menu);
   box-shadow: var(--panel-shadow);
-  padding: 8px;
+  padding: 6px;
 }
 body .context-menu button:not(.color-swatch) {
   border-radius: 8px !important;
   box-shadow: none;
 }
 body .context-menu button[role="menuitem"] {
-  min-height: var(--action-height);
+  font-size: 14px;
+  line-height: 20px;
+  min-height: max(34px, var(--action-height));
   padding: 4px var(--action-pad-x);
-}
-body .context-menu .color-swatch[aria-checked="true"]::after {
-  content: none;
 }
 body a:focus-visible {
   border: 1px solid var(--accent);
@@ -359,7 +358,7 @@ body :is(.toast, .share-viewer > header) {
 }
 /* The overview keeps its full rectangular projection and hit area. */
 body .minimap {
-  border-radius: var(--radius-menu) !important;
+  border-radius: 12px !important;
   padding: 0;
 }
 /* Floating groups only intercept input on their actual controls, never in gaps. */
@@ -406,16 +405,16 @@ body .settings-menu {
 }
 body .settings-popover {
   position: fixed;
-  inset: 70px 20px auto auto;
+  inset: 64px 16px auto auto;
   margin: 0;
-  width: min(304px, calc(100vw - 24px));
+  width: min(248px, calc(100vw - 24px));
   max-height: calc(100dvh - 90px);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 8px;
   border: 0;
-  border-radius: 16px;
-  background: var(--surface);
+  border-radius: var(--radius-menu);
+  background: var(--float-surface);
   color: var(--ink);
   box-shadow: var(--panel-shadow);
 }
@@ -458,15 +457,16 @@ body .settings-popover .settings-action {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
-  min-height: var(--action-height);
+  min-height: max(36px, var(--action-height));
   padding: 4px var(--action-pad-x);
   border-radius: 8px !important;
   background: transparent;
   color: var(--ink);
   text-align: start;
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 20px;
 }
 .settings-action svg {
   flex-shrink: 0;

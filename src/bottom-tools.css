@@ -1,9 +1,10 @@
 /* Both sets stay mounted so reversing a transition never tears down a tool. */
 .bottom-tools {
-  --tool-size: 37px;
-  --dock-height: 51px;
-  --creation-width: 264px;
-  --paint-width: 292px;
+  --tool-size: 36px;
+  --dock-height: 48px;
+  --brush-size: 40px;
+  --creation-width: 248px;
+  --paint-width: 312px;
   --tool-ink: var(--muted);
   display: flex;
   align-items: center;
@@ -14,19 +15,19 @@
   display: flex;
   align-items: center;
   flex: 0 0 auto;
-  width: var(--dock-height);
-  height: var(--dock-height);
+  width: var(--brush-size);
+  height: var(--brush-size);
   border-radius: 999px;
   background: var(--glass-surface);
   backdrop-filter: var(--glass-filter);
-  box-shadow: var(--control-shadow);
-  transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 0 0 1px var(--float-edge), var(--control-shadow);
+  transition: width var(--motion-morph) var(--ease-morph);
 }
 .bottom-tools .paint-tool-toggle {
   position: static;
-  flex: 0 0 var(--dock-height);
-  width: var(--dock-height);
-  height: var(--dock-height);
+  flex: 0 0 var(--brush-size);
+  width: var(--brush-size);
+  height: var(--brush-size);
   border: 0;
   border-radius: 999px;
   color: var(--tool-ink);
@@ -42,7 +43,7 @@ body .bottom-tools .paint-controls {
   transform: translateX(-12px);
   max-width: none;
   height: var(--dock-height);
-  width: calc(var(--paint-width) - var(--dock-height));
+  width: calc(var(--paint-width) - var(--brush-size));
   box-sizing: border-box;
   padding: 7px 10px 7px 0;
   gap: 5px;
@@ -52,8 +53,8 @@ body .bottom-tools .paint-controls {
   box-shadow: none;
   opacity: 0;
   transition:
-    opacity 180ms ease,
-    transform 350ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    opacity 130ms ease,
+    transform 130ms var(--ease-morph);
 }
 .bottom-tools .paint-controls > button {
   width: 30px;
@@ -63,7 +64,7 @@ body .bottom-tools .paint-controls {
   gap: 6px;
 }
 .bottom-tools .paint-controls input[type="range"] {
-  width: 64px;
+  width: 88px;
 }
 .bottom-tools .paint-controls output {
   width: 18px;
@@ -73,25 +74,28 @@ body .bottom-tools .paint-controls {
   flex: 0 0 auto;
   width: var(--creation-width);
   height: var(--dock-height);
-  transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width var(--motion-morph) var(--ease-morph);
 }
 .bottom-tools .toolbar {
   height: 100%;
+  padding: 5px;
+  gap: 4px;
   width: 100%;
   box-sizing: border-box;
   overflow: hidden;
-  transition: gap 600ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: gap var(--motion-morph) var(--ease-morph);
 }
 .bottom-tools .toolbar > button {
   flex: 0 0 auto;
   width: var(--tool-size);
+  height: var(--tool-size);
   opacity: 1;
   transform: scale(1);
   overflow: hidden;
   transition:
-    width 600ms cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 200ms ease 180ms,
-    transform 400ms cubic-bezier(0.4, 0, 0.2, 1);
+    width var(--motion-morph) var(--ease-morph),
+    opacity var(--motion-micro) ease 90ms,
+    transform var(--motion-morph) var(--ease-morph);
 }
 body
   .bottom-tools
@@ -125,11 +129,12 @@ body
 }
 .bottom-tools[data-drawing="true"] .paint-dock {
   width: var(--paint-width);
+  height: var(--dock-height);
 }
 body .bottom-tools[data-drawing="true"] .paint-controls {
   opacity: 1;
   transform: translateX(0);
-  transition-delay: 200ms;
+  transition-delay: 110ms;
 }
 .bottom-tools[data-drawing="true"] .toolbar-slot {
   width: var(--dock-height);
@@ -147,13 +152,14 @@ body .bottom-tools[data-drawing="true"] .paint-controls {
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
-  transition-delay: 330ms;
+  transition-delay: 90ms;
 }
 @media (max-width: 700px) {
   .bottom-tools {
     --tool-size: 31px;
     --dock-height: 44px;
-    --creation-width: 199px;
+    --brush-size: 40px;
+    --creation-width: 218px;
     --paint-width: 254px;
     gap: 12px;
   }
@@ -193,11 +199,12 @@ body .bottom-tools[data-drawing="true"] .paint-controls {
   padding: 3px;
 }
 .zoom-controls button {
+  color: var(--muted);
   min-width: var(--action-height);
   height: var(--action-height);
 }
 .zoom-controls .zoom-percentage {
-  width: max(46px, var(--action-height));
+  width: max(52px, var(--action-height));
   padding-inline: 3px;
   font: 500 12px/16px system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
@@ -220,6 +227,7 @@ body .bottom-tools[data-drawing="true"] .paint-controls {
   }
   .bottom-tools {
     --dock-height: 50px;
+    --brush-size: var(--dock-height);
     /* Reserve the other dock, the gap and both viewport gutters. */
     --available-dock-width: calc(
       100vw - 24px - var(--dock-height) - var(--action-gap)
@@ -291,3 +299,26 @@ body .bottom-tools[data-drawing="true"] .paint-controls {
     display: none;
   }
 }
+
+@media (min-width: 1051px) {
+  .bottom-tools, .zoom-controls { bottom: 20px; }
+  .floating-top { inset: 16px 16px auto; }
+  .canvas-overview { left: 16px; bottom: 16px; width: 210px; height: 116px; }
+  .canvas-overview .minimap { width: 180px; height: 116px; }
+  .canvas-levels { left: 185px; }
+  .help-button { right: 16px; bottom: 20px; }
+  .zoom-controls { right: 68px; }
+}
+@media (pointer: fine) {
+  .bottom-tools .toolbar svg { width: 18px; height: 18px; }
+  .bottom-tools .paint-controls button { flex-shrink: 0; }
+  .minimap-layer-view { width: 28px; height: 28px; }
+}
+
+.bottom-tools .paint-controls output {
+  width: 26px;
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.bottom-tools .paint-controls output span { font-size: 10px; }

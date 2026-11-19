@@ -1,3 +1,4 @@
+import { ModalBackdrop } from "./ModalBackdrop";
 import {
   useLayoutEffect,
   useMemo,
@@ -495,7 +496,7 @@ export function FlowchartEditor({
   const detail = node || edge;
 
   return (
-    <div className="modal-backdrop flow-backdrop" onKeyDown={onKeyDown}>
+    <ModalBackdrop className="modal-backdrop flow-backdrop" onKeyDown={onKeyDown}>
       <div
         className="modal flow-editor"
         role="dialog"
@@ -891,7 +892,7 @@ export function FlowchartEditor({
           </span>
         </footer>
       </div>
-    </div>
+    </ModalBackdrop>
   );
 }
 

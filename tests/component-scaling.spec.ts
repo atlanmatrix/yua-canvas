@@ -190,7 +190,7 @@ for (const dpr of [1, 2])
           }),
         },
       ]);
-      await page.getByTitle("重置缩放 (1)", { exact: true }).click();
+      await page.locator(".zoom-percentage").click();
       const noteBody = page.locator('[data-card-id="note"] .note-body p');
       const code = page.locator(
         '[data-card-id="code"] .file-content-thumbnail',
@@ -203,13 +203,13 @@ for (const dpr of [1, 2])
         code,
         page.locator(".todo-row [data-task-text]"),
         page.locator(".app-terminal pre"),
-        page.locator(".calculator-display"),
         page.getByRole("textbox", { name: "发送给 Agent" }),
         page.locator(".agent-message > div"),
       ]) {
         await expect(el).toHaveCSS("font-size", "13px");
         expect(await visualFont(el)).toBeCloseTo(13, 2);
       }
+      await expect(page.locator(".calculator-display")).toHaveCSS("font-size", "24px");
       expect(
         await page.locator(".agent-messages").evaluate((el) => el.clientHeight),
       ).toBeGreaterThanOrEqual(48);

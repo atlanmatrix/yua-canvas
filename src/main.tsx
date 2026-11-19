@@ -1,3 +1,4 @@
+import { ModalBackdrop } from "./ModalBackdrop";
 import { moveIntoCanvas } from "./canvasHierarchy";
 import { useCanvasTouch } from "./useCanvasTouch";
 import { useCanvasWheelGuard } from "./useCanvasWheelGuard";
@@ -208,6 +209,8 @@ import { HelpDialog } from "./HelpDialog";
 import { type PinnedItem } from "./pins";
 import { useMinimapGeometry } from "./minimapGeometry";
 import { ConnectionTargetDialog } from "./ConnectionTargetDialog";
+import { MIN_CANVAS_ZOOM, MAX_CANVAS_ZOOM } from "./storage";
+import { installTooltips } from "./tooltips";
 import "./style.css";
 import "./address.css";
 import "./tools.css";
@@ -1071,12 +1074,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         text: kind === "agent" ? JSON.stringify(defaultAgent) : "{}",
         color: colors[0],
         displayMode: kind === "agent" ? "large" : "medium",
-        width: kind === "agent" ? 400 : 360,
+        width: kind === "agent" ? 400 : kind === "calculator" ? 268 : 360,
         height:
           kind === "agent"
             ? 560
             : kind === "calculator"
-              ? 440
+              ? 380
               : kind === "calendar" || kind === "weather"
                 ? 370
                 : 290,
@@ -1313,6 +1316,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       {
         id: uid(),
         kind: "todo",
+        width: 280,
         displayMode: "medium",
         title: "",
         text: "",
@@ -1358,10 +1362,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setSelection([card.id]);
     openCard(card);
   }, [preview3D, ready, pending3DOpen, board, JSON.stringify(path)]);
-  const zoom = (factor: number) => {
+  const zoom = (delta: number | "reset") => {
     const r = surface.current!.getBoundingClientRect();
     setView((v) => {
-      const z = Math.min(3, Math.max(0.2, v.z * factor));
+      const z = delta === "reset" ? 1 : Math.min(MAX_CANVAS_ZOOM, Math.max(MIN_CANVAS_ZOOM, Math.round((v.z + delta) * 100) / 100));
       return {
         z,
         x: r.width / 2 - ((r.width / 2 - v.x) * z) / v.z,
@@ -2200,6 +2204,14 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             ?.focus({ preventScroll: true });
           return;
         }
+        if (menu) {
+          setMenu(null);
+          const target = menu.kind === "card"
+            ? surface.current?.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(menu.id)}"]`)
+            : surface.current;
+          target?.focus({ preventScroll: true });
+          return;
+        }
         if (tool === "draw") setTool("select");
         if (editSession.current && detail === editSession.current.id)
           finishEditing(detail, true);
@@ -2370,16 +2382,16 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         if (card) openCard(card);
       } else if (key === "+" || key === "=") {
         e.preventDefault();
-        zoom(1.2);
+        zoom(0.2);
       } else if (key === "-") {
         e.preventDefault();
-        zoom(1 / 1.2);
+        zoom(-0.2);
       } else if (key === "0") {
         e.preventDefault();
         fit(visible);
       } else if (key === "1") {
         e.preventDefault();
-        zoom(1 / view.z);
+        zoom("reset");
       }
     };
     const up = (e: KeyboardEvent) => {
@@ -2809,11 +2821,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         <div
           className={"canvas " + (tool === "hand" ? "hand-tool" : "")}
           ref={surface}
+          tabIndex={-1}
           style={
             {
               "--canvas-zoom": view.z,
               backgroundPosition: `${view.x}px ${view.y}px`,
-              backgroundSize: `${24 * view.z}px ${24 * view.z}px`,
+              backgroundSize: `var(--grid-step) var(--grid-step)`,
+              "--grid-step": `${(view.z < 0.4 ? 48 : 24) * view.z}px`,
             } as React.CSSProperties
           }
           onPointerMoveCapture={touch.move}
@@ -2862,8 +2876,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 py = e.clientY - r.top;
               setView((v) => {
                 const z = Math.min(
-                  3,
-                  Math.max(0.2, v.z * Math.exp(-e.deltaY * 0.006)),
+                  MAX_CANVAS_ZOOM,
+                  Math.max(MIN_CANVAS_ZOOM, v.z * Math.exp(-e.deltaY * 0.006)),
                 );
                 const next = {
                   z,
@@ -3102,7 +3116,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             <button
               className="paint-tool-toggle"
               aria-label={tr("画笔")}
-              title={tr("画笔 (P)")}
+              data-tooltip={tr("画笔 (P)")}
               aria-pressed={tool === "draw"}
               aria-expanded={tool === "draw"}
               aria-controls="bottom-paint-tools"
@@ -3113,7 +3127,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 setMenu(null);
               }}
             >
-              <Paintbrush size={20} />
+              <Paintbrush size={18} />
             </button>
             <div className="paint-tools-reveal" id="bottom-paint-tools">
               <PaintControls
@@ -3139,20 +3153,38 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           <div className="toolbar-slot">
             <div
               className="toolbar"
+              role="toolbar"
+              aria-label={tr("新建")}
+              onFocus={(e) => {
+                const tools = [...e.currentTarget.querySelectorAll("button")];
+                tools.forEach(button => { button.tabIndex = button === document.activeElement ? 0 : -1; });
+              }}
+              onKeyDown={(e) => {
+                if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+                const tools = [...e.currentTarget.querySelectorAll<HTMLButtonElement>("button:enabled")];
+                const i = tools.indexOf(e.target as HTMLButtonElement);
+                if (i < 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const next = e.key === "Home" ? 0 : e.key === "End" ? tools.length - 1 :
+                  (i + (e.key === "ArrowLeft" ? -1 : 1) + tools.length) % tools.length;
+                tools[next].focus();
+              }}
               inert={tool === "draw"}
               aria-hidden={tool === "draw"}
             >
               <button
-                title={tr("添加任务 (T)")}
+                data-tooltip={tr("添加任务 (T)")}
                 aria-label={tr("添加任务")}
                 disabled={!ready}
                 onPointerDown={(e) => startToolbarDrag(e, "todo")}
                 onClick={() => toolbarClick(() => addTodo())}
               >
-                <ListTodo size={20} />
+                <ListTodo size={18} />
               </button>
               <button
-                title={tr("上传图片 (I)")}
+                tabIndex={-1}
+                data-tooltip={tr("上传图片 (I)")}
                 aria-label={tr("上传图片")}
                 disabled={!ready}
                 onPointerDown={(e) => startToolbarDrag(e, "image")}
@@ -3163,10 +3195,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   })
                 }
               >
-                <ImagePlus size={20} />
+                <ImagePlus size={18} />
               </button>
               <button
-                title={tr("上传文件 (U)")}
+                tabIndex={-1}
+                data-tooltip={tr("上传文件 (U)")}
                 aria-label={tr("上传文件")}
                 disabled={!ready}
                 onPointerDown={(e) => startToolbarDrag(e, "file")}
@@ -3177,39 +3210,42 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   })
                 }
               >
-                <FileUp size={20} />
+                <FileUp size={18} />
               </button>
               <button
-                title={tr("导入目录")}
+                tabIndex={-1}
+                data-tooltip={tr("导入目录")}
                 aria-label={tr("导入目录")}
                 disabled={!ready}
                 onClick={() => directoryInput.current?.click()}
               >
-                <FolderUp size={20} />
+                <FolderUp size={18} />
               </button>
               <button
-                title={tr("创建子画布")}
+                tabIndex={-1}
+                data-tooltip={tr("创建子画布")}
                 aria-label={tr("创建子画布")}
                 disabled={!ready}
                 onPointerDown={(e) => startToolbarDrag(e, "canvas")}
                 onClick={() => toolbarClick(() => addCanvas())}
               >
-                <PanelsTopLeft size={20} />
+                <PanelsTopLeft size={18} />
               </button>
               <button
-                title={tr("添加 miniature · 3D 场景")}
+                tabIndex={-1}
+                data-tooltip={tr("添加 miniature · 3D 场景")}
                 aria-label={tr("添加 miniature")}
                 disabled={!ready}
                 onPointerDown={(e) => startToolbarDrag(e, "miniature")}
                 onClick={() => toolbarClick(() => addMiniature())}
               >
-                <Box size={20} />
+                <Box size={18} />
               </button>
             </div>
             <button
               className="drawing-exit"
               aria-label={tr("退出绘画")}
-              title={tr("退出绘画 (Esc)")}
+              data-tooltip={tr("退出绘画 (Esc)")}
               inert={tool !== "draw"}
               aria-hidden={tool !== "draw"}
               onClick={() => {
@@ -3238,29 +3274,31 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         </div>
         <div className="zoom-controls">
           <button
-            title={tr("缩小 (-)")}
+            data-tooltip={tr("缩小 (-)")}
             aria-label={tr("缩小")}
-            onClick={() => zoom(1 / 1.2)}
+            disabled={view.z <= MIN_CANVAS_ZOOM}
+            onClick={() => zoom(-0.2)}
           >
             <Minus size={16} />
           </button>
           <button
             className="zoom-percentage"
-            title={tr("重置缩放 (1)")}
-            onClick={() => zoom(1 / view.z)}
+            data-tooltip={tr("重置缩放 (1)")}
+            onClick={() => zoom("reset")}
           >
             {Math.round(view.z * 100)}%
           </button>
           <button
-            title={tr("放大 (+)")}
+            data-tooltip={tr("放大 (+)")}
             aria-label={tr("放大")}
-            onClick={() => zoom(1.2)}
+            disabled={view.z >= MAX_CANVAS_ZOOM}
+            onClick={() => zoom(0.2)}
           >
             <Plus size={16} />
           </button>
           <i />
           <button
-            title={tr("适应内容 (0)")}
+            data-tooltip={tr("适应内容 (0)")}
             aria-label={tr("适应所有内容")}
             onClick={() => fit()}
           >
@@ -3811,7 +3849,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         </CanvasContextMenu>
       )}
       {remarkDraft && (
-        <div className="modal-backdrop">
+        <ModalBackdrop className="modal-backdrop">
           <form
             className="modal compact"
             role="dialog"
@@ -3877,7 +3915,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               <button className="primary">{tr("保存备注")}</button>
             </div>
           </form>
-        </div>
+        </ModalBackdrop>
       )}
       {passwordAction === "manage" && (
         <MasterPasswordSettingsDialog
@@ -4016,7 +4054,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         />
       )}
       {current && current.kind !== "image" && current.kind !== "flowchart" && (
-        <div className="modal-backdrop">
+        <ModalBackdrop className="modal-backdrop">
           <div
             className={`modal detail-modal${current.kind === "file" ? " file-detail-modal" : ""}`}
             role="dialog"
@@ -4135,7 +4173,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               </>
             )}
           </div>
-        </div>
+        </ModalBackdrop>
       )}
       {applicationDraft && (
         <ApplicationDialog
@@ -4169,7 +4207,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         />
       )}
       {confirmImport && (
-        <div className="modal-backdrop">
+        <ModalBackdrop className="modal-backdrop">
           <div
             className="modal compact"
             role="dialog"
@@ -4248,7 +4286,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               </button>
             </div>
           </div>
-        </div>
+        </ModalBackdrop>
       )}
       {miniatureDraft && (
         <MiniatureDialog
@@ -4366,6 +4404,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
 }
 function Router() {
   useEffect(installIconMotion, []);
+  useEffect(installTooltips, []);
   const [hash, setHash] = useState(location.hash);
   useEffect(() => {
     const update = () => setHash(location.hash);

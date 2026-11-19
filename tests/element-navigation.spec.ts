@@ -111,7 +111,7 @@ test("text editing, menus and parent-child shortcuts retain their own keys", asy
   await expect(card(page, "child")).toBeVisible();
 });
 
-test("child canvas has an inset long-dashed border within its solid outline", async ({
+test("child canvas has an inset dashed border within its solid outline", async ({
   page,
 }) => {
   await setup(page);
@@ -119,7 +119,7 @@ test("child canvas has an inset long-dashed border within its solid outline", as
   await expect(child).toHaveCSS("border-top-style", "solid");
   await expect(child.locator(".canvas-card-inner-border rect")).toHaveCSS(
     "stroke-dasharray",
-    "12px, 7px",
+    "5px, 4px",
   );
   const borders = await child.evaluate((el) => {
     const outer = el.getBoundingClientRect(),

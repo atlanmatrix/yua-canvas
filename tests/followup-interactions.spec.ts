@@ -65,7 +65,7 @@ test("drawing expands the bottom dock, folds creation tools into an exit menu, a
   await brush.click();
   const top = page.getByRole("toolbar", { name: "绘画工具栏" });
   await expect(top).toBeVisible();
-  await expect(page.locator(".paint-dock")).toHaveCSS("width", "292px");
+  await expect(page.locator(".paint-dock")).toHaveCSS("width", "312px");
   const bounds = await top.boundingBox();
   const dock = await page.locator(".bottom-tools").boundingBox();
   expect(dock!.x + dock!.width / 2).toBeCloseTo(640, 0);

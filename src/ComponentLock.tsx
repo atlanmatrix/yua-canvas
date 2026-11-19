@@ -1,3 +1,4 @@
+import { ModalBackdrop } from "./ModalBackdrop";
 import { useEffect, useRef, useState } from "react";
 import { LockKeyhole, X } from "./icons";
 import { t as tr } from "./i18n";
@@ -78,7 +79,7 @@ export function ComponentLockDialog({
           : tr("锁定组件");
   if (auto && !error) return null;
   return (
-    <div className="modal-backdrop">
+    <ModalBackdrop className="modal-backdrop">
       <form
         className="modal compact component-lock-dialog"
         role="dialog"
@@ -178,6 +179,6 @@ export function ComponentLockDialog({
           </button>
         </div>
       </form>
-    </div>
+    </ModalBackdrop>
   );
 }

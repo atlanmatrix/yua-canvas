@@ -170,7 +170,7 @@ export function TodoEditor({
         type="button"
         className="todo-add"
         aria-label={tr("添加任务")}
-        title={tr("添加任务")}
+        data-tooltip={tr("添加任务")}
         onClick={() => add()}
       >
         <Plus size={16} />

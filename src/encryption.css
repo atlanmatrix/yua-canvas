@@ -76,7 +76,3 @@
   max-width: calc(100% - 44px);
   color: var(--ink);
 }
-.master-password-dialog::backdrop {
-  background: #30343c40;
-  backdrop-filter: blur(4px);
-}

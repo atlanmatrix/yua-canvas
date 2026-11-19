@@ -179,7 +179,7 @@ test("selection has no toolbar; context menus group capabilities for multiple se
   ).toHaveText(/^删除/);
   await expect(popup.locator(".context-menu-section").nth(1)).toHaveCSS(
     "border-top-style",
-    "none",
+    "solid",
   );
   await page.screenshot({ path: "/tmp/yua-menu-sections-desktop.png" });
   await page.setViewportSize({ width: 390, height: 844 });

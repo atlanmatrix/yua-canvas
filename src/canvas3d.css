@@ -212,3 +212,14 @@
   );
   pointer-events: none;
 }
+
+.canvas3d-layer-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .canvas3d-layer { transition: translate var(--motion-state) var(--ease-state); }
+  .canvas3d-layer:has(.canvas3d-component:hover) { translate: 0 0 6px; }
+}

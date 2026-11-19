@@ -1,3 +1,4 @@
+import { ModalBackdrop } from "./ModalBackdrop";
 import { t as tr } from "./i18n";
 import { useState } from "react";
 import { X } from "./icons";
@@ -44,7 +45,7 @@ export function ApplicationDialog({
     onSave(draft.kind === "vscode" ? normalizeLocalPath(value) : value);
   };
   return (
-    <div className="modal-backdrop">
+    <ModalBackdrop className="modal-backdrop">
       <form
         className="modal application-dialog"
         role="dialog"
@@ -128,6 +129,6 @@ export function ApplicationDialog({
           </div>
         </div>
       </form>
-    </div>
+    </ModalBackdrop>
   );
 }

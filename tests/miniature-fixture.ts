@@ -3,8 +3,17 @@ import type { Page } from "@playwright/test";
 export const SCENE = "https://atlanmatrix.github.io/codex-playground/city/";
 export async function mockMiniature(
   page: Page,
-  { delay = 0, protocol = true } = {},
+  {
+    delay = 0,
+    protocol = true,
+    beforeCapture,
+  }: {
+    delay?: number;
+    protocol?: boolean;
+    beforeCapture?: () => Promise<void>;
+  } = {},
 ) {
+  if (beforeCapture) await page.exposeFunction("waitForCapture", beforeCapture);
   await page.route(
     (url) =>
       url.origin === new URL(SCENE).origin &&
@@ -21,7 +30,8 @@ export async function mockMiniature(
       window.addEventListener('message', event => {
         if(event.source !== parent || event.origin !== parentOrigin || event.data?.type !== 'little-worlds:capture') return;
         window.lastCapture = event.data;
-        setTimeout(() => {
+        setTimeout(async () => {
+          ${beforeCapture ? "await window.waitForCapture();" : ""}
           const canvas = document.createElement('canvas'); canvas.width = 96; canvas.height = 72;
           const ctx = canvas.getContext('2d'); ctx.fillStyle = view === 'rotated' ? '#73a4d6' : '#b8cbb3'; ctx.fillRect(0,0,96,72);
           parent.postMessage({type:'little-worlds:response', requestId:event.data.requestId,ok:true,result:{...urls(),width:96,height:72,mimeType:'image/webp',dataUrl:canvas.toDataURL('image/webp')}},parentOrigin);

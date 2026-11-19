@@ -1,3 +1,4 @@
+import { MIN_CANVAS_ZOOM, MAX_CANVAS_ZOOM } from "./storage";
 import {
   useEffect,
   useRef,
@@ -41,6 +42,7 @@ export function useCanvasTouch(options: {
   view: View;
   tapsEnabled: boolean;
   minZoom?: number;
+  maxZoom?: number;
   onViewChange: (view: View) => void;
   onCancel: () => void;
   onActivity: (moved: boolean) => void;
@@ -230,9 +232,9 @@ export function useCanvasTouch(options: {
         const [a, b] = [...contacts.current.values()],
           r = e.currentTarget.getBoundingClientRect();
         const z = Math.min(
-          3,
+          latest.current.maxZoom ?? MAX_CANVAS_ZOOM,
           Math.max(
-            latest.current.minZoom ?? 0.2,
+            latest.current.minZoom ?? MIN_CANVAS_ZOOM,
             (p.view.z * Math.hypot(a.x - b.x, a.y - b.y)) / p.distance,
           ),
         );

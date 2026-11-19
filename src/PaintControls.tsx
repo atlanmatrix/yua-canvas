@@ -48,12 +48,12 @@ export function PaintControls({
           value={width}
           onChange={(e) => onWidth(Number(e.target.value))}
         />
-        <output>{width}</output>
+        <output>{width}<span aria-hidden="true">px</span></output>
       </div>
       <span className="paint-controls-divider" />
       <button
         aria-label={tr("撤销绘画")}
-        title={tr("撤销绘画")}
+        data-tooltip={tr("撤销绘画")}
         disabled={!canUndo}
         onClick={onUndo}
       >
@@ -61,7 +61,7 @@ export function PaintControls({
       </button>
       <button
         aria-label={tr("清空绘画")}
-        title={tr("清空绘画")}
+        data-tooltip={tr("清空绘画")}
         disabled={!hasStrokes}
         onClick={onClear}
       >
@@ -69,7 +69,7 @@ export function PaintControls({
       </button>
       <button
         aria-label={hidden ? tr("显示绘画") : tr("隐藏绘画")}
-        title={hidden ? tr("显示绘画") : tr("隐藏绘画")}
+        data-tooltip={hidden ? tr("显示绘画") : tr("隐藏绘画")}
         aria-pressed={hidden}
         onClick={onHidden}
       >

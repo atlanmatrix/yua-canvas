@@ -250,12 +250,7 @@ export async function readView(): Promise<View | undefined> {
     request.onsuccess = () => {
       const view = request.result;
       resolve(
-        view &&
-          [view.x, view.y, view.z].every(Number.isFinite) &&
-          Math.abs(view.x) <= 1e9 &&
-          Math.abs(view.y) <= 1e9 &&
-          view.z >= 0.2 &&
-          view.z <= 3
+        validView(view)
           ? { x: view.x, y: view.y, z: view.z }
           : undefined,
       );
@@ -284,14 +279,15 @@ export async function saveBoard(
     tx.onabort = () => reject(tx.error);
   });
 }
+export const MIN_CANVAS_ZOOM = 0.1, MAX_CANVAS_ZOOM = 4;
 export function validView(view: any): view is View {
   return (
     !!view &&
     [view.x, view.y, view.z].every(Number.isFinite) &&
     Math.abs(view.x) <= 1e9 &&
     Math.abs(view.y) <= 1e9 &&
-    view.z >= 0.2 &&
-    view.z <= 3
+    view.z >= MIN_CANVAS_ZOOM &&
+    view.z <= MAX_CANVAS_ZOOM
   );
 }
 export async function readNavigation(): Promise<Navigation | undefined> {

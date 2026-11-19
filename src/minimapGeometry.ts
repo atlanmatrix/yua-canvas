@@ -4,8 +4,8 @@ import { useLayoutEffect, useMemo, useState, type RefObject } from "react";
 import type { Board, Rect, View } from "./storage";
 import { cardRect } from "./geometry";
 
-export const MINIMAP_WIDTH = 200,
-  MINIMAP_HEIGHT = 132;
+export const MINIMAP_WIDTH = 180,
+  MINIMAP_HEIGHT = 116;
 const PADDING = 10;
 export type MinimapProjection = {
   x: number;

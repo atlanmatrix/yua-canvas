@@ -1,3 +1,4 @@
+import { navigateMenu } from "./menuKeyboard";
 import { useId, useRef, useState } from "react";
 import { Settings, Upload, X, LockKeyhole } from "./icons";
 import { CloudServers } from "./CloudServers";
@@ -38,7 +39,7 @@ export function SettingsMenu({
       <button
         className="floating-button settings-trigger"
         aria-label={tr("设置")}
-        title={`${tr("设置")} · ${tr(saveStatus)}`}
+        data-tooltip={`${tr("设置")} · ${tr(saveStatus)}`}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={id}
@@ -53,9 +54,17 @@ export function SettingsMenu({
         className="settings-popover"
         role={open ? "dialog" : undefined}
         aria-label={tr("设置")}
-        onToggle={(event) =>
-          setOpen(event.currentTarget.matches(":popover-open"))
-        }
+        onToggle={(event) => {
+          const expanded = event.currentTarget.matches(":popover-open");
+          setOpen(expanded);
+          if (
+            expanded &&
+            document.activeElement?.matches(".settings-trigger:focus-visible")
+          )
+            event.currentTarget
+              .querySelector<HTMLButtonElement>("button:enabled")
+              ?.focus({ preventScroll: true });
+        }}
         onKeyDownCapture={(event) => {
           if (!(event.metaKey || event.ctrlKey)) return;
           const key = event.key.toLowerCase();
@@ -67,7 +76,10 @@ export function SettingsMenu({
             else onExport("canvas");
           }
         }}
-        onKeyDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          navigateMenu(event);
+          event.stopPropagation();
+        }}
         onPointerDown={(event) => event.stopPropagation()}
       >
         <div className="settings-heading">

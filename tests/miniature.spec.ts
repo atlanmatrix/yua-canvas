@@ -57,7 +57,12 @@ test("double-click activates a full-size model, outside clicks deactivate and pe
   const moved = (await card.boundingBox())!;
   expect(moved.x).toBeCloseTo(before.x + 40, 0);
   expect(moved.y).toBeCloseTo(before.y + 25, 0);
-  await mockMiniature(page, { delay: 300 });
+  // Hold the next screenshot until the invalidated preview has been observed.
+  let releaseCapture!: () => void;
+  const captureGate = new Promise<void>((resolve) => {
+    releaseCapture = resolve;
+  });
+  await mockMiniature(page, { beforeCapture: () => captureGate });
   await card
     .locator(".miniature-model")
     .dblclick({ position: { x: 100, y: 100 } });
@@ -76,6 +81,7 @@ test("double-click activates a full-size model, outside clicks deactivate and pe
   ).toHaveText("场景已旋转");
   await expect(page.locator("[data-minimap-card] image")).toHaveCount(0);
   await page.locator(".canvas").click({ position: { x: 10, y: 100 } });
+  releaseCapture();
   await expect(frame).toHaveCount(0);
   await expect(card.locator(".miniature-cover")).toBeVisible();
   await expect(page.locator("[data-minimap-card] image")).toHaveCount(1);

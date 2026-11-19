@@ -1,13 +1,13 @@
 :root {
   --card-outline: rgba(15, 23, 42, 0.06);
-  --card-outline-hover: rgba(15, 23, 42, 0.1);
+  --card-outline-hover: var(--accent-border);
   --card-rest-shadow: 0 2px 4px rgba(15, 23, 42, 0.04);
   --card-hover-shadow:
     0 3px 6px rgba(15, 23, 42, 0.04), 0 12px 28px rgba(15, 23, 42, 0.1);
 }
 :root[data-theme="dark"] {
   --card-outline: rgba(226, 232, 240, 0.1);
-  --card-outline-hover: rgba(226, 232, 240, 0.18);
+  --card-outline-hover: var(--accent-border);
   --card-rest-shadow: 0 2px 4px rgba(0, 0, 0, 0.14);
   --card-hover-shadow:
     0 3px 6px rgba(0, 0, 0, 0.16), 0 12px 28px rgba(0, 0, 0, 0.28);
@@ -111,8 +111,8 @@
   body
   .card-toolbar
   > button:is(:enabled:hover, :focus-visible, [aria-expanded="true"]) {
-  background: var(--surface-muted);
-  color: var(--ink);
+  background: var(--accent-tint);
+  color: var(--accent-strong);
 }
 :root[data-theme]
   body
@@ -224,5 +224,50 @@ body .card-toolbar > button:enabled:active {
   }
   :root[data-theme="dark"] {
     --accent: Highlight;
+  }
+}
+
+/* Keyboard focus stays visible above each themed surface. Clipped controls
+   keep their inset outline; the outer ring is free to extend into dock padding. */
+:root[data-theme] body :is(button, a[href], input, select, textarea, [tabindex], [contenteditable="true"]):focus-visible,
+:root[data-theme] body .settings-popover .preference-slider:has(input:focus-visible) {
+  outline: 2px solid var(--focus-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--focus-gap);
+}
+:root[data-theme] body .card.selected:not(:is(.card-miniature, [data-mind-frame])) {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+:root[data-theme] body .card.selected:not(:is(.card-miniature, [data-mind-frame]))::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  box-shadow: 0 0 0 4px var(--accent-tint);
+}
+@media (forced-colors: active) {
+  :root { --focus-color: Highlight; }
+}
+
+.card-todo .card-top { min-height: 28px; padding: 8px 16px 0; }
+.card-todo .card-top > span { color: var(--muted); font-size: 12px; font-weight: 600; }
+.card-todo .todo-list { padding: 4px 16px 16px; }
+.card-todo .todo-row { min-height: 36px; align-items: center; margin: 0; }
+.card-todo .todo-editor { padding: 4px 16px 12px; }
+.card-todo .todo-editor .todo-list { padding: 0; }
+:root[data-theme] body .card-todo .todo-row input[type="checkbox"] { width: 18px; height: 18px; margin: 0; }
+.card-todo .todo-add { width: 28px; height: 28px; background: var(--accent); color: var(--primary-ink); }
+@media (hover: hover) and (pointer: fine) {
+  .card-todo .todo-editor .todo-row:not(:hover, :focus-within) button { opacity: 0; }
+}
+
+
+@media (pointer: coarse) {
+  /* Keep actions on the selected card tappable as its contents zoom out. */
+  .card.selected > .card-toolbar {
+    scale: max(1, calc(1 / var(--canvas-zoom, 1)));
+    transform-origin: bottom right;
   }
 }

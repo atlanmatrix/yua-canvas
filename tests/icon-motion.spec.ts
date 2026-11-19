@@ -979,7 +979,7 @@ test("subcanvas dividers expand through the top left while the parent arrow wrap
   await expect(page.locator(".card-canvas")).toHaveCount(1);
 });
 
-test("drawing dock reverses mid-transition, keeps hidden controls unfocusable, and uses the toolbar ink in both themes", async ({
+test("drawing dock reverses mid-transition, keeps hidden controls unfocusable, and marks the active brush in both themes", async ({
   page,
 }) => {
   await page.goto("/");
@@ -996,7 +996,7 @@ test("drawing dock reverses mid-transition, keeps hidden controls unfocusable, a
   );
   await expect(page.locator(".paint-controls")).toHaveAttribute("inert", "");
   await brush.click();
-  await expect(page.locator(".paint-dock")).toHaveCSS("width", "292px");
+  await expect(page.locator(".paint-dock")).toHaveCSS("width", "312px");
   const exit = page.getByRole("button", { name: "退出绘画", exact: true });
   await exit.hover();
   await page.mouse.move(10, 100);
@@ -1004,7 +1004,9 @@ test("drawing dock reverses mid-transition, keeps hidden controls unfocusable, a
     await page
       .locator("html")
       .evaluate((n, theme) => n.setAttribute("data-theme", theme), theme);
-    const ink = await brush.evaluate((n) => getComputedStyle(n).color);
+    const ink = await page.locator(".toolbar button").first().evaluate(n => getComputedStyle(n).color);
+    await expect(brush).toHaveCSS("background-color", theme === "light" ? "rgb(37, 99, 235)" : "rgb(59, 130, 246)");
+    await expect(brush).toHaveCSS("color", theme === "light" ? "rgb(255, 255, 255)" : "rgb(11, 17, 30)");
     await expect(exit).toHaveCSS("color", ink);
     await expect(
       page.getByRole("button", { name: "隐藏绘画", exact: true }),

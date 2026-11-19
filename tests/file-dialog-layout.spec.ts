@@ -48,7 +48,7 @@ for (const viewport of [
     expect(
       await content.evaluate((el) => el.scrollHeight - el.clientHeight),
     ).toBeLessThanOrEqual(1);
-    await expect(editor).toHaveCSS("outline-style", "none");
+    await expect(editor).toHaveCSS("outline-style", "solid");
     await expect(editor).toHaveCSS("border-top-color", "rgb(37, 99, 235)");
     await expect(
       page.getByRole("button", { name: "编辑文件", exact: true }),
@@ -166,7 +166,7 @@ test("vertical resizing a masked wide component preserves its width and position
   expect(resized!.x).toBeCloseTo(original!.x);
   expect(resized!.height).toBeGreaterThan(original!.height + 60);
   await expect(card).toHaveCSS("border-top-color", "rgb(37, 99, 235)");
-  await expect(card).toHaveCSS("outline-style", "none");
+  await expect(card).toHaveCSS("outline-style", "solid");
   await expect(
     page.locator('.save-indicator[data-state="已保存至本地"]'),
   ).toBeVisible();

@@ -142,7 +142,7 @@ export const MoreHorizontal = animatedIcon(
   BaseMoreHorizontal,
 );
 export const Network = animatedIcon("Network", BaseNetwork);
-export const Workflow = BaseWorkflow;
+export const Workflow = animatedIcon("Workflow", BaseWorkflow);
 export const Package = animatedIcon("Package", BasePackage);
 export const Paintbrush = animatedIcon("Paintbrush", BasePaintbrush);
 export const Palette = animatedIcon("Palette", BasePalette);

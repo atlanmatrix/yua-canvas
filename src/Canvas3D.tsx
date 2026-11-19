@@ -525,14 +525,14 @@ export function Canvas3D({
         <button
           onClick={reset}
           aria-label={tr("重置 3D 视角")}
-          title={tr("重置")}
+          data-tooltip={tr("重置")}
         >
           <RotateCcw size={19} />
         </button>
         <button
           onClick={onClose}
           aria-label={tr("退出预览")}
-          title={tr("退出预览")}
+          data-tooltip={tr("退出预览")}
         >
           <X size={20} />
         </button>

@@ -1,16 +1,14 @@
-/* Cloud UI palette: opaque surfaces keep text and controls legible over any canvas.
-   Neutral surface + white fields; dark ink; blue selection/focus; black primary actions.
-   Status colors are reserved for connection dots and always have accessible names. */
+/* Cloud dialogs share the canvas palette. Connection status and GitHub sign-in retain their own colors. */
 :root {
-  --cloud-surface: #f3f4f6;
-  --cloud-field: #ffffff;
-  --cloud-ink: #171717;
-  --cloud-muted: #525252;
+  --cloud-surface: var(--float-surface);
+  --cloud-field: var(--surface-muted);
+  --cloud-ink: var(--ink);
+  --cloud-muted: var(--muted);
   --cloud-border: #747b85;
-  --cloud-line: #d1d5db;
-  --cloud-hover: #e2efff;
-  --cloud-hover-ink: #172d4d;
-  --cloud-focus: #2563eb;
+  --cloud-line: var(--float-edge);
+  --cloud-hover: var(--accent-tint);
+  --cloud-hover-ink: var(--accent-strong);
+  --cloud-focus: var(--focus-color);
   --cloud-disabled: #d1d5db;
   --cloud-disabled-ink: #4b5563;
   --cloud-green: #15803d;
@@ -18,15 +16,7 @@
   --cloud-red: #b91c1c;
 }
 :root[data-theme="dark"] {
-  --cloud-surface: #202124;
-  --cloud-field: #35383c;
-  --cloud-ink: #ffffff;
-  --cloud-muted: #d1d5db;
   --cloud-border: #949ba5;
-  --cloud-line: #50545c;
-  --cloud-hover: #294461;
-  --cloud-hover-ink: #f3f4f6;
-  --cloud-focus: #93c5fd;
   --cloud-disabled: #3b3f45;
   --cloud-disabled-ink: #c5cbd3;
   --cloud-green: #4ade80;
@@ -74,7 +64,7 @@
   background: var(--cloud-hover);
   color: var(--cloud-hover-ink);
 }
-:root[data-theme] body .cloud-panel :is(.cloud-primary, .cloud-login) {
+:root[data-theme] body .cloud-panel .cloud-login {
   background: #111111;
   color: #ffffff;
   border-color: #111111 !important;
@@ -82,7 +72,7 @@
 :root[data-theme]
   body
   .cloud-panel
-  :is(.cloud-primary, .cloud-login):enabled:hover {
+  .cloud-login:enabled:hover {
   background: #333333;
   color: #ffffff;
 }
@@ -238,8 +228,8 @@
 :root[data-theme] body .cloud-panel .cloud-switch {
   position: relative;
   display: inline-block;
-  flex: 0 0 max(36px, var(--action-height));
-  width: max(36px, var(--action-height));
+  flex: 0 0 max(40px, var(--action-height));
+  width: max(40px, var(--action-height));
   height: var(--action-height);
   min-height: var(--action-height);
   padding: 0;
@@ -251,28 +241,28 @@
 :root[data-theme] body .cloud-switch::before {
   content: "";
   position: absolute;
-  left: calc(50% - 15px);
-  top: calc(50% - 9px);
-  width: 30px;
-  height: 18px;
+  left: calc(50% - 19px);
+  top: calc(50% - 11px);
+  width: 38px;
+  height: 22px;
   border-radius: 999px;
   background: #71717a;
 }
 :root[data-theme] body .cloud-switch > span {
   position: absolute;
-  left: calc(50% - 13px);
-  top: calc(50% - 7px);
-  width: 14px;
-  height: 14px;
+  left: calc(50% - 16px);
+  top: calc(50% - 8px);
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: #ffffff;
   transition: transform 140ms ease;
 }
 :root[data-theme] body .cloud-switch[aria-checked="true"]::before {
-  background: #111111;
+  background: var(--accent);
 }
 :root[data-theme] body .cloud-switch[aria-checked="true"] > span {
-  transform: translateX(12px);
+  transform: translateX(16px);
 }
 :root[data-theme] body .cloud-switch:disabled {
   cursor: not-allowed;
@@ -335,4 +325,9 @@
   > button[data-active="true"]:not([aria-selected="true"]) {
   background: var(--cloud-surface);
   color: var(--cloud-ink);
+}
+
+:root[data-theme] body .cloud-panel .cloud-primary {
+  background: var(--accent);
+  color: var(--primary-ink);
 }
