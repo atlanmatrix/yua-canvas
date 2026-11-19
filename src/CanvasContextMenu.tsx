@@ -12,13 +12,11 @@ import {
   type CSSProperties,
   type Dispatch,
   type SetStateAction,
-  type RefObject,
 } from "react";
 const SubmenuContext = createContext<
   | {
       active?: string;
       setActive: Dispatch<SetStateAction<string | undefined>>;
-      mode: RefObject<"pointer" | "keyboard">;
     }
   | undefined
 >(undefined);
@@ -117,6 +115,21 @@ export function MenuSection({
     </div>
   );
 }
+// Project the pointer's latest movement onto the near edge of the open panel.
+function movingTowardSubmenu(
+  previous: { x: number; y: number },
+  current: { x: number; y: number },
+  panel: DOMRect,
+) {
+  if (current.x >= panel.left && current.x <= panel.right) return false;
+  const dx = current.x - previous.x;
+  const edge = current.x < panel.left ? panel.left : panel.right;
+  const distance = edge - current.x;
+  if (!dx || distance / dx <= 0) return false;
+  const y = current.y + (current.y - previous.y) * (distance / dx);
+  return y >= panel.top && y <= panel.bottom;
+}
+
 export function CanvasContextMenu({
   x,
   y,
@@ -138,7 +151,14 @@ export function CanvasContextMenu({
     y: Number.isFinite(y) ? y : 8,
   });
   const [active, setActive] = useState<string>();
-  const mode = useRef<"pointer" | "keyboard">("pointer");
+  const previousPointer = useRef<{ x: number; y: number } | undefined>(
+    undefined,
+  );
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const cancelHover = () => clearTimeout(hoverTimer.current);
+  useLayoutEffect(() => cancelHover, []);
   useLayoutEffect(() => {
     const place = () => {
       const bounds = ref.current?.getBoundingClientRect();
@@ -168,17 +188,52 @@ export function CanvasContextMenu({
     return () => window.removeEventListener("resize", place);
   }, [x, y, children]);
   return (
-    <SubmenuContext.Provider value={{ active, setActive, mode }}>
+    <SubmenuContext.Provider value={{ active, setActive }}>
       <div
         ref={ref}
         className="context-menu"
         role="menu"
         onKeyDown={navigateMenu}
         onKeyDownCapture={() => {
-          mode.current = "keyboard";
+          cancelHover();
+          previousPointer.current = undefined;
         }}
-        onPointerMoveCapture={() => {
-          mode.current = "pointer";
+        onPointerDownCapture={cancelHover}
+        onPointerMoveCapture={(e) => {
+          if (e.pointerType === "touch") return;
+          cancelHover();
+          const previous = previousPointer.current;
+          const current = { x: e.clientX, y: e.clientY };
+          previousPointer.current = current;
+          const target = e.target as Element;
+          if (target.closest(".context-submenu, .submenu-bridge")) return;
+          const trigger = target.closest<HTMLButtonElement>(
+            "button[aria-haspopup=menu]:enabled",
+          );
+          const next = trigger?.id;
+          if (next === active) return;
+          const panel =
+            active && e.currentTarget.querySelector(".context-submenu");
+          if (
+            previous &&
+            panel &&
+            movingTowardSubmenu(
+              previous,
+              current,
+              panel.getBoundingClientRect(),
+            )
+          ) {
+            // Allow diagonal travel across rows, then switch if the pointer rests here.
+            hoverTimer.current = setTimeout(() => setActive(next), 150);
+          } else {
+            setActive(next);
+          }
+        }}
+        onPointerLeave={(e) => {
+          if (e.pointerType === "touch") return;
+          previousPointer.current = undefined;
+          cancelHover();
+          hoverTimer.current = setTimeout(() => setActive(undefined), 150);
         }}
         style={{ left: position.x, top: position.y }}
         onContextMenu={(e) => e.preventDefault()}
@@ -253,10 +308,11 @@ export function ContextSubmenu({
           ?.getBoundingClientRect() ?? anchor;
       const inset =
         element.clientTop + parseFloat(getComputedStyle(element).paddingTop);
-      const preferred = parent.right + 8;
+      const gap = controller ? -10 : 8;
+      const preferred = parent.right + gap;
       const below =
         preferred + bounds.width > innerWidth - 8 &&
-        parent.left - bounds.width - 8 < 8;
+        parent.left - bounds.width - gap < 8;
       const opensRight = preferred + bounds.width <= innerWidth - 8;
       const x = Math.max(
         8,
@@ -265,7 +321,7 @@ export function ContextSubmenu({
             ? anchor.left
             : opensRight
               ? preferred
-              : parent.left - bounds.width - 8,
+              : parent.left - bounds.width - gap,
           innerWidth - bounds.width - 8,
         ),
       );
@@ -280,52 +336,52 @@ export function ContextSubmenu({
           innerHeight - bounds.height - 8,
         ),
       );
-      // Leave the trigger itself clickable. Shield diagonal travel across
-      // adjacent rows, while a vertical move can still switch to another row.
-      const top = Math.min(y, anchor.top);
-      const edge = opensRight ? anchor.right : anchor.left;
-      const entry = Math.max(
-        anchor.left,
-        Math.min(
-          anchor.right,
-          entryX.current ?? (anchor.left + anchor.right) / 2,
-        ),
-      );
-      const start = opensRight
-        ? Math.min(edge, entry + 8)
-        : Math.max(edge, entry - 8);
-      const end = opensRight ? x : x + bounds.width;
-      const left = Math.min(start, end);
-      const point = (px: number, py: number) => `${px - left}px ${py - top}px`;
-      const bridge = below
-        ? {
-            left: Math.max(x, anchor.left),
-            width: Math.max(
-              0,
-              Math.min(x + bounds.width, anchor.right) -
-                Math.max(x, anchor.left),
-            ),
-            top: y >= anchor.bottom ? anchor.bottom : y + bounds.height,
-            height: Math.max(
-              0,
-              y - anchor.bottom,
-              anchor.top - y - bounds.height,
-            ),
-          }
-        : {
-            left,
-            top,
-            width: Math.abs(end - start),
-            height: Math.max(anchor.bottom, y + bounds.height) - top,
-            clipPath: `polygon(${[
-              point(start, anchor.top),
-              point(end, y),
-              point(end, y + bounds.height),
-              point(start, anchor.bottom),
-              point(edge, anchor.bottom),
-              point(edge, anchor.top),
-            ].join(", ")})`,
-          };
+      let bridge: CSSProperties | undefined;
+      if (below) {
+        const left = Math.max(x, anchor.left);
+        bridge = {
+          left,
+          width: Math.max(0, Math.min(x + bounds.width, anchor.right) - left),
+          top: y >= anchor.bottom ? anchor.bottom : y + bounds.height,
+          height: Math.max(
+            0,
+            y - anchor.bottom,
+            anchor.top - y - bounds.height,
+          ),
+        };
+      } else if (!controller) {
+        // Standalone settings submenus span a gap between the two panels.
+        const top = Math.min(y, anchor.top);
+        const edge = opensRight ? anchor.right : anchor.left;
+        const entry = Math.max(
+          anchor.left,
+          Math.min(
+            anchor.right,
+            entryX.current ?? (anchor.left + anchor.right) / 2,
+          ),
+        );
+        const start = opensRight
+          ? Math.min(edge, entry + 8)
+          : Math.max(edge, entry - 8);
+        const end = opensRight ? x : x + bounds.width;
+        const left = Math.min(start, end);
+        const point = (px: number, py: number) =>
+          `${px - left}px ${py - top}px`;
+        bridge = {
+          left,
+          top,
+          width: Math.abs(end - start),
+          height: Math.max(anchor.bottom, y + bounds.height) - top,
+          clipPath: `polygon(${[
+            point(start, anchor.top),
+            point(end, y),
+            point(end, y + bounds.height),
+            point(start, anchor.bottom),
+            point(edge, anchor.bottom),
+            point(edge, anchor.top),
+          ].join(", ")})`,
+        };
+      }
       setPosition({ x, y, bridge });
       if (focusFirst.current) {
         submenu.current
@@ -353,28 +409,30 @@ export function ContextSubmenu({
     <div
       className="context-submenu-host"
       onPointerEnter={(e) => {
+        if (controller) return;
         cancelClose();
         if (e.pointerType === "touch") return;
-        if (!disabled && controller?.mode.current !== "keyboard") {
+        if (!disabled) {
           if (!open) entryX.current = e.clientX;
           setOpen(true);
         }
       }}
       onPointerMove={(e) => {
         if (e.pointerType === "touch") return;
-        if (!disabled && !open && controller?.mode.current !== "keyboard") {
+        if (!controller && !disabled && !open) {
           cancelClose();
           setOpen(true);
         }
       }}
       onPointerLeave={(e) => {
-        if (e.pointerType === "touch") return;
+        if (controller || e.pointerType === "touch") return;
         cancelClose();
         closeTimer.current = setTimeout(() => setOpen(false), 150);
       }}
     >
       <button
         ref={trigger}
+        id={id}
         role={buttonRole}
         className={buttonClassName}
         disabled={disabled}

@@ -204,3 +204,37 @@ test("diagonal pointer travel reaches the last child on either side of a scrolli
     await expect(dialog).toHaveCount(0);
   }
 });
+
+test("after a click, vertical hover switches rows immediately on either side of the menu", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 820 });
+  for (const opensRight of [true, false]) {
+    const first = await menu(page, opensRight ? 220 : 1100, 180);
+    const parent = (await page
+      .getByRole("menu", { name: "", exact: true })
+      .boundingBox())!;
+    const firstBox = (await first.boundingBox())!;
+    // Enter from the far side, then click near the edge facing the submenu.
+    const inset = 24;
+    const clickX = opensRight ? firstBox.width - inset : inset;
+    await first.hover({
+      position: { x: firstBox.width - clickX, y: firstBox.height / 2 },
+    });
+    await first.click({ position: { x: clickX, y: firstBox.height / 2 } });
+    for (const label of ["新建工具", "新建应用关联", "新建工具"]) {
+      const trigger = page.getByRole("menuitem", { name: label, exact: true });
+      const row = (await trigger.boundingBox())!;
+      await page.mouse.move(firstBox.x + clickX, row.y + row.height / 2);
+      expect(await trigger.getAttribute("aria-expanded")).toBe("true");
+      const child = (await page
+        .getByRole("menu", { name: label + "组件", exact: true })
+        .boundingBox())!;
+      const overlap = opensRight
+        ? parent.x + parent.width - child.x
+        : child.x + child.width - parent.x;
+      expect(overlap).toBeCloseTo(10);
+    }
+    await page.mouse.click(640, 40);
+  }
+});
