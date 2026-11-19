@@ -12,6 +12,7 @@ import { PreferencesControls } from "./PreferencesControls";
 import { t as tr, usePreferences } from "./i18n";
 import { surfaceColor, customColor } from "./presentation";
 import {
+  mindMapFrameStyle,
   PreviewFrame,
   TypeIcon,
   Mask,
@@ -366,6 +367,7 @@ export function ShareViewer({ token }: { token: string }) {
                               c.color,
                               address ? "var(--surface-muted)" : undefined,
                             ),
+                      ...mindMapFrameStyle(c),
                     }}
                   >
                     {c.locked ? (

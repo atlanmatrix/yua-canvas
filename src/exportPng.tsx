@@ -15,6 +15,7 @@ import {
 import { ConnectionArrow } from "./ConnectionArrow";
 import { StrokeView } from "./PaintLayer";
 import {
+  mindMapFrameStyle,
   PreviewFrame,
   StaticContent,
   TypeIcon,
@@ -277,6 +278,7 @@ export async function withExportScene(
                               c.color,
                               address ? "var(--surface-muted)" : undefined,
                             ),
+                      ...mindMapFrameStyle(c),
                       transform: "none",
                     }}
                   >

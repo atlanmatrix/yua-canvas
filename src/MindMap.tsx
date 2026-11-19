@@ -86,8 +86,7 @@ export function MindMap({
   useLayoutEffect(() => {
     const el = layout.current;
     if (!el || !measure.current) return;
-    const size = () =>
-      measure.current?.(el.offsetWidth + 2, el.offsetHeight + 2);
+    const size = () => measure.current?.(el.offsetWidth, el.offsetHeight);
     size();
     const observer = new ResizeObserver(size);
     observer.observe(el);
@@ -285,7 +284,7 @@ export function MindMap({
     );
   }
   return (
-    <div className="mind-scroll">
+    <>
       <div ref={layout} className="mind-layout">
         {map.view === "map" ? (
           tree(map.root, 0, 0)
@@ -353,7 +352,7 @@ export function MindMap({
           </div>,
           document.body,
         )}
-    </div>
+    </>
   );
 }
 

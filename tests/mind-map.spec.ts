@@ -192,3 +192,76 @@ test("workspace JSON and ZIP restore the same styled and partially checked tree"
   });
   expect(result).toEqual({ sameJSON: true, sameZIP: true, rejected: true });
 });
+
+test("map and table show every node on a transparent canvas without inner scrollbars", async ({
+  page,
+}) => {
+  const card = page.locator(".card-mindmap");
+  const checkFrame = async () => {
+    await expect(card).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(card).toHaveCSS("border-top-width", "0px");
+    await expect(card).toHaveCSS("box-shadow", "none");
+    await expect
+      .poll(() =>
+        card.evaluate((el) => {
+          const frame = el.getBoundingClientRect();
+          const visible = [...el.querySelectorAll("[data-mind-node]")].every(
+            (node) => {
+              const r = node.getBoundingClientRect();
+              return (
+                r.width > 0 &&
+                r.left >= frame.left - 1 &&
+                r.right <= frame.right + 1 &&
+                r.top >= frame.top - 1 &&
+                r.bottom <= frame.bottom + 1
+              );
+            },
+          );
+          const scroller = [
+            el,
+            ...el.querySelectorAll(
+              ".component-viewport, .component-content, .component-content *",
+            ),
+          ].some((box) => {
+            const style = getComputedStyle(box);
+            return (
+              (/auto|scroll/.test(style.overflowX) &&
+                box.scrollWidth > box.clientWidth) ||
+              (/auto|scroll/.test(style.overflowY) &&
+                box.scrollHeight > box.clientHeight)
+            );
+          });
+          return visible && !scroller;
+        }),
+      )
+      .toBe(true);
+  };
+  await page.keyboard.press("Tab");
+  await expect(nodes(page)).toHaveCount(2);
+  await checkFrame();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  await expect(nodes(page)).toHaveCount(4);
+  await menu(page, "root", "转为表格");
+  await checkFrame();
+  await card.dispatchEvent("contextmenu", { clientX: 350, clientY: 250 });
+  await page
+    .getByRole("menuitemradio", { name: "显示模式：中", exact: true })
+    .click();
+  await checkFrame();
+  await node(page, "root").click();
+  const handle = (await card.getByTestId("card-resize-se").boundingBox())!;
+  const x = handle.x + handle.width / 2,
+    y = handle.y + handle.height / 2;
+  const before = (await card.boundingBox())!;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - 100, y + 40, { steps: 5 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => (await card.boundingBox())!.width)
+    .toBeLessThan(before.width - 50);
+  await checkFrame();
+  await menu(page, "root", "转为思维导图");
+  await checkFrame();
+});

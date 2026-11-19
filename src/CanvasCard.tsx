@@ -33,7 +33,13 @@ import { noteCardHref } from "./noteLinks";
 import { TextEditor } from "./TextEditor";
 import { TodoEditor } from "./TodoEditor";
 import { GroupNameEditor } from "./GroupNameEditor";
-import { PreviewFrame, Mask, TypeIcon, Remark } from "./CardPresentation";
+import {
+  mindMapFrameStyle,
+  PreviewFrame,
+  Mask,
+  TypeIcon,
+  Remark,
+} from "./CardPresentation";
 
 import type { TextRun } from "./presentation";
 import { todoFocusAt } from "./todoCaret";
@@ -273,6 +279,7 @@ export const CanvasCard = memo(function CanvasCard({
                 c.color,
                 address ? "var(--surface-muted)" : undefined,
               ),
+        ...mindMapFrameStyle(c),
       }}
       onPointerDown={(e) => {
         e.stopPropagation();

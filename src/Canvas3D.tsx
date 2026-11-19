@@ -5,6 +5,8 @@ import { LockedContent } from "./ComponentLock";
 import { t as tr } from "./i18n";
 import { StrokeView } from "./PaintLayer";
 import {
+  mindMapFrameStyle,
+  PreviewFrame,
   Mask,
   TypeIcon,
   presentationHidden,
@@ -110,7 +112,12 @@ function ComponentPreview({ card }: { card: Card }) {
       </pre>
     );
   if (isApplicationKind(card.kind)) return <ApplicationCard card={card} />;
-  if (card.kind === "mindmap") return <MindMap text={card.text} />;
+  if (card.kind === "mindmap")
+    return (
+      <PreviewFrame card={card}>
+        <MindMap text={card.text} />
+      </PreviewFrame>
+    );
   if (card.kind === "mermaid")
     return (
       <div className="mermaid-preview">
@@ -417,6 +424,7 @@ export function Canvas3D({
                         width: r.width,
                         height: r.height,
                         background: surfaceColor(card.color),
+                        ...mindMapFrameStyle(card),
                       }}
                       onDoubleClick={(e) => {
                         e.stopPropagation();
@@ -430,12 +438,14 @@ export function Canvas3D({
                         }
                       }}
                     >
-                      {card.displayMode !== "small" && !card.masked && (
-                        <div className="canvas3d-component-title">
-                          <Icon size={15} />
-                          <span>{name}</span>
-                        </div>
-                      )}
+                      {card.kind !== "mindmap" &&
+                        card.displayMode !== "small" &&
+                        !card.masked && (
+                          <div className="canvas3d-component-title">
+                            <Icon size={15} />
+                            <span>{name}</span>
+                          </div>
+                        )}
                       <div className="canvas3d-component-body">
                         <ComponentPreview card={card} />
                         {!card.masked && <Remark text={card.remark} />}

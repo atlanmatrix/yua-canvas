@@ -38,6 +38,27 @@ import { isToolKind } from "./tools";
 import { surfaceColor, customColor } from "./presentation";
 import { isTextFile } from "./clipboard";
 import { LockedContent } from "./ComponentLock";
+
+// The map's nodes paint their own surfaces. Keep the outer geometry for
+// selection and connections without painting a second frame behind the tree.
+export function mindMapFrameStyle(card: Card): CSSProperties | undefined {
+  if (
+    card.kind !== "mindmap" ||
+    card.masked ||
+    card.locked ||
+    card.displayMode === "small"
+  ) return;
+  return {
+    background: "transparent",
+    borderWidth: 0,
+    borderRadius: 0,
+    boxShadow: "none",
+    padding: 0,
+    overflow: "visible",
+    maxHeight: "none",
+  };
+}
+
 export function TypeIcon({
   card,
   showName = false,
@@ -99,18 +120,21 @@ export function PreviewFrame({
   const r = cardRect(card),
     natural = contentCardSize(card),
     document = documentLayout(card);
-  // Dimensions stored on cards include the one-pixel frame on each side.
-  const width = Math.max(1, natural.width - 2),
-    height = Math.max(1, natural.height - 2);
+  // Mind maps measure their content directly. Other cards include two frame edges.
+  const edges = card.kind === "mindmap" ? 0 : 2;
+  const width = Math.max(1, natural.width - edges),
+    height = Math.max(1, natural.height - edges);
   const scaled =
-    !pdfGeometry(card) &&
-    // Text and interactive controls reflow at their real CSS font size. Scaling
-    // their natural-size preview makes 13px text smaller than a 13px note,
-    // independently of screen density. Images and diagrams retain fit scaling.
-    (card.kind === "image" ||
-      card.kind === "mermaid" ||
-      (card.kind === "file" && !isTextFile(card))) &&
-    card.displayMode === "medium";
+    card.kind === "mindmap"
+      ? card.displayMode === "medium" || card.displayMode === "custom"
+      : !pdfGeometry(card) &&
+        // Text and interactive controls reflow at their real CSS font size. Scaling
+        // their natural-size preview makes 13px text smaller than a 13px note,
+        // independently of screen density. Images and diagrams retain fit scaling.
+        (card.kind === "image" ||
+          card.kind === "mermaid" ||
+          (card.kind === "file" && !isTextFile(card))) &&
+        card.displayMode === "medium";
   const element = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: r.width, height: r.height });
   useLayoutEffect(() => {
@@ -344,6 +368,7 @@ export function GroupList({
                 width: cardRect(active).width,
                 height: cardRect(active).height,
                 background: surfaceColor(active.color),
+                ...mindMapFrameStyle(active),
               }}
             >
               {active.masked ? (
