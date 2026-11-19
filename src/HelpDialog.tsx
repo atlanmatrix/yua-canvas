@@ -92,9 +92,14 @@ export function HelpDialog() {
               </button>
             </div>
             <div className="help-dialog-content">
-              <p className="help-build-version" aria-label={tr("构建版本")}>
-                {tr("构建版本 ")}
-                <code>{__BUILD_VERSION__}</code>
+              <p className="help-build-version">
+                <span>{tr("构建版本")} <code>{__BUILD_VERSION__}</code></span>
+                <span>
+                  {tr("构建时间")}{" "}
+                  <time dateTime={__BUILD_TIME__}>
+                    {__BUILD_TIME__.slice(0, 19).replace("T", " ")} (UTC+8)
+                  </time>
+                </span>
               </p>
               <h3>{tr("画布与组件")}</h3>
               <p>

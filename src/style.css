@@ -1834,7 +1834,7 @@ body .note-address button.note-link-icon:is(:hover, :focus-visible) {
 .help-dialog-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .help-dialog p { line-height: 1.75; color: #525a69; }
 .help-dialog h3 { margin: 22px 0 8px; }
-.help-dialog .help-build-version { margin: 0 0 20px; color: #7b8799; font-size: 11px; }
+.help-dialog .help-build-version { display: flex; flex-wrap: wrap; gap: 2px 12px; margin: 0 0 20px; color: #7b8799; font-size: 11px; }
 .help-build-version code { font-family: ui-monospace, SFMono-Regular, monospace; }
 .shortcut-list { margin: 12px 0 0; }
 .shortcut-list > div { display: grid; grid-template-columns: minmax(150px, 1.2fr) 1fr; gap: 14px; padding: 10px 0; border-bottom: 1px solid #eef0f3; }

@@ -416,7 +416,7 @@ export const english: Record<string, string> = {
   本地应用关联: "Local app links",
   保存与分享: "Saving and sharing",
   构建版本: "Build version",
-  "构建版本 ": "Build version ",
+  构建时间: "Build time",
   "新建文本 / 任务": "New text / TODO",
   "平移 / 缩放": "Pan / Zoom",
   "空格 / 右键拖动 / ⌘或Ctrl＋拖动": "Space / Right-drag / ⌘ or Ctrl + drag",
