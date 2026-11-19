@@ -9,7 +9,8 @@ import {
 import { ContextSubmenu } from "./CanvasContextMenu";
 import { MenuButton } from "./MenuShortcut";
 import { t as tr } from "./i18n";
-export type ExportFormat = "canvas" | "archive" | "png" | "html" | "file";
+export type ExportFormat =
+  "canvas" | "archive" | "png" | "pdf" | "html" | "file";
 export function ExportMenu({
   onExport,
   disabled,
@@ -56,14 +57,24 @@ export function ExportMenu({
         <span>{tr("PNG 图像")}</span>
       </MenuButton>
       {!settings && (
-        <MenuButton
-          role="menuitem"
-          disabled={disabled}
-          onClick={() => onExport("html")}
-        >
-          <Code2 size={14} />
-          <span>{tr("HTML 网页")}</span>
-        </MenuButton>
+        <>
+          <MenuButton
+            role="menuitem"
+            disabled={disabled}
+            onClick={() => onExport("pdf")}
+          >
+            <FileText size={14} />
+            <span>{tr("PDF 文档")}</span>
+          </MenuButton>
+          <MenuButton
+            role="menuitem"
+            disabled={disabled}
+            onClick={() => onExport("html")}
+          >
+            <Code2 size={14} />
+            <span>{tr("HTML 网页")}</span>
+          </MenuButton>
+        </>
       )}
     </ContextSubmenu>
   );

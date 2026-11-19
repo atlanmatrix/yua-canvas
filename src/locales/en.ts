@@ -104,6 +104,7 @@ export const english: Record<string, string> = {
   "拖动连线终点": "Drag connection end",
   "HTML 网页": "HTML page",
   "PNG 图像": "PNG image",
+  "PDF 文档": "PDF document",
   导出格式: "Export format",
   没有可导出的内容: "There is no content to export",
   "预览尚未完成，请稍后重试导出":

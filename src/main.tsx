@@ -2045,6 +2045,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         );
       } else if (format === "archive") {
         download(await createArchive(snapshot), `${name}.zip`);
+      } else if (format === "pdf") {
+        const { exportPdf } = await import("./exportPdf");
+        download(await exportPdf(snapshot), `${name}.pdf`);
       } else if (format === "html") {
         const { exportHtml } = await import("./exportHtml");
         download(await exportHtml(snapshot), `${name}.html`);

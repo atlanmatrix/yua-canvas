@@ -146,6 +146,7 @@ test("text menus copy and export the clicked text, while attachments export orig
     "文件",
     "画布",
     "PNG 图像",
+    "PDF 文档",
     "HTML 网页",
   ]);
   const text = await bytes(page, "文件", true);

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { unzipSync, strFromU8 } from "fflate";
+import { PDFDocument } from "pdf-lib";
 import { openSettings } from "./settings-helper.mjs";
 import { pdfFixture } from "./pdf-fixture.mjs";
 const note = (id: string, x: number, y: number) => ({
@@ -64,6 +65,7 @@ async function contextExport(page: Page) {
     "组件压缩包",
     "画布",
     "PNG 图像",
+    "PDF 文档",
     "HTML 网页",
   ]);
   return menu;
@@ -161,6 +163,26 @@ test("selected canvas and ZIP export contain selected cards and internal links; 
     JSON.parse(strFromU8(unzipSync(whole.data)["yua-canvas.metadata.json"]))
       .cards,
   ).toHaveLength(3);
+});
+
+test("PDF downloads use a single page sized to the selected components", async ({
+  page,
+}) => {
+  await setup(page);
+  await selectPair(page);
+  const menu = await contextExport(page);
+  const file = await bytes(page, () =>
+    menu.getByRole("menuitem", { name: "PDF 文档", exact: true }).click(),
+  );
+  expect(file.name).toMatch(/\.pdf$/);
+  const pdf = await PDFDocument.load(file.data);
+  expect(pdf.getPageCount()).toBe(1);
+  // Both selected notes and their internal link fit inside these bounds.
+  // Including the third note would extend the page down and to the right.
+  const size = pdf.getPages()[0].getSize();
+  expect(size.width).toBe((680 - 100 + 64) * 0.75);
+  expect(size.height).toBe((100 + 72) * 0.75);
+  await expect(page.locator(".png-export")).toHaveCount(0);
 });
 
 test("PNG renders selected offscreen PDF and diagrams without exporting controls or unselected content", async ({
@@ -674,25 +696,44 @@ test("exporting from empty space in a child canvas includes its drawing and excl
   expect(html).toContain('data-stroke-id="ink"');
   expect(html).toContain("child-note");
   expect(html).not.toContain(">outside<");
-  const image = (await fromCanvas("PNG 图像")).data.toString("base64");
-  const includesInk = await page.evaluate(async (base64) => {
-    const bitmap = new Image();
-    bitmap.src = "data:image/png;base64," + base64;
-    await bitmap.decode();
-    const canvas = document.createElement("canvas");
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
-    const ctx = canvas.getContext("2d")!;
-    ctx.drawImage(bitmap, 0, 0);
-    return ctx
-      .getImageData(0, 0, canvas.width, canvas.height)
-      .data.some(
-        (value, index, data) =>
-          index % 4 === 0 &&
-          value === 255 &&
-          data[index + 1] === 0 &&
-          data[index + 2] === 0,
-      );
-  }, image);
-  expect(includesInk).toBe(true);
+  for (const format of ["PNG 图像", "PDF 文档"]) {
+    const file = await fromCanvas(format);
+    const includesInk = await page.evaluate(
+      async ({ base64, pdf }) => {
+        const data = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+        let blob = new Blob([data], {
+          type: pdf ? "application/pdf" : "image/png",
+        });
+        if (pdf) {
+          const { requestPdfPreview } = await import("/src/pdfPreviewCache.ts");
+          const bitmap = await requestPdfPreview(
+            blob,
+            1,
+            1200,
+            800,
+            new AbortController().signal,
+          );
+          blob = bitmap.blob;
+        }
+        const bitmap = await createImageBitmap(blob);
+        const canvas = document.createElement("canvas");
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(bitmap, 0, 0);
+        bitmap.close();
+        return ctx
+          .getImageData(0, 0, canvas.width, canvas.height)
+          .data.some(
+            (value, index, pixels) =>
+              index % 4 === 0 &&
+              value > 230 &&
+              pixels[index + 1] < 20 &&
+              pixels[index + 2] < 20,
+          );
+      },
+      { base64: file.data.toString("base64"), pdf: format === "PDF 文档" },
+    );
+    expect(includesInk, format).toBe(true);
+  }
 });

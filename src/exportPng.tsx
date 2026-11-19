@@ -327,16 +327,23 @@ export async function withExportScene(
   }
 }
 
-export function exportPng(board: Board): Promise<Blob> {
-  return withExportScene(board, async (scene, _cards, ratio) => {
-    const { toBlob } = await import("html-to-image");
-    const blob = await toBlob(scene, {
-      pixelRatio: ratio,
-      skipFonts: true,
-      filter: (node) =>
-        !(node instanceof Element && node.matches(".pdf-navigation")),
-    });
-    if (!blob) throw new Error(tr("导出失败，请重试"));
-    return blob;
+export async function renderScenePng(
+  scene: HTMLElement,
+  pixelRatio: number,
+): Promise<Blob> {
+  const { toBlob } = await import("html-to-image");
+  const blob = await toBlob(scene, {
+    pixelRatio,
+    skipFonts: true,
+    filter: (node) =>
+      !(node instanceof Element && node.matches(".pdf-navigation")),
   });
+  if (!blob) throw new Error(tr("导出失败，请重试"));
+  return blob;
+}
+
+export function exportPng(board: Board): Promise<Blob> {
+  return withExportScene(board, (scene, _cards, ratio) =>
+    renderScenePng(scene, ratio),
+  );
 }
