@@ -95,12 +95,17 @@ const documentLayouts = {
   medium: { contentWidth: 410, insetX: 24, insetY: 16 },
   large: { contentWidth: 820, insetX: 48, insetY: 32 },
 };
+export function documentReadingPreset(
+  c?: Pick<Card, "displayMode" | "customSize">,
+) {
+  const large =
+    c?.displayMode === "large" ||
+    (c?.displayMode === "custom" && c.customSize?.base === "large");
+  return documentLayouts[large ? "large" : "medium"];
+}
 export function documentLayout(c: CardGeometry) {
   if (c.kind !== "file" || pdfGeometry(c) || !isTextFile(c)) return;
-  const large =
-    c.displayMode === "large" ||
-    (c.displayMode === "custom" && c.customSize?.base === "large");
-  return documentLayouts[large ? "large" : "medium"];
+  return documentReadingPreset(c);
 }
 
 export const cardRect = (c: CardGeometry): Rect => {

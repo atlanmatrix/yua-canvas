@@ -11,7 +11,7 @@ import {
   FullContentExportContext,
 } from "./ExportPreviewContext";
 import { ExportMarks, waitForExportContent } from "./exportPng";
-import { cardRect, documentLayout } from "./geometry";
+import { cardRect, documentLayout, documentReadingPreset } from "./geometry";
 import { t as tr } from "./i18n";
 import { StyledNoteText } from "./NoteText";
 import { readPreviewText } from "./previewCache";
@@ -295,6 +295,10 @@ export async function exportPdf(input: Board): Promise<Blob> {
     const pdf = await PDFDocument.create();
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d")!;
+    const { insetX, insetY } = documentReadingPreset(
+      items.length === 1 && !strokes.length ? items[0].card : undefined,
+    );
+    const paperWidth = width + 2 * insetX;
     let start = 0;
     for (const end of ends) {
       const h = end - start;
@@ -325,13 +329,14 @@ export async function exportPdf(input: Board): Promise<Blob> {
         ),
       );
       const image = await pdf.embedPng(await png.arrayBuffer());
-      const scale = Math.min(0.75, 14400 / Math.max(width, h));
-      const page = pdf.addPage([width * scale, h * scale]);
+      const paperHeight = h + 2 * insetY;
+      const scale = Math.min(0.75, 14400 / Math.max(paperWidth, paperHeight));
+      const page = pdf.addPage([paperWidth * scale, paperHeight * scale]);
       page.drawImage(image, {
-        x: 0,
-        y: 0,
-        width: page.getWidth(),
-        height: page.getHeight(),
+        x: insetX * scale,
+        y: insetY * scale,
+        width: width * scale,
+        height: h * scale,
       });
       start = end;
     }

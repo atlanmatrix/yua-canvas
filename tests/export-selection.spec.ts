@@ -180,9 +180,9 @@ test("PDF downloads use a single page sized to the selected components", async (
   // Both selected notes and their internal link fit inside these bounds.
   // Including the third note would extend the page down and to the right.
   const size = pdf.getPages()[0].getSize();
-  expect(size.width).toBe((680 - 100) * 0.75);
-  expect(size.height).toBeGreaterThanOrEqual(24 * 0.75);
-  expect(size.height).toBeLessThan(60 * 0.75);
+  expect(size.width).toBe((680 - 100 + 2 * 24) * 0.75);
+  expect(size.height).toBeGreaterThanOrEqual((24 + 2 * 16) * 0.75);
+  expect(size.height).toBeLessThan((60 + 2 * 16) * 0.75);
   await expect(page.locator(".pdf-export")).toHaveCount(0);
 });
 
@@ -772,17 +772,22 @@ async function pdfPageColors(page: Page, file: Buffer, pageNumber: number) {
       let green = 0,
         red = 0,
         dark = 0,
-        rightStripWhite = true;
+        marginX = img.width,
+        marginY = img.height;
       for (let i = 0; i < pixels.length; i += 4) {
         const [r, g, b] = [pixels[i], pixels[i + 1], pixels[i + 2]];
         if (g > 155 && g > r * 2 && g > b * 2) green++;
         if (Math.max(r, g, b) < 145) dark++;
         if (r > 200 && g < 60 && b < 60) red++;
-        if ((i / 4) % img.width >= img.width - 12 && Math.min(r, g, b) < 250)
-          rightStripWhite = false;
+        if (Math.min(r, g, b) < 250) {
+          const x = (i / 4) % img.width,
+            y = Math.floor(i / (4 * img.width));
+          marginX = Math.min(marginX, x, img.width - x - 1);
+          marginY = Math.min(marginY, y, img.height - y - 1);
+        }
       }
       img.close();
-      return { green, red, dark, rightStripWhite };
+      return { green, red, dark, marginX, marginY, bitmapWidth: canvas.width };
     },
     { data: file.toString("base64"), last: pageNumber },
   );
@@ -824,11 +829,16 @@ test("Markdown PDF includes the final table row on paper without the card or scr
   const file = await downloadCardPdf(page, "doc");
   const pages = (await PDFDocument.load(file.data)).getPages();
   expect(pages.length).toBeGreaterThan(1);
-  for (const sheet of pages) expect(sheet.getWidth()).toBe(410 * 0.75);
-  const colors = await pdfPageColors(page, file.data, pages.length);
-  expect(colors.green).toBeGreaterThan(100);
-  expect(colors.red).toBe(0);
-  expect(colors.rightStripWhite).toBe(true);
+  const paperWidth = 410 + 2 * 24;
+  for (const [index, sheet] of pages.entries()) {
+    expect(sheet.getWidth()).toBe(paperWidth * 0.75);
+    const colors = await pdfPageColors(page, file.data, index + 1);
+    const pixelsPerCssPixel = colors.bitmapWidth / paperWidth;
+    expect(colors.marginX).toBeGreaterThanOrEqual(24 * pixelsPerCssPixel - 2);
+    expect(colors.marginY).toBeGreaterThanOrEqual(16 * pixelsPerCssPixel - 2);
+    expect(colors.red).toBe(0);
+    if (index === pages.length - 1) expect(colors.green).toBeGreaterThan(100);
+  }
 });
 
 test("full PDF export retains code beyond the preview limit and every page of a PDF attachment", async ({
@@ -883,7 +893,7 @@ test("a wide Markdown table exports through its rightmost column", async ({
       kind: "file",
       title: "wide.md",
       displayMode: "custom",
-      customSize: { width: 200, height: 100 },
+      customSize: { width: 200, height: 100, base: "large" },
       mime: "text/markdown",
       blob:
         "data:text/markdown;base64," +
@@ -893,7 +903,11 @@ test("a wide Markdown table exports through its rightmost column", async ({
   const file = await downloadCardPdf(page, "wide");
   const [sheet] = (await PDFDocument.load(file.data)).getPages();
   expect(sheet.getWidth()).toBeGreaterThan(200 * 0.75);
-  expect((await pdfPageColors(page, file.data, 1)).green).toBeGreaterThan(0);
+  const colors = await pdfPageColors(page, file.data, 1);
+  const pixelsPerCssPixel = colors.bitmapWidth / (sheet.getWidth() / 0.75);
+  expect(colors.marginX / pixelsPerCssPixel).toBeCloseTo(48, 0);
+  expect(colors.marginY / pixelsPerCssPixel).toBeCloseTo(32, 0);
+  expect(colors.green).toBeGreaterThan(0);
 });
 
 test("PDF includes mind map branches outside the card width", async ({
