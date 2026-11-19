@@ -7,7 +7,8 @@ import { memo, useEffect, useRef, useState } from "react";
 import { FileText } from "./icons";
 import type { Card } from "./storage";
 import { XlsxPreview } from "./XlsxPreview";
-import { isXlsxFile } from "./files";
+import { OfficePreview } from "./OfficePreview";
+import { isXlsxFile, officeKind } from "./files";
 import { PdfPreview } from "./PdfPreview";
 import { isTextFile, isMarkdownFile, isPdfFile } from "./clipboard";
 const AttachmentContent = memo(function AttachmentContent({
@@ -15,9 +16,11 @@ const AttachmentContent = memo(function AttachmentContent({
   large = false,
   onPdfPageChange,
   onPdfAspectChange,
+  onSlideChange,
 }: {
   card: Card;
   large?: boolean;
+  onSlideChange?: (page: number) => void;
   onPdfPageChange?: (page: number) => void;
   onPdfAspectChange?: (width: number, height: number) => void;
 }) {
@@ -76,6 +79,16 @@ const AttachmentContent = memo(function AttachmentContent({
     setAsset({ url: u, blob: card.blob, mime: card.mime });
     return () => URL.revokeObjectURL(u);
   }, [card.blob, card.mime, card.kind, large]);
+  const office = card.kind === "file" ? officeKind(card) : undefined;
+  if (office)
+    return (
+      <OfficePreview
+        blob={card.blob}
+        kind={office}
+        slidePage={card.slidePage}
+        onSlideChange={onSlideChange}
+      />
+    );
   if (card.kind === "file" && isXlsxFile(card))
     return <XlsxPreview blob={card.blob} large={large} />;
   if (!large && isPdfFile(card))
@@ -124,14 +137,16 @@ export function Attachment({
   large = false,
   onPdfPageChange,
   onPdfAspectChange,
+  onSlideChange,
 }: {
   card: Card;
   large?: boolean;
+  onSlideChange?: (page: number) => void;
   onPdfPageChange?: (page: number) => void;
   onPdfAspectChange?: (width: number, height: number) => void;
 }) {
-  const change = useRef(onPdfPageChange);
-  change.current = onPdfPageChange;
+  const change = useRef(onPdfPageChange || onSlideChange);
+  change.current = onPdfPageChange || onSlideChange;
   const handler = useRef((page: number) => change.current?.(page)).current;
   const content = (
     <AttachmentContent
@@ -139,6 +154,9 @@ export function Attachment({
       large={large}
       onPdfPageChange={onPdfPageChange ? handler : undefined}
       onPdfAspectChange={onPdfAspectChange}
+      onSlideChange={
+        onSlideChange && officeKind(card) === "pptx" ? handler : undefined
+      }
     />
   );
   return large || isPdfFile(card) ? (

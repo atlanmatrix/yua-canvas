@@ -88,6 +88,7 @@ import {
   Square,
   List,
   LayoutGrid,
+  Monitor,
   Paintbrush,
   Link2,
   Unlink,
@@ -153,8 +154,9 @@ import {
   MenuSection,
 } from "./CanvasContextMenu";
 import { ConnectionView } from "./ConnectionView";
+import { OfficePreview } from "./OfficePreview";
 import { XlsxPreview } from "./XlsxPreview";
-import { cardsFromFiles, fileMime, isXlsxFile } from "./files";
+import { cardsFromFiles, fileMime, isXlsxFile, officeKind, type OfficeKind } from "./files";
 import { archiveSelection, createArchive, isZip, readArchive } from "./archive";
 import {
   clipboardCopy,
@@ -367,7 +369,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   const surface = useRef<HTMLDivElement>(null),
     connectionEditors = useRef<HTMLDivElement>(null),
     connectionLabels = useRef<SVGSVGElement>(null),
-    xlsxInput = useRef<HTMLInputElement>(null),
+    officeInput = useRef<HTMLInputElement>(null),
     fileInput = useRef<HTMLInputElement>(null),
     directoryInput = useRef<HTMLInputElement>(null),
     imageInput = useRef<HTMLInputElement>(null),
@@ -523,7 +525,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       (gesture.current?.kind === "pan" && gesture.current.button === 2),
   });
   useEffect(() => {
-    const inputs = [fileInput.current, imageInput.current, xlsxInput.current];
+    const inputs = [fileInput.current, imageInput.current, officeInput.current];
     const cancel = () => {
       pendingUpload.current = undefined;
     };
@@ -1019,7 +1021,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setSelectedGroup(undefined);
     setMenu(null);
   };
-  const createFromMenu = (kind: Card["kind"] | "xlsx") => {
+  const createFromMenu = (kind: Card["kind"] | "xlsx" | OfficeKind) => {
     if (!menu || !ready || !surface.current) return;
     const rect = surface.current.getBoundingClientRect();
     const point = {
@@ -1027,9 +1029,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       y: (menu.y - rect.top - view.y) / view.z,
     };
     setMenu(null);
-    if (kind === "xlsx") {
+    if (kind === "xlsx" || kind === "docx" || kind === "pptx") {
       pendingUpload.current = point;
-      xlsxInput.current?.click();
+      if (officeInput.current) {
+        officeInput.current.accept = "." + kind;
+        officeInput.current.click();
+      }
       return;
     }
     if (kind === "text") addText(point);
@@ -2348,6 +2353,19 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         c.kind === "file" ||
         isDiagramKind(c.kind)),
   );
+  const currentOfficeKind = current?.kind === "file" ? officeKind(current) : undefined;
+  const saveOfficeFile = (blob: Blob, source: Blob) => {
+    if (!current) return;
+    const latest = latestBoard.current.cards.find((card) => card.id === current.id);
+    if (latest?.blob !== source) throw Error("文件已更改，请重新打开");
+    updateCards((cards) =>
+      cards.map((card) =>
+        card.id === current.id && card.blob === source
+          ? { ...card, blob, mime: blob.type }
+          : card,
+      ),
+    );
+  };
   const DiagramEditor =
     current && isDiagramKind(current.kind)
       ? {
@@ -3235,9 +3253,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         }}
       />
       <input
-        ref={xlsxInput}
+        ref={officeInput}
         type="file"
-        accept=".xlsx"
+        accept=".xlsx,.docx,.pptx"
         hidden
         onChange={(e) => {
           void addFiles(e.target.files, pendingUpload.current);
@@ -3362,6 +3380,21 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     <LayoutGrid size={14} />
                     {tr("Excel 表格")}
                   </button>
+                  {(["docx", "pptx"] as const).map((kind) => (
+                    <button
+                      key={kind}
+                      role="menuitem"
+                      disabled={!ready}
+                      onClick={() => createFromMenu(kind)}
+                    >
+                      {kind === "docx" ? (
+                        <FileText size={14} />
+                      ) : (
+                        <Monitor size={14} />
+                      )}
+                      {tr(kind === "docx" ? "Word 文档" : "PPT 演示文稿")}
+                    </button>
+                  ))}
                   <button
                     role="menuitem"
                     disabled={!ready}
@@ -4035,23 +4068,33 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   />
                 )}
               </div>
+            ) : currentOfficeKind ? (
+              <OfficePreview
+                key={current.id}
+                kind={currentOfficeKind}
+                blob={current.blob}
+                slidePage={current.slidePage}
+                onSlideChange={(slidePage) =>
+                  setBoard(
+                    (board) => ({
+                      ...board,
+                      cards: board.cards.map((card) =>
+                        card.id === current.id ? { ...card, slidePage } : card,
+                      ),
+                    }),
+                    { recordHistory: false },
+                  )
+                }
+                onSave={saveOfficeFile}
+                onDownload={() => void downloadCard(current)}
+              />
             ) : current.kind === "file" && isXlsxFile(current) ? (
               <XlsxPreview
                 key={current.id}
                 blob={current.blob}
                 large
                 onDownload={() => void downloadCard(current)}
-                onSave={(blob, source) => {
-                  const latest = latestBoard.current.cards.find((card) => card.id === current.id);
-                  if (latest?.blob !== source) throw Error("文件已更改，请重新打开");
-                  updateCards((cards) =>
-                    cards.map((card) =>
-                      card.id === current.id && card.blob === source
-                        ? { ...card, blob, mime: blob.type }
-                        : card,
-                    ),
-                  );
-                }}
+                onSave={saveOfficeFile}
               />
             ) : current.kind === "file" && isTextFile(current) ? (
               <TextFileEditor

@@ -1,0 +1,90 @@
+.office-file {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  min-width: 0;
+  color: var(--ink);
+}
+.office-scroll {
+  flex: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 12px 16px;
+  min-height: 0;
+  text-align: start;
+  line-height: 1.55;
+  pointer-events: auto;
+}
+.office-paragraph {
+  min-height: 1em;
+  margin: 0 0 0.45em;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.office-title {
+  font-weight: 650;
+  font-size: 1.25em;
+}
+.office-paragraph img {
+  display: block;
+  max-width: 100%;
+  max-height: 55vh;
+  object-fit: contain;
+  margin: 4px 0;
+}
+.office-paragraph textarea {
+  field-sizing: content;
+  resize: vertical;
+  display: block;
+  width: 100%;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font: inherit;
+}
+.office-pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  pointer-events: auto;
+}
+.office-pager button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+}
+.office-status {
+  padding: 12px;
+  color: var(--muted);
+}
+.office-slide {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  container-type: inline-size;
+  background: var(--surface);
+}
+.office-shape {
+  position: absolute;
+  overflow: hidden;
+  font-size: 2.8cqw;
+  line-height: 1.2;
+}
+.office-shape .office-title {
+  font-size: 4.5cqw;
+}
+.office-shape:has(img) .office-paragraph,
+.office-shape img {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}

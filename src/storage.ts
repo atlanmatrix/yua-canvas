@@ -71,6 +71,7 @@ export type Card = {
   canvas?: Board;
   miniatureView?: string;
   pdfPage?: number;
+  slidePage?: number;
   editableFile?: boolean;
 };
 export type Task = { id: string; text: string; done: boolean };
@@ -486,6 +487,13 @@ export async function importBoard(
       )
         throw Error("PDF 页码无效");
       if (
+        c.slidePage !== undefined &&
+        (c.kind !== "file" ||
+          !Number.isSafeInteger(c.slidePage) ||
+          (c.slidePage as number) < 1)
+      )
+        throw Error("幻灯片页码无效");
+      if (
         c.editableFile !== undefined &&
         (c.kind !== "file" || typeof c.editableFile !== "boolean")
       )
@@ -620,6 +628,7 @@ export async function importBoard(
         kind: c.kind as Card["kind"],
         miniatureView: c.miniatureView as string | undefined,
         pdfPage: c.pdfPage as number | undefined,
+        slidePage: c.slidePage as number | undefined,
         editableFile: c.editableFile as boolean | undefined,
         title: c.title,
         text: c.text,

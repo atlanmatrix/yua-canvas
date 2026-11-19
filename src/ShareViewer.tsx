@@ -41,7 +41,7 @@ import { cardRect } from "./geometry";
 import { curve, endpointPoint, curveMidpoint } from "./connections";
 import { ConnectionArrow } from "./ConnectionArrow";
 import { Diagram } from "./Markdown";
-import { isXlsxFile } from "./files";
+import { isXlsxFile, officeKind } from "./files";
 import { PdfPreview } from "./PdfPreview";
 import { isPdfFile, isTextFile } from "./clipboard";
 import { Miniature } from "./Miniature";
@@ -417,7 +417,7 @@ export function ShareViewer({ token }: { token: string }) {
                               standalone
                             />
                           </div>
-                        ) : c.kind === "file" && isXlsxFile(c) ? (
+                        ) : c.kind === "file" && (isXlsxFile(c) || officeKind(c)) ? (
                           <Attachment card={c} />
                         ) : isPdfFile(c) ? (
                           <PdfPreview card={c} />

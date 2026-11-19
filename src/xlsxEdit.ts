@@ -1,4 +1,10 @@
-import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import { unzipSync, zipSync } from "fflate";
+import {
+  officeMainPart,
+  officeRelations,
+  officeXml,
+  serializeOfficeXml,
+} from "./officePackage";
 import { xlsxMime } from "./files";
 
 export type CellEdit = {
@@ -19,44 +25,19 @@ export function columnName(column: number): string {
 // parts survive a save. All package paths are resolved inside the archive.
 export async function writeCells(blob: Blob, edits: CellEdit[]) {
   const parts = unzipSync(new Uint8Array(await blob.arrayBuffer()));
-  const xml = (path: string) => {
-    if (!parts[path]) throw Error("Invalid workbook part");
-    const doc = new DOMParser().parseFromString(
-      strFromU8(parts[path]),
-      "application/xml",
-    );
-    if (doc.querySelector("parsererror")) throw Error("Invalid workbook XML");
-    return doc;
-  };
   const elements = (node: Document | Element, tag: string) =>
     Array.from(node.getElementsByTagNameNS("*", tag));
-  const related = (path: string, match: (relation: Element) => boolean) => {
-    const slash = path.lastIndexOf("/") + 1;
-    const relations = xml(
-      path.slice(0, slash) + "_rels/" + path.slice(slash) + ".rels",
-    );
-    const relation = elements(relations, "Relationship").find(match);
-    const target = relation?.getAttribute("Target");
-    if (!target || relation?.getAttribute("TargetMode") === "External")
-      throw Error("Missing workbook part");
-    return decodeURIComponent(
-      new URL(target, "https://package.invalid/" + path).pathname.slice(1),
-    );
-  };
-  const bookPath = related(
-    "",
-    (rel) => !!rel.getAttribute("Type")?.endsWith("/officeDocument"),
-  );
-  const book = xml(bookPath);
+  const bookPath = officeMainPart(parts);
+  const book = officeXml(parts, bookPath);
   const first = elements(book, "sheet")[0];
   const id = Array.from(first.attributes).find(
     (attr) => attr.localName === "id",
   )?.value;
-  const path = related(
-    bookPath,
-    (rel) => !!id && rel.getAttribute("Id") === id,
-  );
-  const sheet = xml(path);
+  const path = officeRelations(parts, bookPath).find(
+    (rel) => id && rel.id === id,
+  )?.path;
+  if (!path) throw Error("Missing worksheet");
+  const sheet = officeXml(parts, path);
   const ns = sheet.documentElement.namespaceURI;
   const make = (tag: string) => sheet.createElementNS(ns, tag);
   const data = elements(sheet, "sheetData")[0];
@@ -157,10 +138,8 @@ export async function writeCells(blob: Blob, edits: CellEdit[]) {
   }
   const calc = elements(book, "calcPr")[0];
   if (calc) calc.setAttribute("fullCalcOnLoad", "1");
-  const serialize = (doc: Document) =>
-    strToU8(new XMLSerializer().serializeToString(doc));
-  parts[path] = serialize(sheet);
-  if (calc) parts[bookPath] = serialize(book);
+  parts[path] = serializeOfficeXml(sheet);
+  if (calc) parts[bookPath] = serializeOfficeXml(book);
   return new Blob([new Uint8Array(zipSync(parts, { level: 3 }))], {
     type: xlsxMime,
   });

@@ -650,7 +650,20 @@ export const CanvasCard = memo(function CanvasCard({
             />
           ) : (
             <>
-              <Attachment card={c} />
+              <Attachment
+                card={c}
+                onSlideChange={(slidePage) =>
+                  setBoard(
+                    (board) => ({
+                      ...board,
+                      cards: board.cards.map((card) =>
+                        card.id === c.id ? { ...card, slidePage } : card,
+                      ),
+                    }),
+                    { recordHistory: false },
+                  )
+                }
+              />
               <div className="attachment-title">
                 <FileText size={16} />
                 <span>{c.title}</span>

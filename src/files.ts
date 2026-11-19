@@ -3,6 +3,21 @@ import { type Card } from "./storage";
 import { isTextFile } from "./clipboard";
 export const xlsxMime =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+export const officeMimes = {
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+} as const;
+export type OfficeKind = keyof typeof officeMimes;
+export function officeKind(
+  file: Pick<Card, "title" | "mime">,
+): OfficeKind | undefined {
+  for (const kind of ["docx", "pptx"] as const)
+    if (
+      file.mime === officeMimes[kind] ||
+      file.title.toLowerCase().endsWith("." + kind)
+    )
+      return kind;
+}
 export function isXlsxFile(file: Pick<Card, "title" | "mime">) {
   return file.mime === xlsxMime || /\.xlsx$/i.test(file.title);
 }
@@ -24,6 +39,7 @@ export function fileMime(name: string) {
     json: "application/json",
     pdf: "application/pdf",
     xlsx: xlsxMime,
+    ...officeMimes,
     csv: "text/csv",
     html: "text/html",
     css: "text/css",
@@ -70,13 +86,18 @@ export async function cardsFromFiles(
 ): Promise<Card[]> {
   const cards = await Promise.all(
     files.map(async (file): Promise<Card> => {
-      const mime = isXlsxFile({ title: file.name, mime: file.type })
-        ? xlsxMime
-        : file.type || fileMime(file.name);
+      const info = { title: file.name, mime: file.type };
+      const office = officeKind(info);
+      const mime = office
+        ? officeMimes[office]
+        : isXlsxFile(info)
+          ? xlsxMime
+          : file.type || fileMime(file.name);
       const kind = mime.startsWith("image/") ? "image" : "file";
       let size = isTextFile({ title: file.name, mime } as Card)
         ? { width: 320, height: 240 }
         : { width: 240, height: 250 };
+      if (office) size = { width: 420, height: office === "docx" ? 380 : 300 };
       if (mime === xlsxMime) size = { width: 400, height: 260 };
       if (mime === "application/pdf") size = { width: 360, height: 480 };
       if (kind === "image") {

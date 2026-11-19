@@ -16,7 +16,7 @@ import { cardsFromFiles, fileMime } from "./files";
 export const METADATA = "yua-canvas.metadata.json";
 export const isZip = (file: File) =>
   /\.zip$/i.test(file.name) ||
-  (!/\.xlsx$/i.test(file.name) &&
+  (!/\.(xlsx|docx|pptx)$/i.test(file.name) &&
     ["application/zip", "application/x-zip-compressed"].includes(file.type));
 export function archiveSelection(
   board: Board,
@@ -140,6 +140,7 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
           textRuns: card.textRuns,
           miniatureView: card.miniatureView,
           pdfPage: card.pdfPage,
+          slidePage: card.slidePage,
           editableFile: card.editableFile,
           name: card.title,
           x: card.x,

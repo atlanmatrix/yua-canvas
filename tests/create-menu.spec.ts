@@ -73,6 +73,8 @@ test("hover and click open all component types; text is created at zoomed right-
     /^图片I$/,
     "文件",
     "Excel 表格",
+    "Word 文档",
+    "PPT 演示文稿",
     "Agent",
     "Miniature",
   ]);
