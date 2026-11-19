@@ -1856,7 +1856,22 @@ body .note-address button.note-link-icon:is(:hover, :focus-visible) {
 .card:not(.card-canvas):not(.card-miniature) { border: 1px solid var(--card-border); box-shadow: 0 3px 4px #373f5105, 0 12px 20px #373f5104; }
 
 .context-submenu-host { position: relative; }
-.submenu-bridge { position: fixed; z-index: 20; }
+.submenu-layer {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  background: transparent;
+  color: inherit;
+  pointer-events: none;
+}
+.submenu-layer > .context-submenu { pointer-events: auto; }
+.submenu-bridge { position: fixed; z-index: 20; pointer-events: auto; }
+@media (hover: none) { .submenu-bridge { display: none; } }
 .context-submenu-host > button { display: flex; justify-content: space-between; }
 .context-submenu-host > button[aria-expanded="true"] { background: var(--accent-soft); }
 .submenu-arrow { margin-left: 24px; font-size: 18px; line-height: 14px; color: var(--muted); }

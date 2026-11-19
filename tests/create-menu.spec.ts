@@ -178,3 +178,29 @@ test("submenu stays in viewport near edges and supports keyboard navigation and 
   await expect(page.getByRole("menu")).toHaveCount(0);
   await expect(page.getByTestId("card")).toHaveCount(0);
 });
+
+test("diagonal pointer travel reaches the last child on either side of a scrolling menu", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 820 });
+  await page.addStyleTag({
+    content: ".context-menu:not(.context-submenu) { contain: paint; }",
+  });
+  for (const x of [220, 1100]) {
+    await page.mouse.click(x, 180, { button: "right" });
+    const trigger = page.getByRole("menuitem", { name: "新建", exact: true });
+    await trigger.hover();
+    const item = page.getByRole("menuitem", { name: "Miniature", exact: true });
+    const rect = (await item.boundingBox())!;
+    await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2, {
+      steps: 24,
+    });
+    await expect(item).toBeVisible();
+    await page.mouse.down();
+    await page.mouse.up();
+    const dialog = page.getByRole("dialog", { name: "添加 miniature" });
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+  }
+});

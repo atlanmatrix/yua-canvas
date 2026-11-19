@@ -223,6 +223,18 @@ export function ContextSubmenu({
   }>({ x: 0, y: 0 });
   const trigger = useRef<HTMLButtonElement>(null);
   const submenu = useRef<HTMLDivElement>(null);
+  const layer = useRef<HTMLDivElement>(null);
+  const entryX = useRef<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    if (!open || !layer.current) return;
+    layer.current.showPopover();
+    const settings = trigger.current?.closest(".settings-popover");
+    const onToggle = (event: Event) => {
+      if ((event as ToggleEvent).newState === "closed") setOpen(false);
+    };
+    settings?.addEventListener("beforetoggle", onToggle);
+    return () => settings?.removeEventListener("beforetoggle", onToggle);
+  }, [open]);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -268,21 +280,51 @@ export function ContextSubmenu({
           innerHeight - bounds.height - 8,
         ),
       );
-      // Span the gap from the trigger edge to both near corners of the panel.
-      // The clipped hit area stays out of adjacent rows while moving diagonally.
+      // Leave the trigger itself clickable. Shield diagonal travel across
+      // adjacent rows, while a vertical move can still switch to another row.
       const top = Math.min(y, anchor.top);
-      const near = opensRight ? "0%" : "100%";
-      const far = opensRight ? "100%" : "0%";
+      const edge = opensRight ? anchor.right : anchor.left;
+      const entry = Math.max(
+        anchor.left,
+        Math.min(
+          anchor.right,
+          entryX.current ?? (anchor.left + anchor.right) / 2,
+        ),
+      );
+      const start = opensRight
+        ? Math.min(edge, entry + 8)
+        : Math.max(edge, entry - 8);
+      const end = opensRight ? x : x + bounds.width;
+      const left = Math.min(start, end);
+      const point = (px: number, py: number) => `${px - left}px ${py - top}px`;
       const bridge = below
-        ? undefined
+        ? {
+            left: Math.max(x, anchor.left),
+            width: Math.max(
+              0,
+              Math.min(x + bounds.width, anchor.right) -
+                Math.max(x, anchor.left),
+            ),
+            top: y >= anchor.bottom ? anchor.bottom : y + bounds.height,
+            height: Math.max(
+              0,
+              y - anchor.bottom,
+              anchor.top - y - bounds.height,
+            ),
+          }
         : {
-            left: opensRight ? anchor.right : x + bounds.width,
+            left,
             top,
-            width: opensRight
-              ? x - anchor.right
-              : anchor.left - x - bounds.width,
+            width: Math.abs(end - start),
             height: Math.max(anchor.bottom, y + bounds.height) - top,
-            clipPath: `polygon(${near} ${anchor.top - top}px, ${far} ${y - top}px, ${far} ${y + bounds.height - top}px, ${near} ${anchor.bottom - top}px)`,
+            clipPath: `polygon(${[
+              point(start, anchor.top),
+              point(end, y),
+              point(end, y + bounds.height),
+              point(start, anchor.bottom),
+              point(edge, anchor.bottom),
+              point(edge, anchor.top),
+            ].join(", ")})`,
           };
       setPosition({ x, y, bridge });
       if (focusFirst.current) {
@@ -313,7 +355,10 @@ export function ContextSubmenu({
       onPointerEnter={(e) => {
         cancelClose();
         if (e.pointerType === "touch") return;
-        if (!disabled && controller?.mode.current !== "keyboard") setOpen(true);
+        if (!disabled && controller?.mode.current !== "keyboard") {
+          if (!open) entryX.current = e.clientX;
+          setOpen(true);
+        }
       }}
       onPointerMove={(e) => {
         if (e.pointerType === "touch") return;
@@ -370,35 +415,37 @@ export function ContextSubmenu({
         <span>{label}</span>
         <ChevronRight className="submenu-arrow" size={14} aria-hidden="true" />
       </button>
-      {open && position.bridge && (
-        <span
-          aria-hidden="true"
-          className="submenu-bridge"
-          style={position.bridge}
-        />
-      )}
       {open && (
-        <div
-          ref={submenu}
-          className="context-menu context-submenu"
-          role="menu"
-          aria-label={menuLabel || tr("{0}组件", label)}
-          style={{ left: position.x, top: position.y }}
-          onKeyDown={(e) => {
-            if (
-              ["Escape", "ArrowLeft"].includes(e.key) ||
-              (e.key === "ArrowRight" &&
-                trigger.current?.closest(".settings-popover"))
-            ) {
-              e.stopPropagation();
-              e.preventDefault();
-              close();
-              return;
-            }
-            navigateMenu(e);
-          }}
-        >
-          {children}
+        <div ref={layer} popover="manual" className="submenu-layer">
+          {position.bridge && (
+            <span
+              aria-hidden="true"
+              className="submenu-bridge"
+              style={position.bridge}
+            />
+          )}
+          <div
+            ref={submenu}
+            className="context-menu context-submenu"
+            role="menu"
+            aria-label={menuLabel || tr("{0}组件", label)}
+            style={{ left: position.x, top: position.y }}
+            onKeyDown={(e) => {
+              if (
+                ["Escape", "ArrowLeft"].includes(e.key) ||
+                (e.key === "ArrowRight" &&
+                  trigger.current?.closest(".settings-popover"))
+              ) {
+                e.stopPropagation();
+                e.preventDefault();
+                close();
+                return;
+              }
+              navigateMenu(e);
+            }}
+          >
+            {children}
+          </div>
         </div>
       )}
     </div>
