@@ -54,15 +54,17 @@ async function start(page: Page) {
   await page.goto("/");
   await saved(page);
 }
+const converterNames = ["距离单位转换", "摄氏度 / 华氏度", "汇率计算"];
 const toolSpacing = 440;
 async function tool(page: Page, name: string) {
   const count = await page.getByTestId("card").count();
   await page
     .locator(".canvas")
     .click({ button: "right", position: { x: 100 + count * toolSpacing, y: 100 } });
-  await page.getByRole("menuitem", { name: "新建工具", exact: true }).hover();
+  const menu = converterNames.includes(name) ? "转换工具" : "新建工具";
+  await page.getByRole("menuitem", { name: menu, exact: true }).hover();
   await page
-    .getByRole("menu", { name: "新建工具组件", exact: true })
+    .getByRole("menu", { name: menu + "组件", exact: true })
     .getByRole("menuitem", { name, exact: true })
     .click();
   return page.getByTestId("card").last();
@@ -83,7 +85,7 @@ async function exported(page: Page) {
   for await (const chunk of stream!) chunks.push(chunk);
   return JSON.parse(Buffer.concat(chunks).toString());
 }
-test("tool submenu contains TODO and all six tools, separated from New, and retains the clicked anchor", async ({
+test("general tools and converters have separate canvas menus and retain the clicked anchor", async ({
   page,
 }) => {
   await start(page);
@@ -96,20 +98,17 @@ test("tool submenu contains TODO and all six tools, separated from New, and reta
       .getByRole("menu", { name: "新建组件", exact: true })
       .getByRole("menuitem", { name: "任务", exact: true }),
   ).toHaveCount(0);
+  await page.getByRole("menuitem", { name: "转换工具", exact: true }).press("ArrowRight");
+  const converters = page.getByRole("menu", { name: "转换工具组件", exact: true });
+  await expect(converters.getByRole("menuitem")).toHaveText(converterNames);
+  await expect(converters.getByRole("menuitem").first()).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
   await page.getByRole("menuitem", { name: "新建工具", exact: true }).hover();
   await expect(
     page
       .getByRole("menu", { name: "新建工具组件", exact: true })
       .getByRole("menuitem"),
-  ).toHaveText([
-    /^任务T$/,
-    "计算器",
-    "汇率计算",
-    "摄氏度 / 华氏度",
-    "距离单位转换",
-    "天气",
-    "日历",
-  ]);
+  ).toHaveText([/^任务T$/, "计算器", "天气", "日历"]);
   await page.getByRole("menuitem", { name: "任务", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "任务内容 1" })).toBeFocused();
   await page.getByRole("textbox", { name: "任务内容 1" }).fill("Tool TODO");
@@ -475,15 +474,13 @@ test("English and dark/system preferences update live, preserve user content and
     page
       .getByRole("menu", { name: "New tool menu", exact: true })
       .getByRole("menuitem"),
-  ).toHaveText([
-    /^TODOT$/,
-    "Calculator",
-    "Currency exchange",
-    "Celsius / Fahrenheit",
-    "Distance converter",
-    "Weather",
-    "Calendar",
-  ]);
+  ).toHaveText([/^TODOT$/, "Calculator", "Weather", "Calendar"]);
+  await page.getByRole("menuitem", { name: "Conversion tools", exact: true }).hover();
+  await expect(
+    page
+      .getByRole("menu", { name: "Conversion tools menu", exact: true })
+      .getByRole("menuitem"),
+  ).toHaveText(["Distance converter", "Celsius / Fahrenheit", "Currency exchange"]);
   await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Help", exact: true }).click();

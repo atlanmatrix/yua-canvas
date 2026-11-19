@@ -29,7 +29,13 @@ import {
   sealBoard,
   duplicateProtected,
 } from "./encryption";
-import { TOOL_KINDS, TOOL_NAMES, isToolKind } from "./tools";
+import {
+  GENERAL_TOOL_KINDS,
+  CONVERSION_TOOL_KINDS,
+  TOOL_NAMES,
+  isToolKind,
+  type ToolKind,
+} from "./tools";
 import { TOOL_ICONS } from "./ToolCard";
 import { ExportMenu, type ExportFormat } from "./ExportMenu";
 import { MenuButton } from "./MenuShortcut";
@@ -1109,6 +1115,20 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       pendingUpload.current = point;
       (kind === "image" ? imageInput : fileInput).current?.click();
     }
+  };
+  const renderToolMenuItem = (kind: ToolKind) => {
+    const Icon = TOOL_ICONS[kind];
+    return (
+      <button
+        role="menuitem"
+        key={kind}
+        disabled={!ready}
+        onClick={() => createFromMenu(kind)}
+      >
+        <Icon size={14} />
+        {tr(TOOL_NAMES[kind])}
+      </button>
+    );
   };
   const createParentCanvas = () => {
     if (!workspace.canCreateParent) return;
@@ -3378,20 +3398,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     <ListTodo size={14} />
                     {tr("任务")}
                   </MenuButton>
-                  {TOOL_KINDS.map((kind) => {
-                    const Icon = TOOL_ICONS[kind];
-                    return (
-                      <button
-                        role="menuitem"
-                        key={kind}
-                        disabled={!ready}
-                        onClick={() => createFromMenu(kind)}
-                      >
-                        <Icon size={14} />
-                        {tr(TOOL_NAMES[kind])}
-                      </button>
-                    );
-                  })}
+                  {GENERAL_TOOL_KINDS.map(renderToolMenuItem)}
+                </ContextSubmenu>
+                <ContextSubmenu label={tr("转换工具")}>
+                  {CONVERSION_TOOL_KINDS.map(renderToolMenuItem)}
                 </ContextSubmenu>
                 <ContextSubmenu
                   key={`applications-${menu.x}:${menu.y}`}

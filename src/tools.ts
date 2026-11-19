@@ -1,11 +1,6 @@
-export const TOOL_KINDS = [
-  "calculator",
-  "currency",
-  "temperature",
-  "distance",
-  "weather",
-  "calendar",
-] as const;
+export const GENERAL_TOOL_KINDS = ["calculator", "weather", "calendar"] as const;
+export const CONVERSION_TOOL_KINDS = ["distance", "temperature", "currency"] as const;
+export const TOOL_KINDS = [...GENERAL_TOOL_KINDS, ...CONVERSION_TOOL_KINDS] as const;
 export type ToolKind = (typeof TOOL_KINDS)[number];
 export const TOOL_NAMES: Record<ToolKind, string> = {
   calculator: "计算器",
