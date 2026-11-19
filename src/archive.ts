@@ -265,6 +265,7 @@ export async function readArchive(
           (meta.kind === "text" ||
             meta.kind === "miniature" ||
             meta.kind === "mermaid" ||
+            meta.kind === "mindmap" ||
             meta.kind === "vscode" ||
             meta.kind === "iterm2" ||
             meta.kind === "agent" ||

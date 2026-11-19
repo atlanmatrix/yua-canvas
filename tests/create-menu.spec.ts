@@ -73,6 +73,7 @@ test("hover and click open all component types; text is created at zoomed right-
     /^图片I$/,
     "文件",
     "Mermaid",
+    "思维导图",
     "Agent",
     "Miniature",
   ]);

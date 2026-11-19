@@ -1,3 +1,4 @@
+import { MindMap } from "./MindMap";
 import { StyledNoteText } from "./NoteText";
 import { AgentCard } from "./AgentCard";
 import { LockedContent } from "./ComponentLock";
@@ -53,6 +54,7 @@ const icons = {
   todo: ListTodo,
   canvas: PanelsTopLeft,
   miniature: Box,
+  mindmap: Network,
   mermaid: Network,
   vscode: Code2,
   iterm2: Terminal,
@@ -108,6 +110,7 @@ function ComponentPreview({ card }: { card: Card }) {
       </pre>
     );
   if (isApplicationKind(card.kind)) return <ApplicationCard card={card} />;
+  if (card.kind === "mindmap") return <MindMap text={card.text} />;
   if (card.kind === "mermaid")
     return (
       <div className="mermaid-preview">

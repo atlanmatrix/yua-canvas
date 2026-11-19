@@ -1,3 +1,4 @@
+import { parseMindMap } from "../src/mindMapData";
 import { validAgentText } from "../src/agent";
 import { validPresentation, validStrokes } from "../src/presentation";
 import { TOOL_KINDS, isToolKind, validToolText } from "../src/tools";
@@ -125,6 +126,7 @@ function validateSnapshot(data: any): string[] {
           "canvas",
           "miniature",
           "mermaid",
+          "mindmap",
           "vscode",
           "iterm2",
           "agent",
@@ -138,6 +140,13 @@ function validateSnapshot(data: any): string[] {
         c.blob !== undefined
       )
         fail(400, "卡片格式无效");
+      if (c.kind === "mindmap") {
+        try {
+          parseMindMap(c.text);
+        } catch {
+          fail(400, "思维导图数据无效");
+        }
+      }
       if (c.kind === "agent" && !validAgentText(c.text))
         fail(400, "Agent 配置无效");
       if (!validPresentation(c)) fail(400, "组件显示设置无效");

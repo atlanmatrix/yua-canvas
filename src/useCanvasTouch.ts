@@ -9,6 +9,7 @@ import type { View } from "./storage";
 type Point = { x: number; y: number };
 type Contact = Point & { start: Point; target: Element; moved: boolean };
 type Context = {
+  mindNode?: string;
   kind: "card" | "group" | "canvas";
   id: string;
   x: number;
@@ -198,6 +199,8 @@ export function useCanvasTouch(options: {
           group = target.closest<HTMLElement>("[data-group-id]");
         latest.current.onMenu({
           ...p,
+          mindNode:
+            target.closest<HTMLElement>("[data-mind-node]")?.dataset.mindNode,
           kind: card ? "card" : group ? "group" : "canvas",
           id:
             card?.dataset.cardId ||

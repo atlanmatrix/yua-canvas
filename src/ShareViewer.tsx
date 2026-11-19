@@ -1,3 +1,4 @@
+import { MindMap } from "./MindMap";
 import { noteCardHref } from "./noteLinks";
 import { useCanvasTouch } from "./useCanvasTouch";
 import { ComponentLockDialog, LockedContent } from "./ComponentLock";
@@ -398,6 +399,8 @@ export function ShareViewer({ token }: { token: string }) {
                             textRuns={c.textRuns}
                             linkDisabled={c.linkDisabled}
                           />
+                        ) : c.kind === "mindmap" ? (
+                          <MindMap text={c.text} />
                         ) : c.kind === "mermaid" ? (
                           <div className="mermaid-preview">
                             <Diagram

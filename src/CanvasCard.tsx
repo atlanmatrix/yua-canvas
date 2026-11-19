@@ -1,3 +1,4 @@
+import { MindMap } from "./MindMap";
 import { cardPorts } from "./connectionPorts";
 import { AgentCard } from "./AgentCard";
 import { LockedContent } from "./ComponentLock";
@@ -41,7 +42,11 @@ import { ToolCard } from "./ToolCard";
 import { isToolKind } from "./tools";
 import { surfaceColor, customColor } from "./presentation";
 import { t as tr, usePreferences } from "./i18n";
+import type { MindMapData } from "./mindMapData";
 export type CanvasCardActions = {
+  selectMind: (card: string, id: string) => void;
+  insertMind: (card: string, id: string, sibling: boolean) => void;
+  changeMind: (card: string, update: (map: MindMapData) => MindMapData) => void;
   setBoard: ReturnType<typeof useCanvasWorkspace>["setBoard"];
   updateRoot: ReturnType<typeof useCanvasWorkspace>["updateRoot"];
   setMenu: (
@@ -51,6 +56,7 @@ export type CanvasCardActions = {
       id: string;
       kind: "card" | "group" | "canvas";
       noteLinkIcon?: boolean;
+      mindNode?: string;
     } | null,
   ) => void;
   setSelectedGroup: (id?: string) => void;
@@ -100,6 +106,7 @@ function CopyCommandButton({ copy }: { copy: () => Promise<boolean> }) {
 const emptyOffsets: Record<string, { y: number; visible: boolean }> = {};
 export const CanvasCard = memo(function CanvasCard({
   card: c,
+  activeMindNode,
   selected,
   menuOpen = false,
   dropTarget = false,
@@ -120,6 +127,7 @@ export const CanvasCard = memo(function CanvasCard({
 }: {
   card: Card;
   selected: boolean;
+  activeMindNode?: string;
   menuOpen?: boolean;
   dropTarget?: boolean;
   touchMode?: boolean;
@@ -209,7 +217,12 @@ export const CanvasCard = memo(function CanvasCard({
         setSelectedGroup(undefined);
         setSelectedConnection(undefined);
         if (!selected) setSelection([c.id]);
+        const mindNode = (e.target as Element).closest<HTMLElement>(
+          "[data-mind-node]",
+        )?.dataset.mindNode;
+        if (mindNode) actions.selectMind(c.id, mindNode);
         setMenu({
+          mindNode,
           x: e.clientX,
           y: e.clientY,
           id: c.id,
@@ -340,6 +353,7 @@ export const CanvasCard = memo(function CanvasCard({
             c.kind !== "image" &&
             c.kind !== "canvas" &&
             c.kind !== "miniature" &&
+            c.kind !== "mindmap" &&
             c.kind !== "mermaid" &&
             c.kind !== "agent" &&
             !isToolKind(c.kind) &&
@@ -357,7 +371,28 @@ export const CanvasCard = memo(function CanvasCard({
                 </span>
               </div>
             )}
-          {c.kind === "agent" ? (
+          {c.kind === "mindmap" ? (
+            <MindMap
+              text={c.text}
+              active={activeMindNode}
+              onSelect={(id) => actions.selectMind(c.id, id)}
+              onPointerDown={(e) => pointerDown(e, c.id)}
+              onChange={(update) => actions.changeMind(c.id, update)}
+              onInsert={(id, sibling) => actions.insertMind(c.id, id, sibling)}
+              onMeasure={(width, height) => {
+                if (c.width === width && c.height === height) return;
+                setBoard(
+                  (b) => ({
+                    ...b,
+                    cards: b.cards.map((card) =>
+                      card.id === c.id ? { ...card, width, height } : card,
+                    ),
+                  }),
+                  { recordHistory: false, preserveLayout: true },
+                );
+              }}
+            />
+          ) : c.kind === "agent" ? (
             <AgentCard
               card={c}
               onChange={(text) =>

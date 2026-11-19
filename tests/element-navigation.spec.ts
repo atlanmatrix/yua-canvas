@@ -31,6 +31,7 @@ async function setup(page: Page) {
           {
             ...note("child", 800, 100),
             kind: "canvas",
+            pin: "子画布入口",
             title: "子画布",
             canvas: { version: 1, groups: [], cards: [] },
           },
@@ -54,33 +55,22 @@ const geometry = (page: Page) =>
       elements.map((el) => (el as HTMLElement).style.cssText),
     );
 
-test("arrows activate after selection, follow adjacent elements and reveal distant ones without moving content", async ({
+test("canvas arrows leave the selection and geometry unchanged", async ({
   page,
 }) => {
   await setup(page);
   const original = await geometry(page);
-  await page.keyboard.press("ArrowRight");
-  await expect(page.locator(".card.selected")).toHaveCount(0);
-  for (const [key, target] of [
-    ["ArrowRight", "right"],
-    ["ArrowLeft", "left"],
-    ["ArrowUp", "up"],
-    ["ArrowDown", "down"],
-  ]) {
-    await start(page);
-    await page.keyboard.press(key);
-    await expect(card(page, target)).toHaveClass(/selected/);
-    await expect(page.locator(".card.selected")).toHaveCount(1);
-  }
   await start(page);
-  await page.keyboard.press("ArrowRight");
-  await page.keyboard.press("ArrowRight");
-  await expect(card(page, "far")).toHaveClass(/selected/);
-  const bounds = await card(page, "far").boundingBox();
-  expect(bounds!.x).toBeGreaterThanOrEqual(47);
-  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(1233);
-  await page.keyboard.press("ArrowRight");
-  await expect(card(page, "far")).toHaveClass(/selected/);
+  for (const key of [
+    "ArrowRight",
+    "ArrowLeft",
+    "ArrowUp",
+    "ArrowDown",
+    "Shift+ArrowRight",
+  ]) {
+    await page.keyboard.press(key);
+    await expect(card(page, "origin")).toHaveClass(/selected/);
+  }
   expect(await geometry(page)).toEqual(original);
   await page.keyboard.press("Escape");
   await page.keyboard.press("ArrowLeft");
@@ -88,7 +78,7 @@ test("arrows activate after selection, follow adjacent elements and reveal dista
   await expect(page.getByRole("status")).toHaveCount(0);
 });
 
-test("text editing, menus, shift nudging and parent-child shortcuts retain their own keys", async ({
+test("text editing, menus and parent-child shortcuts retain their own keys", async ({
   page,
 }) => {
   await setup(page);
@@ -114,18 +104,7 @@ test("text editing, menus, shift nudging and parent-child shortcuts retain their
   ).toBeFocused();
   await expect(card(page, "origin")).toHaveClass(/selected/);
   await page.keyboard.press("Escape");
-  await start(page);
-  await card(page, "origin").click({ position: { x: 30, y: 30 } });
-  const x = await card(page, "origin").evaluate((el) =>
-    parseFloat((el as HTMLElement).style.left),
-  );
-  await page.keyboard.press("Shift+ArrowRight");
-  await expect(card(page, "origin")).toHaveCSS("left", `${x + 10}px`);
-  await page.keyboard.press("ControlOrMeta+z");
-  await start(page);
-  await page.keyboard.press("ArrowUp");
-  await page.keyboard.press("ArrowRight");
-  await expect(card(page, "child")).toHaveClass(/selected/);
+  await page.getByRole("button", { name: "子画布入口", exact: true }).click();
   await page.keyboard.press("Meta+ArrowDown");
   await expect(page.getByTestId("card")).toHaveCount(0);
   await page.keyboard.press("Meta+ArrowUp");

@@ -1,5 +1,5 @@
 import { t as tr } from "./i18n";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Bold,
   Italic,
@@ -12,8 +12,10 @@ import { FONT_FAMILIES, type TextStyle } from "./presentation";
 export function TextFormatToolbar({
   style = {},
   onChange,
+  children,
 }: {
   style?: TextStyle;
+  children?: ReactNode;
   onChange: (style: TextStyle) => void;
 }) {
   const update = (patch: Partial<TextStyle>) => onChange(patch);
@@ -93,6 +95,7 @@ export function TextFormatToolbar({
           onChange={(e) => update({ backgroundColor: e.target.value })}
         />
       </label>
+      {children}
     </div>
   );
 }

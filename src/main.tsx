@@ -2,6 +2,14 @@ import { moveIntoCanvas } from "./canvasHierarchy";
 import { useCanvasTouch } from "./useCanvasTouch";
 import { useCanvasWheelGuard } from "./useCanvasWheelGuard";
 import { defaultAgent } from "./agent";
+import {
+  newMindMap,
+  parseMindMap,
+  newMindNode,
+  addMindNode,
+  type MindMapData,
+} from "./mindMapData";
+import { MindNodeMenu } from "./MindMap";
 import { CanvasCard } from "./CanvasCard";
 import {
   MasterPasswordDialog,
@@ -170,8 +178,6 @@ import {
   textSize,
   pastedLinkWidth,
   TEXT_MAX_WIDTH,
-  adjacentCard,
-  type ArrowDirection,
 } from "./geometry";
 import { cardDownload } from "./downloads";
 import {
@@ -213,6 +219,7 @@ import "./typography.css";
 import "./encryption.css";
 import "./card-surfaces.css";
 import "./scrollbars.css";
+import "./mind-map.css";
 import { installIconMotion } from "./iconMotion";
 import { registerPwa } from "./pwa";
 void registerPwa();
@@ -293,7 +300,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       id: string;
       kind: "card" | "group" | "canvas";
       noteLinkIcon?: boolean;
+      mindNode?: string;
     } | null>(null);
+  const [mindSelection, setMindSelection] = useState<{
+    card: string;
+    id: string;
+  }>();
   const [applicationDraft, setApplicationDraft] = useState<ApplicationDraft>();
   const [launcherSetup, setLauncherSetup] = useState<{ commands?: string }>();
   const internalCopy = useRef<{
@@ -366,7 +378,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       button?: number;
       link?: string;
       toggleCard?: string;
-      context?: { id: string; kind: "card" | "group" | "canvas" };
+      context?: {
+        id: string;
+        mindNode?: string;
+        kind: "card" | "group" | "canvas";
+      };
       bounds?: Rect;
       edge?: string;
       cardId?: string;
@@ -948,6 +964,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   };
   const titleClickTimer = useRef<number | undefined>(undefined);
   const clearCanvasUI = () => {
+    setMindSelection(undefined);
     window.clearTimeout(titleClickTimer.current);
     setConnectionPicker(undefined);
     cancelViewAnimation();
@@ -1002,6 +1019,29 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setSelectedGroup(undefined);
     setMenu(null);
   };
+  const selectMind = (card: string, id: string) => {
+    setSelection([card]);
+    setSelectedGroup(undefined);
+    setSelectedConnection(undefined);
+    setMindSelection({ card, id });
+  };
+  const changeMind = (id: string, update: (map: MindMapData) => MindMapData) =>
+    updateCards((cards) =>
+      cards.map((c) =>
+        c.id === id && c.kind === "mindmap"
+          ? { ...c, text: JSON.stringify(update(parseMindMap(c.text))) }
+          : c,
+      ),
+    );
+  const insertMind = (card: string, id: string, sibling: boolean) => {
+    const child = newMindNode(tr("新节点"));
+    changeMind(card, (m) => ({
+      ...m,
+      root: addMindNode(m.root, id, child, sibling),
+    }));
+    selectMind(card, child.id);
+    setMenu(null);
+  };
   const createFromMenu = (kind: Card["kind"]) => {
     if (!menu || !ready || !surface.current) return;
     const rect = surface.current.getBoundingClientRect();
@@ -1042,14 +1082,19 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       setSelectedGroup(undefined);
     } else if (isApplicationKind(kind))
       setApplicationDraft({ kind, ...point, text: "" });
-    else if (kind === "mermaid" || kind === "file") {
+    else if (kind === "mermaid" || kind === "file" || kind === "mindmap") {
+      const mind = kind === "mindmap" ? newMindMap() : undefined;
       const id = uid();
       const card: Card = {
         id,
         kind,
-        displayMode: "medium",
-        title: kind === "file" ? tr("未命名.txt") : "",
-        text: kind === "mermaid" ? DEFAULT_MERMAID : "",
+        displayMode: mind ? "large" : "medium",
+        title: mind ? tr("思维导图") : kind === "file" ? tr("未命名.txt") : "",
+        text: mind
+          ? JSON.stringify(mind)
+          : kind === "mermaid"
+            ? DEFAULT_MERMAID
+            : "",
         color: colors[0],
         ...point,
         ...(kind === "file"
@@ -1074,8 +1119,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           },
         ],
       }));
-      setSelection([id]);
-      setSelectedGroup(undefined);
+      if (mind) selectMind(id, mind.root.id);
+      else {
+        setSelection([id]);
+        setSelectedGroup(undefined);
+      }
       if (kind === "mermaid") setDetail(id);
     } else if (kind === "canvas") addCanvas(point);
     else if (kind === "miniature") addMiniature(point);
@@ -1142,6 +1190,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         y: card.y,
         text: card.text,
       });
+    else if (card.kind === "mindmap")
+      selectMind(card.id, parseMindMap(card.text).root.id);
     else if (card.kind === "canvas") navigateCanvas([...path, card.id]);
     else if (card.kind === "miniature") setActiveMiniature(card.id);
     else if (card.kind === "text" || card.kind === "todo")
@@ -1370,7 +1420,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       modifierPan ||
       (e.pointerType === "touch" && !id);
     let ids = selection;
-    if (!pan) setSelectedConnection(undefined);
+    if (!pan) {
+      setSelectedConnection(undefined);
+      if (!(e.target as Element).closest("[data-mind-node]"))
+        setMindSelection(undefined);
+    }
     if (id && !pan) {
       setSelectedGroup(undefined);
       if (e.shiftKey) {
@@ -1411,6 +1465,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             id: (cardTarget.getAttribute("data-card-id") ||
               cardTarget.getAttribute("data-context-card-id"))!,
             kind: "card",
+            mindNode:
+              target.closest<HTMLElement>("[data-mind-node]")?.dataset.mindNode,
           }
         : groupTarget
           ? { id: groupTarget.getAttribute("data-group-id")!, kind: "group" }
@@ -1792,6 +1848,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         setSelectedGroup(undefined);
         if (!selection.includes(g.context.id)) setSelection([g.context.id]);
       }
+      if (g.context.mindNode) selectMind(g.context.id, g.context.mindNode);
       setMenu({ ...g.context, x: e.clientX, y: e.clientY });
     }
     if (g?.kind === "create" && g.moved && e.type !== "pointercancel") {
@@ -2244,77 +2301,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       } else if (key === "1") {
         e.preventDefault();
         zoom(1 / view.z);
-      } else if (
-        ["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key) &&
-        selection.length
-      ) {
-        if (document.querySelector('[role="menu"]') || gesture.current) return;
-        e.preventDefault();
-        if (!e.shiftKey) {
-          if (selection.length !== 1 || selectedGroup) return;
-          const next = adjacentCard(
-            board.cards,
-            selection[0],
-            key as ArrowDirection,
-          );
-          if (!next) return;
-          setSelection([next.id]);
-          setSelectedConnection(undefined);
-          surface.current
-            ?.querySelector<HTMLElement>(
-              `[data-card-id="${CSS.escape(next.id)}"]`,
-            )
-            ?.focus({ preventScroll: true });
-          const area = surface.current?.getBoundingClientRect();
-          if (area) {
-            const rect = cardRect(next);
-            setView((v) => {
-              const reveal = (
-                offset: number,
-                start: number,
-                size: number,
-                available: number,
-              ) => {
-                const leading = offset + start * v.z,
-                  trailing = leading + size * v.z;
-                if (size * v.z > available - 96)
-                  return available / 2 - (start + size / 2) * v.z;
-                if (leading < 48) return offset + 48 - leading;
-                if (trailing > available - 48)
-                  return offset + available - 48 - trailing;
-                return offset;
-              };
-              const x = reveal(v.x, rect.x, rect.width, area.width);
-              const y = reveal(v.y, rect.y, rect.height, area.height);
-              return x === v.x && y === v.y ? v : { ...v, x, y };
-            });
-          }
-          return;
-        }
-        const step = 10;
-        updateCards((cards) =>
-          cards.map((c) =>
-            selection.includes(c.id)
-              ? {
-                  ...c,
-                  x:
-                    c.x +
-                    (key === "arrowright"
-                      ? step
-                      : key === "arrowleft"
-                        ? -step
-                        : 0),
-                  y:
-                    c.y +
-                    (key === "arrowdown"
-                      ? step
-                      : key === "arrowup"
-                        ? -step
-                        : 0),
-                }
-              : c,
-          ),
-        );
       }
     };
     const up = (e: KeyboardEvent) => {
@@ -2544,6 +2530,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   const cardActions = useLatestActions(
     {
       setBoard,
+      selectMind,
+      changeMind,
+      insertMind,
       updateRoot: workspace.updateRoot,
       setMenu,
       setSelectedGroup,
@@ -2590,6 +2579,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         setSelectedGroup(undefined);
         setSelection([]);
       }
+      if (context.mindNode) selectMind(context.id, context.mindNode);
       setMenu(context);
     },
   });
@@ -2928,6 +2918,15 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 key={c.id}
                 card={c}
                 selected={selection.includes(c.id)}
+                activeMindNode={
+                  !menu &&
+                  !preview3D &&
+                  selection.length === 1 &&
+                  selection[0] === c.id &&
+                  mindSelection?.card === c.id
+                    ? mindSelection.id
+                    : undefined
+                }
                 dropTarget={dropTarget === c.id}
                 menuOpen={menu?.kind === "card" && menu.id === c.id}
                 touchMode={touchMode}
@@ -3273,6 +3272,18 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               <Unlink size={14} />
               {tr("取消链接")}
             </button>
+          ) : menuCard?.kind === "mindmap" && menu.mindNode ? (
+            <MindNodeMenu
+              text={menuCard.text}
+              id={menu.mindNode}
+              onInsert={(sibling) =>
+                insertMind(menuCard.id, menu.mindNode!, sibling)
+              }
+              onChange={(update) => {
+                changeMind(menuCard.id, update);
+                setMenu(null);
+              }}
+            />
           ) : menu.kind === "canvas" ? (
             <>
               <MenuSection label={tr("新建内容")}>
@@ -3310,6 +3321,14 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   >
                     <Network size={14} />
                     Mermaid
+                  </button>
+                  <button
+                    role="menuitem"
+                    disabled={!ready}
+                    onClick={() => createFromMenu("mindmap")}
+                  >
+                    <Network size={14} />
+                    {tr("思维导图")}
                   </button>
                   <button
                     role="menuitem"

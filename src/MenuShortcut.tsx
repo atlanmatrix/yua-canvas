@@ -5,6 +5,8 @@ export type Shortcut =
   | "copy"
   | "cut"
   | "paste"
+  | "addChild"
+  | "addSibling"
   | "duplicate"
   | "group"
   | "ungroup"
@@ -23,6 +25,8 @@ const keys: Record<Shortcut, string[]> = {
   cut: ["mod", "X"],
   paste: ["mod", "V"],
   duplicate: ["mod", "D"],
+  addChild: ["Tab"],
+  addSibling: ["mod", "Enter"],
   group: ["mod", "G"],
   ungroup: ["mod", "shift", "G"],
   import: ["mod", "O"],

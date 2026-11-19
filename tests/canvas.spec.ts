@@ -301,7 +301,7 @@ test("full-height canvas and keyboard editing shortcuts", async ({ page }) => {
   await page.keyboard.press("Escape");
   await card.click();
   await page.keyboard.press("Shift+ArrowRight");
-  expect((await card.boundingBox())!.x - before!.x).toBeCloseTo(10, 0);
+  expect((await card.boundingBox())!.x - before!.x).toBeCloseTo(0, 0);
   await page.keyboard.press("ControlOrMeta+d");
   await expect(page.getByTestId("card")).toHaveCount(2);
   await page.keyboard.press("ControlOrMeta+a");

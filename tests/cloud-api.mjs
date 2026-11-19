@@ -328,7 +328,7 @@ test("miniature snapshots sync and share; unsafe scene URLs are rejected", async
   assert.deepEqual(resolved.data.snapshot.cards, snapshot.cards);
 });
 
-test("Mermaid and document metadata sync and share with lossless PDF attachments", async () => {
+test("Mind maps, Mermaid and document metadata sync and share with lossless PDF attachments", async () => {
   const bytes = pdfFixture(),
     id = hash(bytes);
   assert.equal(
@@ -343,6 +343,23 @@ test("Mermaid and document metadata sync and share with lossless PDF attachments
   );
   const snapshot = board("flowchart LR\n  A --> B");
   snapshot.cards[0].kind = "mermaid";
+  snapshot.cards.push({
+    ...snapshot.cards[0],
+    id: "map",
+    kind: "mindmap",
+    text: JSON.stringify({
+      view: "table",
+      checkboxes: true,
+      root: {
+        id: "root",
+        text: "Plan",
+        checked: true,
+        children: [
+          { id: "topic", text: "First topic", children: [], fill: "#ffeedd" },
+        ],
+      },
+    }),
+  });
   snapshot.cards.push({
     id: "pdf",
     kind: "file",

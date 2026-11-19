@@ -1,0 +1,416 @@
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from "react";
+import { createPortal } from "react-dom";
+import { Highlighter, Square, Plus } from "./icons";
+import { MenuButton } from "./MenuShortcut";
+import { MenuSection } from "./CanvasContextMenu";
+import { TextFormatToolbar } from "./TextFormatToolbar";
+import { textCss } from "./presentation";
+import { t as tr } from "./i18n";
+import {
+  indexMindMap,
+  parseMindMap,
+  toggleMindNode,
+  updateMindNode,
+  type MindMapData,
+  type MindNode,
+} from "./mindMapData";
+
+type Props = {
+  text: string;
+  active?: string;
+  onSelect?: (id: string) => void;
+  onPointerDown?: (event: PointerEvent<HTMLDivElement>) => void;
+  onInsert?: (id: string, sibling: boolean) => void;
+  onChange?: (update: (map: MindMapData) => MindMapData) => void;
+  onMeasure?: (width: number, height: number) => void;
+};
+const branchColors = [
+  "#d5d0df",
+  "#c9dcec",
+  "#d9ead2",
+  "#ddc6c2",
+  "#d3e4ea",
+  "#d6d8d9",
+];
+
+function nodeStyle(node: MindNode, depth: number) {
+  return {
+    fontFamily: "system-ui",
+    fontSize: [24, 17, 14][depth] ?? 13,
+    bold: depth < 2,
+    color: depth === 0 ? "#ffffff" : "#111118",
+    ...node.style,
+  };
+}
+function nodeFill(node: MindNode, depth: number, branch: number) {
+  return (
+    node.fill ??
+    (depth === 0
+      ? "#000000"
+      : depth === 1
+        ? branchColors[branch % branchColors.length]
+        : depth === 2
+          ? "#f6f6f8"
+          : "#ffffff")
+  );
+}
+
+export function MindMap({
+  text,
+  active,
+  onSelect,
+  onPointerDown,
+  onInsert,
+  onChange,
+  onMeasure,
+}: Props) {
+  const map = useMemo(() => parseMindMap(text), [text]);
+  const { cells, parents, states, rows, columns } = useMemo(
+    () => indexMindMap(map.root),
+    [map.root],
+  );
+  const current = active ? cells.get(active) : undefined;
+  const selected = current?.node;
+  const [editing, setEditing] = useState<string>();
+  const input = useRef<HTMLInputElement>(null);
+  const layout = useRef<HTMLDivElement>(null);
+  const measure = useRef(onMeasure);
+  measure.current = onMeasure;
+  useLayoutEffect(() => {
+    const el = layout.current;
+    if (!el || !measure.current) return;
+    const size = () =>
+      measure.current?.(el.offsetWidth + 2, el.offsetHeight + 2);
+    size();
+    const observer = new ResizeObserver(size);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const focus = (id?: string) => {
+    if (id)
+      layout.current
+        ?.querySelector<HTMLElement>(`[data-mind-node="${CSS.escape(id)}"]`)
+        ?.focus({ preventScroll: true });
+  };
+  useLayoutEffect(() => {
+    if (editing && editing === active) {
+      input.current?.focus({ preventScroll: true });
+      input.current?.select();
+    } else {
+      setEditing(undefined);
+      focus(active);
+    }
+  }, [active, editing, map.view]);
+  const patch = (id: string, fn: (node: MindNode) => MindNode) =>
+    onChange?.((m) => ({ ...m, root: updateMindNode(m.root, id, fn) }));
+  const saveLabel = (node: MindNode, value: string) => {
+    if (value !== node.text) patch(node.id, (n) => ({ ...n, text: value }));
+  };
+  function keyDown(e: KeyboardEvent, node: MindNode) {
+    if (
+      e.target instanceof Element &&
+      e.target.closest("button,input,select,textarea")
+    )
+      return;
+    if (
+      node.id !== active ||
+      e.nativeEvent.isComposing ||
+      e.altKey ||
+      e.shiftKey
+    )
+      return;
+    const mod = e.ctrlKey || e.metaKey;
+    const parent = parents.get(node.id);
+    if ((!mod && e.key === "Tab") || (mod && e.key === "Enter")) {
+      if (!mod || parent) onInsert?.(node.id, mod);
+    } else if (mod) return;
+    else if (e.key === "Enter" || e.key === "F2") setEditing(node.id);
+    else if (parent && (e.key === "Delete" || e.key === "Backspace")) {
+      patch(parent.id, (n) => ({
+        ...n,
+        children: n.children.filter((child) => child.id !== node.id),
+      }));
+      onSelect?.(parent.id);
+    } else if (e.key.startsWith("Arrow")) {
+      const i =
+        parent?.children.findIndex((child) => child.id === node.id) ?? -1;
+      const next =
+        e.key === "ArrowLeft"
+          ? parent
+          : e.key === "ArrowRight"
+            ? node.children[0]
+            : parent?.children[i + (e.key === "ArrowUp" ? -1 : 1)];
+      if (next) onSelect?.(next.id);
+    } else return;
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  function label(node: MindNode, depth: number, branch: number) {
+    const isRoot = depth === 0;
+    const fill = nodeFill(node, depth, branch);
+    const style = nodeStyle(node, depth);
+    const state = states.get(node.id);
+    return (
+      <div
+        className="mind-node"
+        data-mind-node={node.id}
+        data-selected={active === node.id || undefined}
+        data-depth={Math.min(depth, 3)}
+        data-leaf={!node.children.length || undefined}
+        style={{ backgroundColor: fill, borderColor: node.border }}
+        tabIndex={onSelect ? (isRoot && !active ? 0 : -1) : undefined}
+        onFocus={
+          onSelect
+            ? (e) => {
+                if (e.target === e.currentTarget && node.id !== active)
+                  onSelect(node.id);
+              }
+            : undefined
+        }
+        onPointerDown={
+          onSelect
+            ? (e) => {
+                if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey)
+                  return;
+                e.currentTarget.focus({ preventScroll: true });
+                e.stopPropagation();
+                onPointerDown?.(e);
+              }
+            : undefined
+        }
+        onDoubleClick={
+          onSelect
+            ? (e) => {
+                e.stopPropagation();
+                onSelect(node.id);
+                setEditing(node.id);
+              }
+            : undefined
+        }
+        onKeyDown={onSelect ? (e) => keyDown(e, node) : undefined}
+      >
+        {map.checkboxes &&
+          (onChange ? (
+            <input
+              type="checkbox"
+              checked={state === true}
+              aria-label={node.text || tr("节点")}
+              ref={(el) => {
+                if (el) el.indeterminate = state === "mixed";
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+              onChange={() => {
+                onSelect?.(node.id);
+                onChange((m) => ({
+                  ...m,
+                  root: toggleMindNode(m.root, node.id),
+                }));
+                focus(node.id);
+              }}
+            />
+          ) : (
+            <span aria-hidden="true">
+              {state === true ? "☑" : state === "mixed" ? "⊟" : "☐"}
+            </span>
+          ))}
+        {editing === node.id && active === node.id ? (
+          <input
+            ref={input}
+            className="mind-label-editor canvas-editor"
+            aria-label={tr("节点文字")}
+            defaultValue={node.text}
+            style={textCss(style)}
+            onPointerDown={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+            onBlur={(e) => {
+              saveLabel(node, e.target.value);
+              setEditing(undefined);
+            }}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+              if (!["Enter", "Escape", "Tab"].includes(e.key)) return;
+              e.preventDefault();
+              if (e.key !== "Escape") saveLabel(node, e.currentTarget.value);
+              setEditing(undefined);
+              if (e.key === "Tab" && !e.shiftKey) onInsert?.(node.id, false);
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !isRoot)
+                onInsert?.(node.id, true);
+            }}
+          />
+        ) : (
+          <span className="mind-label" style={textCss(style)}>
+            {node.text || "\u00a0"}
+          </span>
+        )}
+        {map.view === "table" && active === node.id && !editing && onInsert && (
+          <button
+            type="button"
+            className="mind-add-child"
+            aria-label={tr("创建子节点")}
+            onPointerDown={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onInsert(node.id, false);
+            }}
+          >
+            <Plus size={15} />
+          </button>
+        )}
+      </div>
+    );
+  }
+  function tree(node: MindNode, depth: number, branch: number) {
+    return (
+      <div className="mind-branch" key={node.id}>
+        {label(node, depth, branch)}
+        {!!node.children.length && (
+          <div className="mind-children">
+            {node.children.map((child, i) =>
+              tree(child, depth + 1, depth === 0 ? i : branch),
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="mind-scroll">
+      <div ref={layout} className="mind-layout">
+        {map.view === "map" ? (
+          tree(map.root, 0, 0)
+        ) : (
+          <table className="mind-table" aria-label={tr("思维导图表格")}>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.at(-1)!.node.id}>
+                  {row.map(({ node, depth, branch, span }) => (
+                    <td
+                      key={node.id}
+                      rowSpan={span}
+                      colSpan={node.children.length ? 1 : columns - depth}
+                    >
+                      {label(node, depth, branch)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+      {current &&
+        selected &&
+        onChange &&
+        createPortal(
+          <div className="mind-format">
+            <TextFormatToolbar
+              style={nodeStyle(selected, current.depth)}
+              onChange={(style) =>
+                patch(selected.id, (n) => ({
+                  ...n,
+                  style: { ...n.style, ...style },
+                }))
+              }
+            >
+              {(
+                [
+                  ["fill", tr("节点填充色"), Highlighter],
+                  ["border", tr("节点边框色"), Square],
+                ] as const
+              ).map(([field, name, Icon]) => (
+                <label key={field} title={name}>
+                  <Icon size={16} />
+                  <input
+                    type="color"
+                    aria-label={name}
+                    value={
+                      selected[field] ||
+                      (field === "border"
+                        ? "#151827"
+                        : nodeFill(selected, current.depth, current.branch))
+                    }
+                    onChange={(e) =>
+                      patch(selected.id, (n) => ({
+                        ...n,
+                        [field]: e.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              ))}
+            </TextFormatToolbar>
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+}
+
+export function MindNodeMenu({
+  text,
+  id,
+  onInsert,
+  onChange,
+}: {
+  text: string;
+  id: string;
+  onInsert: (sibling: boolean) => void;
+  onChange: (update: (map: MindMapData) => MindMapData) => void;
+}) {
+  const map = parseMindMap(text);
+  return (
+    <MenuSection label={tr("思维导图")}>
+      <MenuButton
+        role="menuitem"
+        shortcut="addChild"
+        autoFocus
+        onClick={() => onInsert(false)}
+      >
+        {tr("创建子节点")}
+      </MenuButton>
+      {id === map.root.id ? (
+        <>
+          <button
+            role="menuitem"
+            onClick={() =>
+              onChange((m) => ({
+                ...m,
+                view: m.view === "map" ? "table" : "map",
+              }))
+            }
+          >
+            {tr(map.view === "map" ? "转为表格" : "转为思维导图")}
+          </button>
+          <button
+            role="menuitemcheckbox"
+            aria-checked={map.checkboxes}
+            onClick={() =>
+              onChange((m) => ({ ...m, checkboxes: !m.checkboxes }))
+            }
+          >
+            {tr(map.checkboxes ? "关闭复选框" : "启用复选框")}
+          </button>
+        </>
+      ) : (
+        <MenuButton
+          role="menuitem"
+          shortcut="addSibling"
+          onClick={() => onInsert(true)}
+        >
+          {tr("创建同级节点")}
+        </MenuButton>
+      )}
+    </MenuSection>
+  );
+}

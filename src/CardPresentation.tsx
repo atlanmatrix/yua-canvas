@@ -1,3 +1,4 @@
+import { MindMap } from "./MindMap";
 import { AgentCard } from "./AgentCard";
 import { t as tr } from "./i18n";
 import {
@@ -52,6 +53,7 @@ export function TypeIcon({
     todo: ListTodo,
     canvas: PanelsTopLeft,
     miniature: Box,
+    mindmap: Network,
     mermaid: Network,
     vscode: Code2,
     iterm2: Terminal,
@@ -218,6 +220,7 @@ export function StaticContent({
         linkDisabled={card.linkDisabled}
       />
     );
+  if (card.kind === "mindmap") return <MindMap text={card.text} />;
   if (card.kind === "mermaid")
     return (
       <div className="mermaid-preview">

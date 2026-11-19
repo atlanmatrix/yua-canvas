@@ -1,4 +1,24 @@
 export const english: Record<string, string> = {
+  思维导图数据无效: "Invalid mind map data",
+  思维导图: "Mind map",
+  思维导图表格: "Mind map table",
+  节点: "Node",
+  节点文字: "Node text",
+  新节点: "New node",
+  节点填充色: "Node fill",
+  节点边框色: "Node border",
+  创建子节点: "Add child",
+  创建同级节点: "Add sibling",
+  转为表格: "Switch to table",
+  转为思维导图: "Switch to mind map",
+  启用复选框: "Enable checkboxes",
+  关闭复选框: "Hide checkboxes",
+  "思维导图中左右切换父子节点，上下切换同级节点":
+    "In a mind map, use left/right for parent/child and up/down for siblings",
+  "创建子节点 / 在非根节点后创建同级节点":
+    "Add a child / Add a sibling after a non-root node",
+  "Tab / ⌘或Ctrl＋Enter": "Tab / ⌘ or Ctrl + Enter",
+
   图片预览: "Image preview",
   图片信息: "Image information",
   图片名称: "Image name",
@@ -402,9 +422,6 @@ export const english: Record<string, string> = {
   "空格 / 右键拖动 / ⌘或Ctrl＋拖动": "Space / Right-drag / ⌘ or Ctrl + drag",
   "滚轮 / ⌘或Ctrl＋滚轮": "Scroll / ⌘ or Ctrl + scroll",
   方向键: "Arrow keys",
-  "选中一个元素后，切换到对应方向的相邻元素":
-    "Select a component, then move selection to its neighbor",
-  "移动选中元素 10 个单位": "Move selection by 10 units",
   "复制 / 剪切 / 粘贴": "Copy / Cut / Paste",
   "创建分组 / 移出分组": "Group / Remove from group",
   "放大 / 缩小 / 适应内容 / 原始比例": "Zoom in / Zoom out / Fit / Actual size",
@@ -628,7 +645,6 @@ export const english: Record<string, string> = {
   "Canvas 本地打开器.zip": "Canvas local launcher.zip",
   "Enter / 双击": "Enter / Double-click",
   "PDF 页码无效": "Invalid PDF page number",
-  "Shift + 方向键": "Shift + Arrow keys",
   "ZIP 中包含多个画布元数据文件": "ZIP contains multiple canvas metadata files",
   "ZIP 中没有可导入的元素": "ZIP contains no importable elements",
   "ZIP 中的任务数据无效": "Invalid task data in ZIP",
@@ -797,8 +813,8 @@ export const english: Record<string, string> = {
     "Export backs up the entire workspace, including parents, siblings, children, components, original files, connections, Pins, saved camera views and navigation. Importing a complete backup replaces the workspace and restores IDs and views. Legacy canvas JSON imports into the current canvas; selection JSON and ZIP exports support partial transfers. Miniature saves its scene URL, latest view and static preview without packaging external website content.",
   "默认自动保存到当前浏览器的 IndexedDB，请定期导出备份。可选云同步需配置云服务并登录；剪切只有在剪贴板及本地缓存保存成功后才移除原内容。右键粘贴需要剪贴板读取权限，权限受限时可用键盘粘贴。":
     "Data is automatically saved in this browser’s IndexedDB. Export regular backups. Optional cloud sync requires a configured cloud service and sign-in. Cut removes content only after the clipboard and local cache are saved. Menu paste needs clipboard permission; keyboard paste remains available when permission is restricted.",
-  "画布空白处右键「新建」，可在右击位置创建文本、图片、文件、Mermaid 或 Miniature。右键菜单的「画布层级」中可创建子画布。「新建工具」中提供 TODO、计算器、汇率计算、温度转换、距离转换、天气与日历。粘贴时自动检测 Markdown、JSON、代码和配置等格式，生成可编辑文件并高亮；普通文字保持文本组件，Mermaid 直接显示图表。新建文件后点击组件编辑内容和文件名；工具栏可上传已有文件。Markdown 直接渲染内容，PDF 悬浮可翻页并记住页码。拖动边框调整尺寸，从边缘的 + 拖出连线。把组件拖到子画布上即可移入，画布也可以嵌套。右键点击组件可复制、剪切、导出、设置 Pin 和外观。右键点击画布空白处可导出当前画布及笔迹。":
-    "Right-click empty canvas space and use New to create text, images, editable files, Mermaid diagrams or Miniatures. Use the canvas hierarchy section to create a child canvas. New tool contains TODO, calculator, currency, temperature and distance converters, weather and calendar. Paste structured text to create a file with format detection and syntax highlighting; ordinary prose stays text. Mermaid renders as a diagram, Markdown as a document, and PDF remembers its last page. Resize from the edges, drag a + port to connect, or drag components into a child canvas. Canvases can also be nested. Right-click a component for Copy, Cut, Pin, display options and Export. Right-click empty canvas space to export the current canvas with its drawings.",
+  "画布空白处右键「新建」，可在右击位置创建文本、图片、文件、思维导图、Mermaid 或 Miniature。右键菜单的「画布层级」中可创建子画布。「新建工具」中提供 TODO、计算器、汇率计算、温度转换、距离转换、天气与日历。粘贴时自动检测 Markdown、JSON、代码和配置等格式，生成可编辑文件并高亮；普通文字保持文本组件，Mermaid 直接显示图表。新建文件后点击组件编辑内容和文件名；工具栏可上传已有文件。Markdown 直接渲染内容，PDF 悬浮可翻页并记住页码。拖动边框调整尺寸，从边缘的 + 拖出连线。把组件拖到子画布上即可移入，画布也可以嵌套。右键点击组件可复制、剪切、导出、设置 Pin 和外观。右键点击画布空白处可导出当前画布及笔迹。":
+    "Right-click empty canvas space and use New to create text, images, editable files, mind maps, Mermaid diagrams or Miniatures. Use the canvas hierarchy section to create a child canvas. New tool contains TODO, calculator, currency, temperature and distance converters, weather and calendar. Paste structured text to create a file with format detection and syntax highlighting; ordinary prose stays text. Mermaid renders as a diagram, Markdown as a document, and PDF remembers its last page. Resize from the edges, drag a + port to connect, or drag components into a child canvas. Canvases can also be nested. Right-click a component for Copy, Cut, Pin, display options and Export. Right-click empty canvas space to export the current canvas with its drawings.",
   文件超过大小限制: "File exceeds the size limit",
   请求内容为空: "Request body is empty",
   "JSON 无效": "Invalid JSON",

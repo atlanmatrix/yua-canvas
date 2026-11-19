@@ -85,8 +85,11 @@ test("border plus ports create persistent curves which follow moves and can be d
   await expect(path).toHaveCount(1);
   expect(await path.getAttribute("d")).toMatch(/^M .* C /);
   const original = await path.getAttribute("d");
-  await source.click();
-  await page.keyboard.press("Shift+ArrowDown");
+  const bounds = (await source.boundingBox())!;
+  await page.mouse.move(bounds.x + 28, bounds.y + 30);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + 28, bounds.y + 55, { steps: 4 });
+  await page.mouse.up();
   await expect(path).not.toHaveAttribute("d", original!);
   await expect(
     page.locator('.save-indicator[data-state="已保存至本地"]'),
