@@ -89,20 +89,41 @@
 }
 .conversion-units {
   display: grid;
-  grid-template-columns: 1fr 30px 1fr;
-  gap: 5px;
-  align-items: end;
+  grid-template-columns: minmax(0, 1fr) 30px minmax(0, 1fr);
+  gap: 6px 5px;
   margin-top: 14px;
 }
 .conversion-units label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-row: 1 / span 2;
+  grid-template-rows: subgrid;
+  grid-template-columns: minmax(0, 1fr);
   font-size: 12px;
   color: var(--muted);
 }
+.conversion-units > button {
+  grid-area: 2 / 2;
+  place-self: center stretch;
+  padding: 0;
+}
 .conversion-units select {
+  grid-area: 2 / 1;
+  appearance: none;
+  padding-inline-end: 30px;
+  text-overflow: ellipsis;
   font-size: 12px;
+}
+.conversion-units label::after {
+  content: "";
+  grid-area: 2 / 1;
+  place-self: center end;
+  margin-inline-end: 12px;
+  width: 8px;
+  height: 8px;
+  border: solid var(--ink);
+  border-width: 0 1.5px 1.5px 0;
+  transform: translateY(-2px) rotate(45deg);
+  pointer-events: none;
 }
 .conversion-result {
   display: block;
