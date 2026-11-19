@@ -1712,6 +1712,13 @@ body .note-address button.note-link-icon:is(:hover, :focus-visible) {
   border-radius: inherit;
   color: inherit;
 }
+.canvas-navigation .canvas-rename {
+  flex: none;
+  width: 40px;
+  min-height: 46px;
+  border-radius: inherit;
+  color: inherit;
+}
 .canvas-back svg {
   flex: none;
 }

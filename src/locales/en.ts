@@ -298,6 +298,7 @@ export const english: Record<string, string> = {
     "Parent canvas / Open selected child canvas",
   分组名称: "Group name",
   分组命名: "Name group",
+  重命名画布: "Rename canvas",
   重命名分组: "Rename group",
   重命名: "Rename",
   名称: "Name",

@@ -203,7 +203,7 @@ test("invalid canvas URLs fall back to the closest existing parent and escape im
     .toBe("");
 });
 
-test("double-click renames canvas titles inline with save, cancel, undo and persistence", async ({
+test("canvas titles can be renamed inline with save, cancel, undo and persistence", async ({
   page,
 }) => {
   await page.goto("/");
@@ -236,7 +236,7 @@ test("double-click renames canvas titles inline with save, cancel, undo and pers
   const childUrl = page.url();
   await text(page, "保留画布内容");
   const heading = page.locator(".canvas-navigation span");
-  await heading.dblclick();
+  await page.getByRole("button", { name: "重命名画布" }).click();
   await input.fill("内部重命名");
   await input.press("Enter");
   await expect(heading).toHaveText("内部重命名");
@@ -274,7 +274,17 @@ test("navigation uses the available width for the full canvas name", async ({
   await expect(title).toHaveAttribute("title", name);
   const box = await page.locator(".canvas-navigation").boundingBox();
   expect(box!.x + box!.width).toBeLessThanOrEqual(320);
+  // The return must take effect during the click, even on the name.
+  const urlAtClick = page.evaluate(
+    () =>
+      new Promise<string>((resolve) =>
+        window.addEventListener("click", () => resolve(location.href), {
+          once: true,
+        }),
+      ),
+  );
   await title.click();
+  expect(new URL(await urlAtClick).searchParams.get("canvas")).toBe("");
   await expect(page.locator(".card-canvas")).toHaveCount(1);
 });
 
