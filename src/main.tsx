@@ -153,7 +153,8 @@ import {
   MenuSection,
 } from "./CanvasContextMenu";
 import { ConnectionView } from "./ConnectionView";
-import { cardsFromFiles, fileMime } from "./files";
+import { XlsxPreview } from "./XlsxPreview";
+import { cardsFromFiles, fileMime, isXlsxFile } from "./files";
 import { archiveSelection, createArchive, isZip, readArchive } from "./archive";
 import {
   clipboardCopy,
@@ -4034,6 +4035,24 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   />
                 )}
               </div>
+            ) : current.kind === "file" && isXlsxFile(current) ? (
+              <XlsxPreview
+                key={current.id}
+                blob={current.blob}
+                large
+                onDownload={() => void downloadCard(current)}
+                onSave={(blob, source) => {
+                  const latest = latestBoard.current.cards.find((card) => card.id === current.id);
+                  if (latest?.blob !== source) throw Error("文件已更改，请重新打开");
+                  updateCards((cards) =>
+                    cards.map((card) =>
+                      card.id === current.id && card.blob === source
+                        ? { ...card, blob, mime: blob.type }
+                        : card,
+                    ),
+                  );
+                }}
+              />
             ) : current.kind === "file" && isTextFile(current) ? (
               <TextFileEditor
                 key={current.id}

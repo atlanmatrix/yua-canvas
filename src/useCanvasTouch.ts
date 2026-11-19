@@ -268,6 +268,9 @@ export function useCanvasTouch(options: {
     lastTouch.current = performance.now();
     clearTimer();
     contacts.current.delete(e.pointerId);
+    // A stationary tap on a worksheet still participates in double-tap editing.
+    const sheetTap = scroll.current?.element.matches(".xlsx-preview") && !contact.moved;
+    if (sheetTap) scroll.current = undefined;
     const handled = locked.current || pressed.current || !!scroll.current;
     if (locked.current && contacts.current.size >= 2) {
       const [a, b] = [...contacts.current.values()],

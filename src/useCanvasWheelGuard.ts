@@ -28,6 +28,21 @@ export function useCanvasWheelGuard(
       let scrollable = false,
         consumes = false;
       const target = event.target instanceof Element ? event.target : null;
+      const sheet = target?.closest<HTMLElement>(".xlsx-preview");
+      if (sheet) {
+        event.stopPropagation();
+        if (event.shiftKey && !event.deltaX) {
+          block();
+          const unit =
+            event.deltaMode === 1
+              ? 16
+              : event.deltaMode === 2
+                ? sheet.clientWidth
+                : 1;
+          sheet.scrollLeft += event.deltaY * unit;
+        }
+        return;
+      }
       for (
         let node = target;
         node && node !== element;
