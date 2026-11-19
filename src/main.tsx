@@ -3,14 +3,8 @@ import { moveIntoCanvas } from "./canvasHierarchy";
 import { useCanvasTouch } from "./useCanvasTouch";
 import { useCanvasWheelGuard } from "./useCanvasWheelGuard";
 import { defaultAgent } from "./agent";
-import {
-  newMindMap,
-  parseMindMap,
-  newMindNode,
-  addMindNode,
-  type MindMapData,
-} from "./mindMapData";
-import { MindNodeMenu } from "./MindMap";
+import { newMindMap } from "./mindMapData";
+import { MindMapEditor } from "./MindMapEditor";
 import { CanvasCard } from "./CanvasCard";
 import {
   MasterPasswordDialog,
@@ -131,6 +125,7 @@ import {
   Mask,
   Remark,
   StaticContent,
+  isDiagramKind,
   presentationHidden,
   groupFrame,
 } from "./CardPresentation";
@@ -306,12 +301,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       id: string;
       kind: "card" | "group" | "canvas";
       noteLinkIcon?: boolean;
-      mindNode?: string;
     } | null>(null);
-  const [mindSelection, setMindSelection] = useState<{
-    card: string;
-    id: string;
-  }>();
   const [applicationDraft, setApplicationDraft] = useState<ApplicationDraft>();
   const [launcherSetup, setLauncherSetup] = useState<{ commands?: string }>();
   const internalCopy = useRef<{
@@ -386,7 +376,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       toggleCard?: string;
       context?: {
         id: string;
-        mindNode?: string;
         kind: "card" | "group" | "canvas";
       };
       bounds?: Rect;
@@ -438,13 +427,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     }
     if (g) end();
   };
-  useEffect(() => {
-    if (
-      mindSelection &&
-      (selection.length !== 1 || selection[0] !== mindSelection.card)
-    )
-      setMindSelection(undefined);
-  }, [selection, mindSelection]);
   useLayoutEffect(() => {
     const el = surface.current;
     if (!el) return;
@@ -978,7 +960,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   };
   const titleClickTimer = useRef<number | undefined>(undefined);
   const clearCanvasUI = () => {
-    setMindSelection(undefined);
     window.clearTimeout(titleClickTimer.current);
     setConnectionPicker(undefined);
     cancelViewAnimation();
@@ -1033,29 +1014,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setSelectedGroup(undefined);
     setMenu(null);
   };
-  const selectMind = (card: string, id: string) => {
-    setSelection([card]);
-    setSelectedGroup(undefined);
-    setSelectedConnection(undefined);
-    setMindSelection({ card, id });
-  };
-  const changeMind = (id: string, update: (map: MindMapData) => MindMapData) =>
-    updateCards((cards) =>
-      cards.map((c) =>
-        c.id === id && c.kind === "mindmap"
-          ? { ...c, text: JSON.stringify(update(parseMindMap(c.text))) }
-          : c,
-      ),
-    );
-  const insertMind = (card: string, id: string, sibling: boolean) => {
-    const child = newMindNode(tr("新节点"));
-    changeMind(card, (m) => ({
-      ...m,
-      root: addMindNode(m.root, id, child, sibling),
-    }));
-    selectMind(card, child.id);
-    setMenu(null);
-  };
   const createFromMenu = (kind: Card["kind"]) => {
     if (!menu || !ready || !surface.current) return;
     const rect = surface.current.getBoundingClientRect();
@@ -1096,12 +1054,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       setSelectedGroup(undefined);
     } else if (isApplicationKind(kind))
       setApplicationDraft({ kind, ...point, text: "" });
-    else if (
-      kind === "mermaid" ||
-      kind === "file" ||
-      kind === "mindmap" ||
-      kind === "flowchart"
-    ) {
+    else if (kind === "file" || isDiagramKind(kind)) {
       const mind = kind === "mindmap" ? newMindMap() : undefined;
       const id = uid();
       const card: Card = {
@@ -1148,10 +1101,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           },
         ],
       }));
-      setMindSelection(undefined);
       setSelection([id]);
       setSelectedGroup(undefined);
-      if (kind === "mermaid" || kind === "flowchart") setDetail(id);
     } else if (kind === "canvas") addCanvas(point);
     else if (kind === "miniature") addMiniature(point);
     else {
@@ -1217,8 +1168,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         y: card.y,
         text: card.text,
       });
-    else if (card.kind === "mindmap")
-      selectMind(card.id, parseMindMap(card.text).root.id);
     else if (card.kind === "canvas") navigateCanvas([...path, card.id]);
     else if (card.kind === "miniature") setActiveMiniature(card.id);
     else if (card.kind === "text" || card.kind === "todo")
@@ -1448,10 +1397,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       modifierPan ||
       (e.pointerType === "touch" && !id);
     let ids = selection;
-    if (!pan) {
-      setSelectedConnection(undefined);
-      setMindSelection(undefined);
-    }
+    if (!pan) setSelectedConnection(undefined);
     if (id && !pan) {
       setSelectedGroup(undefined);
       if (e.shiftKey) {
@@ -1492,9 +1438,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             id: (cardTarget.getAttribute("data-card-id") ||
               cardTarget.getAttribute("data-context-card-id"))!,
             kind: "card",
-            mindNode: target.closest<HTMLElement>(
-              "[data-mind-node]",
-            )?.dataset.mindNode,
           }
         : groupTarget
           ? { id: groupTarget.getAttribute("data-group-id")!, kind: "group" }
@@ -1889,8 +1832,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         setSelectedGroup(undefined);
         if (!selection.includes(g.context.id)) setSelection([g.context.id]);
       }
-      if (g.context.mindNode && mindSelection?.card === g.context.id)
-        selectMind(g.context.id, g.context.mindNode);
       setMenu({ ...g.context, x: e.clientX, y: e.clientY });
     }
     if (g?.kind === "create" && g.moved && e.type !== "pointercancel") {
@@ -2188,22 +2129,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       const key = e.key.toLowerCase(),
         mod = e.ctrlKey || e.metaKey;
       if (key === "escape") {
-        if (
-          !menu &&
-          mindSelection &&
-          selection.length === 1 &&
-          selection[0] === mindSelection.card &&
-          !document.querySelector('[role="dialog"]')
-        ) {
-          e.preventDefault();
-          setMindSelection(undefined);
-          surface.current
-            ?.querySelector<HTMLElement>(
-              `[data-card-id="${CSS.escape(mindSelection.card)}"]`,
-            )
-            ?.focus({ preventScroll: true });
-          return;
-        }
         if (menu) {
           setMenu(null);
           const target = menu.kind === "card"
@@ -2319,31 +2244,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         }
         return;
       }
-      if (
-        !menu &&
-        mindSelection?.card !== selection[0] &&
-        selection.length === 1 &&
-        !target?.closest('button,a,[role="button"],[role="menu"]') &&
-        ((e.key === "Tab" && !e.shiftKey) ||
-          e.key === " " ||
-          e.key === "Enter" ||
-          e.key === "F2" ||
-          /^[\p{L}\p{Nd}]$/u.test(e.key))
-      ) {
-        const card = board.cards.find((c) => c.id === selection[0]);
-        if (
-          card?.kind === "mindmap" &&
-          !card.masked &&
-          !card.locked &&
-          card.displayMode !== "small"
-        ) {
-          e.preventDefault();
-          const root = parseMindMap(card.text).root;
-          if (e.key === "Tab") insertMind(card.id, root.id, false);
-          else selectMind(card.id, root.id);
-          return;
-        }
-      }
       if (e.code === "Space" && !target?.closest("button")) {
         e.preventDefault();
         space.current = true;
@@ -2422,9 +2322,16 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         c.kind === "todo" ||
         c.kind === "image" ||
         c.kind === "file" ||
-        c.kind === "mermaid" ||
-        c.kind === "flowchart"),
+        isDiagramKind(c.kind)),
   );
+  const DiagramEditor =
+    current && isDiagramKind(current.kind)
+      ? {
+          flowchart: FlowchartEditor,
+          mermaid: MermaidEditor,
+          mindmap: MindMapEditor,
+        }[current.kind]
+      : undefined;
   const updatePinProperties = (
     pin: PinnedItem,
     properties: Pick<Partial<Card>, "pin" | "pinColor">,
@@ -2622,9 +2529,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   const cardActions = useLatestActions(
     {
       setBoard,
-      selectMind,
-      changeMind,
-      insertMind,
       updateRoot: workspace.updateRoot,
       setMenu,
       setSelectedGroup,
@@ -2671,8 +2575,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         setSelectedGroup(undefined);
         setSelection([]);
       }
-      if (context.mindNode && mindSelection?.card === context.id)
-        selectMind(context.id, context.mindNode);
       setMenu(context);
     },
   });
@@ -3021,14 +2923,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 key={c.id}
                 card={c}
                 selected={selection.includes(c.id)}
-                activeMindNode={
-                  !preview3D &&
-                  selection.length === 1 &&
-                  selection[0] === c.id &&
-                  mindSelection?.card === c.id
-                    ? mindSelection.id
-                    : undefined
-                }
                 dropTarget={dropTarget === c.id}
                 menuOpen={menu?.kind === "card" && menu.id === c.id}
                 touchMode={touchMode}
@@ -3398,18 +3292,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               <Unlink size={14} />
               {tr("取消链接")}
             </button>
-          ) : menuCard?.kind === "mindmap" && menu.mindNode ? (
-            <MindNodeMenu
-              text={menuCard.text}
-              id={menu.mindNode}
-              onInsert={(sibling) =>
-                insertMind(menuCard.id, menu.mindNode!, sibling)
-              }
-              onChange={(update) => {
-                changeMind(menuCard.id, update);
-                setMenu(null);
-              }}
-            />
           ) : menu.kind === "canvas" ? (
             <>
               <MenuSection label={tr("新建内容")}>
@@ -3443,30 +3325,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   <button
                     role="menuitem"
                     disabled={!ready}
-                    onClick={() => createFromMenu("flowchart")}
-                  >
-                    <Workflow size={14} />
-                    {tr("流程图")}
-                  </button>
-                  <button
-                    role="menuitem"
-                    disabled={!ready}
-                    onClick={() => createFromMenu("mermaid")}
-                  >
-                    <Network size={14} />
-                    Mermaid
-                  </button>
-                  <button
-                    role="menuitem"
-                    disabled={!ready}
-                    onClick={() => createFromMenu("mindmap")}
-                  >
-                    <Network size={14} />
-                    {tr("思维导图")}
-                  </button>
-                  <button
-                    role="menuitem"
-                    disabled={!ready}
                     onClick={() => createFromMenu("agent")}
                   >
                     <Bot size={14} />
@@ -3479,6 +3337,32 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   >
                     <Box size={14} />
                     Miniature
+                  </button>
+                </ContextSubmenu>
+                <ContextSubmenu label={tr("新建图表")}>
+                  <button
+                    role="menuitem"
+                    disabled={!ready}
+                    onClick={() => createFromMenu("mermaid")}
+                  >
+                    <Network size={14} />
+                    Mermaid
+                  </button>
+                  <button
+                    role="menuitem"
+                    disabled={!ready}
+                    onClick={() => createFromMenu("flowchart")}
+                  >
+                    <Workflow size={14} />
+                    {tr("流程图")}
+                  </button>
+                  <button
+                    role="menuitem"
+                    disabled={!ready}
+                    onClick={() => createFromMenu("mindmap")}
+                  >
+                    <Network size={14} />
+                    {tr("思维导图")}
                   </button>
                 </ContextSubmenu>
                 <ContextSubmenu
@@ -3590,8 +3474,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 <MenuSection label={tr("内容操作")}>
                   {(menuCard.kind === "canvas" ||
                     menuCard.kind === "miniature" ||
-                    menuCard.kind === "mermaid" ||
-                    menuCard.kind === "flowchart" ||
+                    isDiagramKind(menuCard.kind) ||
                     menuCard.kind === "file" ||
                     isApplicationKind(menuCard.kind)) && (
                     <MenuButton
@@ -4037,8 +3920,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           onDownload={(card) => void downloadCard(card)}
         />
       )}
-      {current?.kind === "flowchart" && (
-        <FlowchartEditor
+      {current && DiagramEditor && (
+        <DiagramEditor
           key={current.id}
           text={current.text}
           onClose={() => setDetail(undefined)}
@@ -4046,27 +3929,31 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             if (text !== current.text)
               updateCards((cards) =>
                 cards.map((card) =>
-                  card.id === current.id ? { ...card, text } : card,
+                  card.id === current.id
+                    ? {
+                        ...card,
+                        text,
+                        ...(card.kind === "mermaid"
+                          ? { width: undefined, height: undefined }
+                          : {}),
+                      }
+                    : card,
                 ),
               );
             setDetail(undefined);
           }}
         />
       )}
-      {current && current.kind !== "image" && current.kind !== "flowchart" && (
-        <ModalBackdrop className="modal-backdrop">
+      {current && current.kind !== "image" && !DiagramEditor && (
+        <ModalBackdrop>
           <div
             className={`modal detail-modal${current.kind === "file" ? " file-detail-modal" : ""}`}
             role="dialog"
             aria-modal="true"
-            aria-label={
-              current.kind === "mermaid" ? tr("编辑 Mermaid") : tr("内容详情")
-            }
+            aria-label={tr("内容详情")}
           >
             <div className="modal-heading">
-              <span>
-                {current.kind === "mermaid" ? "Mermaid" : current.title}
-              </span>
+              <span>{current.title}</span>
               <button
                 aria-label={tr("关闭详情")}
                 onClick={() => {
@@ -4118,21 +4005,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   />
                 )}
               </div>
-            ) : current.kind === "mermaid" ? (
-              <MermaidEditor
-                key={current.id}
-                source={current.text}
-                onClose={() => setDetail(undefined)}
-                onSave={(text) =>
-                  updateCards((cards) =>
-                    cards.map((card) =>
-                      card.id === current.id
-                        ? { ...card, text, width: undefined, height: undefined }
-                        : card,
-                    ),
-                  )
-                }
-              />
             ) : current.kind === "file" && isTextFile(current) ? (
               <TextFileEditor
                 key={current.id}

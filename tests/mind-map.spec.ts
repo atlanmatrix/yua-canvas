@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
-const nodes = (page: Page) => page.locator("[data-mind-node]");
+const nodes = (page: Page) =>
+  page.getByRole("dialog").locator("[data-mind-node]");
 const selected = (page: Page) =>
   page.locator("[data-mind-node][data-selected]");
 const node = (page: Page, text: string) =>
@@ -8,6 +9,10 @@ const node = (page: Page, text: string) =>
     has: page.locator(".mind-label", { hasText: new RegExp("^" + text + "$") }),
   });
 
+async function save(page: Page) {
+  await page.getByRole("button", { name: "保存图表" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+}
 async function rename(page: Page, name: string) {
   await page.keyboard.press("Enter");
   const input = page.getByRole("textbox", { name: "节点文字" });
@@ -29,11 +34,11 @@ test.beforeEach(async ({ page }) => {
   await page
     .locator(".canvas")
     .click({ button: "right", position: { x: 180, y: 180 } });
-  await page.getByRole("menuitem", { name: "新建", exact: true }).hover();
+  await page.getByRole("menuitem", { name: "新建图表", exact: true }).hover();
   await page.getByRole("menuitem", { name: "思维导图", exact: true }).click();
   await expect(page.locator(".card-mindmap.selected")).toBeVisible();
   await expect(selected(page)).toHaveCount(0);
-  await page.keyboard.press("Enter");
+  await page.locator(".card-mindmap").dblclick();
   await expect(selected(page)).toHaveText("root");
 });
 test("node creation, scoped keyboard navigation, editing and formatting", async ({
@@ -135,11 +140,12 @@ test("nested checkbox overrides restore earlier selections across views and relo
   await box("root").click();
   await expect(box("C")).toBeChecked();
   await menu(page, "root", "转为表格");
+  await save(page);
   await expect(
     page.locator('.save-indicator[data-state="已保存至本地"]'),
   ).toBeVisible();
   await page.reload();
-  await node(page, "root").dblclick();
+  await page.locator(".card-mindmap [data-mind-node]").first().dblclick();
   await expect(box("root")).toBeChecked();
   await box("root").click();
   await expect(box("C")).not.toBeChecked();
@@ -164,6 +170,7 @@ test("workspace JSON and ZIP restore the same styled and partially checked tree"
   await menu(page, "root", "创建子节点");
   await menu(page, "root", "转为表格");
   await page.getByLabel("节点边框色").fill("#123456");
+  await save(page);
   await expect(
     page.locator('.save-indicator[data-state="已保存至本地"]'),
   ).toBeVisible();
@@ -242,18 +249,22 @@ test("map and table show every node on a transparent canvas without inner scroll
   };
   await page.keyboard.press("Tab");
   await expect(nodes(page)).toHaveCount(2);
+  await save(page);
   await checkFrame();
+  await card.dblclick();
+  await node(page, "新节点").click();
   await page.keyboard.press("Tab");
   await page.keyboard.press("Tab");
   await expect(nodes(page)).toHaveCount(4);
   await menu(page, "root", "转为表格");
+  await save(page);
   await checkFrame();
   await card.dispatchEvent("contextmenu", { clientX: 350, clientY: 250 });
   await page
     .getByRole("menuitemradio", { name: "显示模式：中", exact: true })
     .click();
   await checkFrame();
-  await node(page, "root").click();
+  await card.click();
   const handle = (await card.getByTestId("card-resize-se").boundingBox())!;
   const x = handle.x + handle.width / 2,
     y = handle.y + handle.height / 2;
@@ -266,7 +277,9 @@ test("map and table show every node on a transparent canvas without inner scroll
     .poll(async () => (await card.boundingBox())!.width)
     .toBeLessThan(before.width - 50);
   await checkFrame();
+  await card.dblclick();
   await menu(page, "root", "转为思维导图");
+  await save(page);
   await checkFrame();
 });
 
@@ -402,7 +415,10 @@ test("space, letters and digits open inline editing with the original label sele
   }
   await page.keyboard.press("Tab");
   await page.emulateMedia({ colorScheme: "dark" });
-  await expect(selected(page)).toHaveCSS("background-color", "rgb(88, 166, 255)");
+  await expect(selected(page)).toHaveCSS(
+    "background-color",
+    "rgb(88, 166, 255)",
+  );
   await checkActivation("a", "新节点");
   await page.keyboard.type("Branch");
   await page.keyboard.press("Enter");
@@ -424,7 +440,7 @@ test("map selection exposes ports, activation enables local drags and editable c
   await page.keyboard.press("Tab");
   await rename(page, "Branch");
   const child = node(page, "Branch");
-  await page.keyboard.press("Escape");
+  await save(page);
   await expect(card).not.toHaveAttribute("data-mind-active", "true");
   await expect(card.locator(".connection-port")).toHaveCount(4);
   expect(
@@ -441,35 +457,39 @@ test("map selection exposes ports, activation enables local drags and editable c
     await page.mouse.move(x + dx, y + dy, { steps: 6 });
     await page.mouse.up();
   }
-  await drag(child, 35, 28);
+  const previewChild = card
+    .locator("[data-mind-node]")
+    .filter({ hasText: "Branch" });
+  await drag(previewChild, 35, 28);
   expect((await rect(card)).x - original.x).toBeCloseTo(35, 0);
   await expect(selected(page)).toHaveCount(0);
-  await child.dblclick();
+  await previewChild.dblclick();
+  await child.click();
   await expect(selected(page)).toHaveText("Branch");
-  await expect(card.locator(".connection-port")).toHaveCount(0);
   const before = await rect(child),
     fixed = await rect(root);
-  const path = card.locator(".mind-links [data-to]");
+  const path = page.getByRole("dialog").locator(".mind-links [data-to]");
   const previous = await path.getAttribute("d");
   await drag(child, 56, 44);
   expect((await rect(child)).x - before.x).toBeCloseTo(56, 0);
   expect((await rect(child)).y - before.y).toBeCloseTo(44, 0);
   expect((await rect(root)).x).toBeCloseTo(fixed.x, 0);
   await expect(path).not.toHaveAttribute("d", previous!);
-  const hit = card.locator(".mind-link-hit");
-  const midpoint = () => hit.evaluate((el: SVGPathElement) => {
-    const p = el
-      .getPointAtLength(el.getTotalLength() / 2)
-      .matrixTransform(el.getScreenCTM()!);
-    return { x: p.x, y: p.y };
-  });
+  const hit = page.getByRole("dialog").locator(".mind-link-hit");
+  const midpoint = () =>
+    hit.evaluate((el: SVGPathElement) => {
+      const p = el
+        .getPointAtLength(el.getTotalLength() / 2)
+        .matrixTransform(el.getScreenCTM()!);
+      return { x: p.x, y: p.y };
+    });
   const clickPoint = await midpoint();
   await page.mouse.dblclick(clickPoint.x, clickPoint.y);
   const editor = page.getByRole("textbox", { name: "连线文字" });
   await expect(editor).toBeFocused();
   await editor.fill("依赖");
   await editor.press("Enter");
-  const label = card.locator(".mind-edge-label");
+  const label = page.getByRole("dialog").locator(".mind-edge-label");
   await expect(label).toHaveText("依赖");
   const labelBox = await rect(label);
   const center = await midpoint();
@@ -479,25 +499,24 @@ test("map selection exposes ports, activation enables local drags and editable c
   await editor.fill("取消");
   await editor.press("Escape");
   await expect(label).toHaveText("依赖");
-  await page.keyboard.press("Escape");
-  await expect(card.locator(".connection-port")).toHaveCount(4);
-  await page.keyboard.press("Space");
-  await expect(selected(page)).toHaveText("root");
-  await expect(card.locator(".connection-port")).toHaveCount(0);
+  await save(page);
   await expect(
     page.locator('.save-indicator[data-state="已保存至本地"]'),
   ).toBeVisible();
   await page.reload();
-  await expect(label).toHaveText("依赖");
-  await expect(path).not.toHaveAttribute("d", previous!);
-  await expect(hit).toHaveCount(0);
-  await child.click();
+  await expect(card.locator(".mind-edge-label")).toHaveText("依赖");
+  await expect(card.locator(".mind-links [data-to]")).not.toHaveAttribute(
+    "d",
+    previous!,
+  );
+  await expect(card.locator(".mind-link-hit")).toHaveCount(0);
+  await previewChild.click();
   await expect(card.locator(".connection-port").first()).toHaveCSS(
     "opacity",
     "1",
   );
   await expect(selected(page)).toHaveCount(0);
-  await root.dblclick();
+  await previewChild.dblclick();
   await label.dblclick();
   await editor.fill("点击空白保存");
   await page.mouse.click(900, 500);

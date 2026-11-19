@@ -15,13 +15,9 @@
 .flow-editor.modal {
   display: flex;
   flex-direction: column;
-  width: min(1080px, 100%);
-  height: min(720px, 92dvh, calc(100dvh - 28px));
-  max-height: none;
   padding: 0;
   scrollbar-gutter: auto;
   border-color: var(--border);
-  border-radius: 18px;
   overflow: hidden;
   color: var(--ink);
 }

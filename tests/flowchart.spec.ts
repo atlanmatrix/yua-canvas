@@ -7,8 +7,9 @@ async function create(page: Page) {
     button: "right",
     position: { x: 140, y: 150 },
   });
-  await page.getByRole("menuitem", { name: "新建", exact: true }).hover();
+  await page.getByRole("menuitem", { name: "新建图表", exact: true }).hover();
   await page.getByRole("menuitem", { name: "流程图", exact: true }).click();
+  await page.locator(".card-flowchart").dblclick();
   const editor = page.getByRole("dialog", { name: "编辑流程图" });
   await expect(editor).toBeVisible();
   return editor;

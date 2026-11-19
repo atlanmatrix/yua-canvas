@@ -6,7 +6,8 @@ import { LockedContent } from "./ComponentLock";
 import { t as tr } from "./i18n";
 import { StrokeView } from "./PaintLayer";
 import {
-  mindMapFrameStyle,
+  diagramFrameStyle,
+  isDiagramKind,
   PreviewFrame,
   Mask,
   TypeIcon,
@@ -428,7 +429,7 @@ export function Canvas3D({
                         width: r.width,
                         height: r.height,
                         background: surfaceColor(card.color),
-                        ...mindMapFrameStyle(card),
+                        ...diagramFrameStyle(card),
                       }}
                       onDoubleClick={(e) => {
                         e.stopPropagation();
@@ -442,7 +443,7 @@ export function Canvas3D({
                         }
                       }}
                     >
-                      {card.kind !== "mindmap" &&
+                      {!isDiagramKind(card.kind) &&
                         card.displayMode !== "small" &&
                         !card.masked && (
                           <div className="canvas3d-component-title">

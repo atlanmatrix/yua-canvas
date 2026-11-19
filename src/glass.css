@@ -335,7 +335,7 @@
 }
 :root[data-theme] body .bottom-tools button:disabled,
 :root[data-theme] body .zoom-controls button:disabled { opacity: .38; }
-:root[data-theme] body .modal :is(input:not([type]), input[type="password"], input[type="url"], input[type="text"], input[type="email"]) {
+:root[data-theme] body .modal :is(input:not([type]), input[type="password"], input[type="url"], input[type="text"], input[type="email"]):not(.mind-label-editor, .mind-edge-editor) {
   min-height: max(40px, var(--action-height));
   border-radius: 10px !important;
   border-color: var(--float-edge) !important;

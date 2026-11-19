@@ -41,11 +41,13 @@ import { surfaceColor, customColor } from "./presentation";
 import { isTextFile } from "./clipboard";
 import { LockedContent } from "./ComponentLock";
 
-// The map's nodes paint their own surfaces. Keep the outer geometry for
-// selection and connections without painting a second frame behind the tree.
-export function mindMapFrameStyle(card: Card): CSSProperties | undefined {
+export function isDiagramKind(kind: Card["kind"]) {
+  return kind === "mindmap" || kind === "mermaid" || kind === "flowchart";
+}
+
+export function diagramFrameStyle(card: Card): CSSProperties | undefined {
   if (
-    card.kind !== "mindmap" ||
+    !isDiagramKind(card.kind) ||
     card.masked ||
     card.locked ||
     card.displayMode === "small"
@@ -372,7 +374,7 @@ export function GroupList({
                 width: cardRect(active).width,
                 height: cardRect(active).height,
                 background: surfaceColor(active.color),
-                ...mindMapFrameStyle(active),
+                ...diagramFrameStyle(active),
               }}
             >
               {active.masked ? (

@@ -548,7 +548,7 @@ main {
 .detail-modal {
   width: 800px;
 }
-.file-detail-modal, .detail-modal:has(> .mermaid-editor-content) {
+.file-detail-modal {
   display: flex;
   flex-direction: column;
 }
@@ -2582,3 +2582,34 @@ body .context-submenu.shared-submenu {
 .context-menu { z-index: 30; }
 .modal-backdrop { z-index: 40; }
 .toast { z-index: 50; }
+
+.modal-backdrop.diagram-backdrop {
+  padding: 0;
+}
+.diagram-backdrop > .modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  overflow: hidden;
+}
+.diagram-backdrop .mermaid-editor-content {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+.diagram-backdrop > .mind-editor {
+  padding: 0;
+}
+.mind-editor-stage {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--canvas-bg);
+}
+.mind-editor-stage .mind-layout {
+  margin: 24px;
+}

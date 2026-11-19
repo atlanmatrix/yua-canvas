@@ -239,6 +239,8 @@ export const english: Record<string, string> = {
 
   新建: "New",
   新建内容: "Create content",
+  新建图表: "New diagram",
+  编辑思维导图: "Edit mind map",
   新建工具: "New tool",
   新建应用关联: "New app link",
   计算器: "Calculator",
@@ -855,8 +857,8 @@ export const english: Record<string, string> = {
     "Export backs up the entire workspace, including parents, siblings, children, components, original files, connections, Pins, saved camera views and navigation. Importing a complete backup replaces the workspace and restores IDs and views. Legacy canvas JSON imports into the current canvas; selection JSON and ZIP exports support partial transfers. Miniature saves its scene URL, latest view and static preview without packaging external website content.",
   "默认自动保存到当前浏览器的 IndexedDB，请定期导出备份。可选云同步需配置云服务并登录；剪切只有在剪贴板及本地缓存保存成功后才移除原内容。右键粘贴需要剪贴板读取权限，权限受限时可用键盘粘贴。":
     "Data is automatically saved in this browser’s IndexedDB. Export regular backups. Optional cloud sync requires a configured cloud service and sign-in. Cut removes content only after the clipboard and local cache are saved. Menu paste needs clipboard permission; keyboard paste remains available when permission is restricted.",
-  "画布空白处右键「新建」，可在右击位置创建文本、图片、文件、思维导图、Mermaid 或 Miniature。右键菜单的「画布层级」中可创建子画布。「新建工具」中提供 TODO、计算器、汇率计算、温度转换、距离转换、天气与日历。粘贴时自动检测 Markdown、JSON、代码和配置等格式，生成可编辑文件并高亮；普通文字保持文本组件，Mermaid 直接显示图表。新建文件后点击组件编辑内容和文件名；工具栏可上传已有文件。Markdown 直接渲染内容，PDF 悬浮可翻页并记住页码。拖动边框调整尺寸，从边缘的 + 拖出连线。把组件拖到子画布上即可移入，画布也可以嵌套。右键点击组件可复制、剪切、导出、设置 Pin 和外观。右键点击画布空白处可导出当前画布及笔迹。":
-    "Right-click empty canvas space and use New to create text, images, editable files, mind maps, Mermaid diagrams or Miniatures. Use the canvas hierarchy section to create a child canvas. New tool contains TODO, calculator, currency, temperature and distance converters, weather and calendar. Paste structured text to create a file with format detection and syntax highlighting; ordinary prose stays text. Mermaid renders as a diagram, Markdown as a document, and PDF remembers its last page. Resize from the edges, drag a + port to connect, or drag components into a child canvas. Canvases can also be nested. Right-click a component for Copy, Cut, Pin, display options and Export. Right-click empty canvas space to export the current canvas with its drawings.",
+  "画布空白处右键「新建」，可在右击位置创建文本、图片、文件或 Miniature。「新建图表」可创建 Mermaid、流程图和思维导图。双击图表可全屏编辑，保存后返回画布。右键菜单的「画布层级」中可创建子画布。「新建工具」中提供 TODO、计算器、汇率计算、温度转换、距离转换、天气与日历。粘贴时自动检测 Markdown、JSON、代码和配置等格式，生成可编辑文件并高亮；普通文字保持文本组件，Mermaid 直接显示图表。新建文件后点击组件编辑内容和文件名；工具栏可上传已有文件。Markdown 直接渲染内容，PDF 悬浮可翻页并记住页码。拖动边框调整尺寸，从边缘的 + 拖出连线。把组件拖到子画布上即可移入，画布也可以嵌套。右键点击组件可复制、剪切、导出、设置 Pin 和外观。右键点击画布空白处可导出当前画布及笔迹。":
+    "Right-click empty canvas space and use New to create text, images, editable files or Miniatures. Use New diagram to add a Mermaid diagram, flowchart or mind map. Double-click a diagram to edit it full-screen and save to return to the canvas. Use the canvas hierarchy section to create a child canvas. New tool contains TODO, calculator, currency, temperature and distance converters, weather and calendar. Paste structured text to create a file with format detection and syntax highlighting; ordinary prose stays text. Mermaid renders as a diagram, Markdown as a document, and PDF remembers its last page. Resize from the edges, drag a + port to connect, or drag components into a child canvas. Canvases can also be nested. Right-click a component for Copy, Cut, Pin, display options and Export. Right-click empty canvas space to export the current canvas with its drawings.",
   文件超过大小限制: "File exceeds the size limit",
   请求内容为空: "Request body is empty",
   "JSON 无效": "Invalid JSON",

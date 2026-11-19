@@ -235,11 +235,11 @@ body .card-toolbar > button:enabled:active {
   outline-offset: 2px;
   box-shadow: 0 0 0 2px var(--focus-gap);
 }
-:root[data-theme] body .card.selected:not(:is(.card-miniature, [data-mind-frame])) {
+:root[data-theme] body .card.selected:not(:is(.card-miniature, [data-diagram-frame])) {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
-:root[data-theme] body .card.selected:not(:is(.card-miniature, [data-mind-frame]))::after {
+:root[data-theme] body .card.selected:not(:is(.card-miniature, [data-diagram-frame]))::after {
   content: "";
   pointer-events: none;
   position: absolute;

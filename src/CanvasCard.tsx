@@ -35,7 +35,8 @@ import { TextEditor } from "./TextEditor";
 import { TodoEditor } from "./TodoEditor";
 import { GroupNameEditor } from "./GroupNameEditor";
 import {
-  mindMapFrameStyle,
+  isDiagramKind,
+  diagramFrameStyle,
   PreviewFrame,
   Mask,
   TypeIcon,
@@ -49,11 +50,7 @@ import { ToolCard } from "./ToolCard";
 import { isToolKind } from "./tools";
 import { surfaceColor, customColor } from "./presentation";
 import { t as tr, usePreferences } from "./i18n";
-import type { MindMapData } from "./mindMapData";
 export type CanvasCardActions = {
-  selectMind: (card: string, id: string) => void;
-  insertMind: (card: string, id: string, sibling: boolean) => void;
-  changeMind: (card: string, update: (map: MindMapData) => MindMapData) => void;
   setBoard: ReturnType<typeof useCanvasWorkspace>["setBoard"];
   updateRoot: ReturnType<typeof useCanvasWorkspace>["updateRoot"];
   setMenu: (
@@ -63,7 +60,6 @@ export type CanvasCardActions = {
       id: string;
       kind: "card" | "group" | "canvas";
       noteLinkIcon?: boolean;
-      mindNode?: string;
     } | null,
   ) => void;
   setSelectedGroup: (id?: string) => void;
@@ -113,7 +109,6 @@ function CopyCommandButton({ copy }: { copy: () => Promise<boolean> }) {
 const emptyOffsets: Record<string, { y: number; visible: boolean }> = {};
 export const CanvasCard = memo(function CanvasCard({
   card: c,
-  activeMindNode,
   selected,
   menuOpen = false,
   dropTarget = false,
@@ -134,7 +129,6 @@ export const CanvasCard = memo(function CanvasCard({
 }: {
   card: Card;
   selected: boolean;
-  activeMindNode?: string;
   menuOpen?: boolean;
   dropTarget?: boolean;
   touchMode?: boolean;
@@ -196,8 +190,8 @@ export const CanvasCard = memo(function CanvasCard({
       { recordHistory: false, preserveLayout: true },
     );
   };
-  const mindFrame = mindMapFrameStyle(c);
-  const ports = mindFrame && activeMindNode ? [] : cardPorts(c);
+  const diagramFrame = diagramFrameStyle(c);
+  const ports = cardPorts(c);
   const [lastPort, setLastPort] = useState<Endpoint>();
   const portTabStop =
     ports.find(
@@ -214,8 +208,7 @@ export const CanvasCard = memo(function CanvasCard({
       key={c.id}
       data-testid="card"
       data-card-id={c.id}
-      data-mind-frame={mindFrame ? true : undefined}
-      data-mind-active={mindFrame && activeMindNode ? true : undefined}
+      data-diagram-frame={diagramFrame ? true : undefined}
       data-connection-source={connectionSource || undefined}
       data-drop-target={dropTarget || undefined}
       data-menu-open={menuOpen || undefined}
@@ -227,12 +220,7 @@ export const CanvasCard = memo(function CanvasCard({
         setSelectedGroup(undefined);
         setSelectedConnection(undefined);
         if (!selected) setSelection([c.id]);
-        const mindNode = (e.target as Element).closest<HTMLElement>(
-          "[data-mind-node]",
-        )?.dataset.mindNode;
-        if (mindNode && activeMindNode) actions.selectMind(c.id, mindNode);
         setMenu({
-          mindNode,
           x: e.clientX,
           y: e.clientY,
           id: c.id,
@@ -283,7 +271,7 @@ export const CanvasCard = memo(function CanvasCard({
                 c.color,
                 address ? "var(--surface-muted)" : undefined,
               ),
-        ...mindFrame,
+        ...diagramFrame,
       }}
       onPointerDown={(e) => {
         e.stopPropagation();
@@ -314,7 +302,7 @@ export const CanvasCard = memo(function CanvasCard({
           return;
         }
         if (c.masked) return;
-        if (c.displayMode === "small") {
+        if (c.displayMode === "small" && !isDiagramKind(c.kind)) {
           setBoard(
             (b) => ({
               ...b,
@@ -324,15 +312,6 @@ export const CanvasCard = memo(function CanvasCard({
             }),
             { preserveLayout: true },
           );
-          return;
-        }
-        if (mindFrame && !e.ctrlKey && !e.metaKey) {
-          const node = document
-            .elementFromPoint(e.clientX, e.clientY)
-            ?.closest<HTMLElement>("[data-mind-node]");
-          if (node?.dataset.mindNode)
-            actions.selectMind(c.id, node.dataset.mindNode);
-          else openCard(c);
           return;
         }
         if (c.kind === "vscode") return;
@@ -395,22 +374,6 @@ export const CanvasCard = memo(function CanvasCard({
           {c.kind === "mindmap" ? (
             <MindMap
               text={c.text}
-              active={activeMindNode}
-              onSelect={
-                activeMindNode
-                  ? (id) => actions.selectMind(c.id, id)
-                  : undefined
-              }
-              onChange={
-                activeMindNode
-                  ? (update) => actions.changeMind(c.id, update)
-                  : undefined
-              }
-              onInsert={
-                activeMindNode
-                  ? (id, sibling) => actions.insertMind(c.id, id, sibling)
-                  : undefined
-              }
               onMeasure={(width, height) => {
                 if (c.width === width && c.height === height) return;
                 setBoard(
@@ -745,7 +708,7 @@ export const CanvasCard = memo(function CanvasCard({
             aria-label={label}
             aria-haspopup="dialog"
             tabIndex={
-              endpoint === portTabStop && (!mindFrame || selected) ? 0 : -1
+              endpoint === portTabStop && (!diagramFrame || selected) ? 0 : -1
             }
             onFocus={() => setLastPort(endpoint)}
             onKeyDown={(e) => {

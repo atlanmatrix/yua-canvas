@@ -29,6 +29,7 @@ import {
 type Props = {
   text: string;
   active?: string;
+  toolbar?: HTMLElement | null;
   onSelect?: (id: string) => void;
   onInsert?: (id: string, sibling: boolean) => void;
   onChange?: (update: (map: MindMapData) => MindMapData) => void;
@@ -37,6 +38,7 @@ type Props = {
 export function MindMap({
   text,
   active,
+  toolbar,
   onSelect,
   onInsert,
   onChange,
@@ -418,6 +420,7 @@ export function MindMap({
       {currentStyle &&
         selected &&
         onChange &&
+        toolbar &&
         createPortal(
           <div className="mind-format">
             <TextFormatToolbar
@@ -458,7 +461,7 @@ export function MindMap({
               ))}
             </TextFormatToolbar>
           </div>,
-          document.body,
+          toolbar,
         )}
     </>
   );

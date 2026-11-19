@@ -72,9 +72,6 @@ test("hover and click open all component types; text is created at zoomed right-
     /^文本N$/,
     /^图片I$/,
     "文件",
-    "流程图",
-    "Mermaid",
-    "思维导图",
     "Agent",
     "Miniature",
   ]);
@@ -87,22 +84,26 @@ test("hover and click open all component types; text is created at zoomed right-
   await page.keyboard.press("ControlOrMeta+z");
   await expect(page.getByTestId("card")).toHaveCount(0);
 });
-test("task and Mermaid creation share the original anchor", async ({
+test("tools and diagrams are placed at the menu anchor and diagrams open full-screen on double-click", async ({
   page,
 }) => {
   for (const [label, kind] of [
     ["任务", "todo"],
     ["Mermaid", "mermaid"],
+    ["流程图", "flowchart"],
+    ["思维导图", "mindmap"],
   ]) {
     const point = await position(page);
     await (await menu(page)).hover();
-    if (kind === "todo")
-      await page
-        .getByRole("menuitem", { name: "新建工具", exact: true })
-        .hover();
+    await page
+      .getByRole("menuitem", {
+        name: kind === "todo" ? "新建工具" : "新建图表",
+        exact: true,
+      })
+      .hover();
     await page
       .getByRole("menu", {
-        name: kind === "todo" ? "新建工具组件" : "新建组件",
+        name: kind === "todo" ? "新建工具组件" : "新建图表组件",
       })
       .getByRole("menuitem", { name: label, exact: true })
       .click();
@@ -110,8 +111,21 @@ test("task and Mermaid creation share the original anchor", async ({
       await page.getByRole("textbox", { name: "任务内容 1" }).fill("任务");
       await page.keyboard.press("ControlOrMeta+Enter");
     }
-    if (kind === "mermaid")
-      await page.getByRole("button", { name: "保存图表" }).click();
+    if (kind !== "todo") {
+      const card = page.locator(".card-" + kind);
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toHaveCount(0);
+      await expect(card).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+      await expect(card).toHaveCSS("box-shadow", "none");
+      await card.dblclick();
+      await expect(dialog).toBeVisible();
+      expect(await dialog.boundingBox()).toEqual({
+        x: 0,
+        y: 0,
+        ...page.viewportSize(),
+      });
+      await dialog.getByRole("button", { name: "保存图表" }).click();
+    }
     await checkPosition(page, kind, point);
     await page.keyboard.press("Escape");
     await page.keyboard.press("ControlOrMeta+a");

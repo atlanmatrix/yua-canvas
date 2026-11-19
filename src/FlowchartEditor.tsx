@@ -496,7 +496,7 @@ export function FlowchartEditor({
   const detail = node || edge;
 
   return (
-    <ModalBackdrop className="modal-backdrop flow-backdrop" onKeyDown={onKeyDown}>
+    <ModalBackdrop className="modal-backdrop diagram-backdrop" onKeyDown={onKeyDown}>
       <div
         className="modal flow-editor"
         role="dialog"
