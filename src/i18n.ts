@@ -33,7 +33,10 @@ function apply() {
     document.documentElement.dataset.theme!;
 }
 apply();
-media.addEventListener("change", apply);
+media.addEventListener("change", () => {
+  apply();
+  listeners.forEach((fn) => fn());
+});
 window.addEventListener("storage", (event) => {
   if (event.key === key) {
     preferences = read();
@@ -51,15 +54,19 @@ export function setPreferences(next: Partial<Preferences>) {
   apply();
   listeners.forEach((fn) => fn());
 }
+function subscribe(fn: () => void) {
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+  };
+}
 export function usePreferences() {
+  return useSyncExternalStore(subscribe, () => preferences);
+}
+export function useDarkTheme() {
   return useSyncExternalStore(
-    (fn) => {
-      listeners.add(fn);
-      return () => {
-        listeners.delete(fn);
-      };
-    },
-    () => preferences,
+    subscribe,
+    () => document.documentElement.dataset.theme === "dark",
   );
 }
 const patterns = Object.entries(english)

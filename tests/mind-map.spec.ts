@@ -265,3 +265,71 @@ test("map and table show every node on a transparent canvas without inner scroll
   await menu(page, "root", "转为思维导图");
   await checkFrame();
 });
+
+test("branch colors, curves and underline anchors follow the hierarchy across themes", async ({
+  page,
+}) => {
+  await page.keyboard.press("Tab");
+  await rename(page, "Plan");
+  await page.keyboard.press("Control+Enter");
+  await rename(page, "Review");
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("Tab");
+  await rename(page, "Scope");
+  await page.keyboard.press("Tab");
+  await rename(page, "Deliverables");
+  await selected(page).hover();
+  await selected(page).getByRole("button", { name: "创建子节点" }).click();
+  await rename(page, "Checklist");
+
+  const links = page.locator(".mind-links path");
+  await expect(links).toHaveCount(5);
+  await expect(page.locator(".mind-links [data-trunk]")).toHaveCount(2);
+  await expect(node(page, "Plan")).toHaveCSS(
+    "background-color",
+    "rgb(37, 99, 235)",
+  );
+  await expect(node(page, "Review")).toHaveCSS(
+    "background-color",
+    "rgb(4, 120, 87)",
+  );
+  await expect(node(page, "Scope")).toHaveCSS(
+    "background-color",
+    "rgb(239, 246, 255)",
+  );
+  await expect(selected(page)).toHaveCSS(
+    "background-color",
+    "rgba(0, 0, 0, 0)",
+  );
+  await expect(selected(page).locator(".mind-label")).toHaveCSS(
+    "font-size",
+    "12px",
+  );
+
+  const underline = node(page, "Deliverables");
+  const id = await underline.getAttribute("data-mind-node");
+  const incoming = links.and(page.locator(`[data-to="${id}"]`));
+  const outgoing = links.and(page.locator(`[data-from="${id}"]`));
+  const error = (path: SVGPathElement, end: boolean) => {
+    const key = end ? path.dataset.to : path.dataset.from;
+    const layout = path.closest(".mind-layout")!;
+    const bounds = layout
+      .querySelector(`[data-mind-node="${key}"]`)!
+      .getBoundingClientRect();
+    const anchor = path
+      .getPointAtLength(end ? path.getTotalLength() : 0)
+      .matrixTransform(path.getScreenCTM()!);
+    return Math.max(
+      Math.abs(anchor.x - (end ? bounds.left : bounds.right)),
+      Math.abs(anchor.y - bounds.bottom),
+    );
+  };
+  await expect.poll(() => incoming.evaluate(error, true)).toBeLessThan(2);
+  await expect.poll(() => outgoing.evaluate(error, false)).toBeLessThan(2);
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(node(page, "Plan")).toHaveCSS(
+    "background-color",
+    "rgb(88, 166, 255)",
+  );
+  await expect(incoming).toHaveAttribute("stroke", "#58a6ff");
+});

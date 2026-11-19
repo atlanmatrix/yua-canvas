@@ -919,7 +919,8 @@ test("PDF includes mind map branches outside the card width", async ({
     fill: "#26bf40",
     children: [] as unknown[],
   };
-  for (let i = 0; i < 8; i++)
+  // Keep the final leaf beyond 900 CSS pixels even with compact deep-level labels.
+  for (let i = 0; i < 11; i++)
     branch = { id: "n" + i, text: "节点", fill: "#eeeeee", children: [branch] };
   await setup(page, [
     {

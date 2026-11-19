@@ -1,5 +1,7 @@
 import {
   useLayoutEffect,
+  useContext,
+  type CSSProperties,
   useMemo,
   useRef,
   useState,
@@ -11,8 +13,10 @@ import { Highlighter, Square, Plus } from "./icons";
 import { MenuButton } from "./MenuShortcut";
 import { MenuSection } from "./CanvasContextMenu";
 import { TextFormatToolbar } from "./TextFormatToolbar";
-import { textCss } from "./presentation";
-import { t as tr } from "./i18n";
+import { mindNodeStyle } from "./mindMapStyle";
+import { MindMapLinks } from "./MindMapLinks";
+import { FullContentExportContext } from "./ExportPreviewContext";
+import { t as tr, useDarkTheme } from "./i18n";
 import {
   indexMindMap,
   parseMindMap,
@@ -31,37 +35,6 @@ type Props = {
   onChange?: (update: (map: MindMapData) => MindMapData) => void;
   onMeasure?: (width: number, height: number) => void;
 };
-const branchColors = [
-  "#d5d0df",
-  "#c9dcec",
-  "#d9ead2",
-  "#ddc6c2",
-  "#d3e4ea",
-  "#d6d8d9",
-];
-
-function nodeStyle(node: MindNode, depth: number) {
-  return {
-    fontFamily: "system-ui",
-    fontSize: [24, 17, 14][depth] ?? 13,
-    bold: depth < 2,
-    color: depth === 0 ? "#ffffff" : "#111118",
-    ...node.style,
-  };
-}
-function nodeFill(node: MindNode, depth: number, branch: number) {
-  return (
-    node.fill ??
-    (depth === 0
-      ? "#000000"
-      : depth === 1
-        ? branchColors[branch % branchColors.length]
-        : depth === 2
-          ? "#f6f6f8"
-          : "#ffffff")
-  );
-}
-
 export function MindMap({
   text,
   active,
@@ -78,6 +51,12 @@ export function MindMap({
   );
   const current = active ? cells.get(active) : undefined;
   const selected = current?.node;
+  const darkTheme = useDarkTheme();
+  const print = useContext(FullContentExportContext);
+  const dark = darkTheme && !print;
+  const currentStyle =
+    current &&
+    mindNodeStyle(current.node, current.depth, current.branch, map.view, dark);
   const [editing, setEditing] = useState<string>();
   const input = useRef<HTMLInputElement>(null);
   const layout = useRef<HTMLDivElement>(null);
@@ -153,17 +132,29 @@ export function MindMap({
   }
   function label(node: MindNode, depth: number, branch: number) {
     const isRoot = depth === 0;
-    const fill = nodeFill(node, depth, branch);
-    const style = nodeStyle(node, depth);
+    const {
+      fill,
+      border,
+      accent,
+      label: typography,
+    } = mindNodeStyle(node, depth, branch, map.view, dark);
     const state = states.get(node.id);
     return (
       <div
         className="mind-node"
         data-mind-node={node.id}
         data-selected={active === node.id || undefined}
-        data-depth={Math.min(depth, 3)}
+        data-depth={Math.min(depth, map.view === "table" ? 3 : 4)}
+        data-custom-border={node.border ? true : undefined}
         data-leaf={!node.children.length || undefined}
-        style={{ backgroundColor: fill, borderColor: node.border }}
+        style={
+          {
+            backgroundColor: fill,
+            borderColor: border,
+            color: typography.color,
+            "--mind-accent": accent,
+          } as CSSProperties
+        }
         tabIndex={onSelect ? (isRoot && !active ? 0 : -1) : undefined}
         onFocus={
           onSelect
@@ -227,7 +218,11 @@ export function MindMap({
             className="mind-label-editor canvas-editor"
             aria-label={tr("节点文字")}
             defaultValue={node.text}
-            style={textCss(style)}
+            style={{
+              ...typography,
+              color: "var(--ink)",
+              backgroundColor: "var(--surface)",
+            }}
             onPointerDown={(e) => e.stopPropagation()}
             onDoubleClick={(e) => e.stopPropagation()}
             onBlur={(e) => {
@@ -247,14 +242,15 @@ export function MindMap({
             }}
           />
         ) : (
-          <span className="mind-label" style={textCss(style)}>
+          <span className="mind-label" style={typography}>
             {node.text || "\u00a0"}
           </span>
         )}
-        {map.view === "table" && active === node.id && !editing && onInsert && (
+        {(map.view === "map" || active === node.id) && !editing && onInsert && (
           <button
             type="button"
             className="mind-add-child"
+            title={tr("创建子节点")}
             aria-label={tr("创建子节点")}
             onPointerDown={(e) => e.stopPropagation()}
             onDoubleClick={(e) => e.stopPropagation()}
@@ -285,7 +281,10 @@ export function MindMap({
   }
   return (
     <>
-      <div ref={layout} className="mind-layout">
+      <div ref={layout} className="mind-layout" data-view={map.view}>
+        {map.view === "map" && (
+          <MindMapLinks parents={parents} cells={cells} dark={dark} />
+        )}
         {map.view === "map" ? (
           tree(map.root, 0, 0)
         ) : (
@@ -308,13 +307,13 @@ export function MindMap({
           </table>
         )}
       </div>
-      {current &&
+      {currentStyle &&
         selected &&
         onChange &&
         createPortal(
           <div className="mind-format">
             <TextFormatToolbar
-              style={nodeStyle(selected, current.depth)}
+              style={currentStyle.text}
               onChange={(style) =>
                 patch(selected.id, (n) => ({
                   ...n,
@@ -334,10 +333,11 @@ export function MindMap({
                     type="color"
                     aria-label={name}
                     value={
-                      selected[field] ||
-                      (field === "border"
-                        ? "#151827"
-                        : nodeFill(selected, current.depth, current.branch))
+                      currentStyle[field] === "transparent"
+                        ? dark
+                          ? "#171b22"
+                          : "#ffffff"
+                        : currentStyle[field]
                     }
                     onChange={(e) =>
                       patch(selected.id, (n) => ({
