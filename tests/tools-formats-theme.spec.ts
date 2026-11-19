@@ -248,16 +248,36 @@ test("weather searches and saves a chosen city, renders forecast and reuses it o
       json: {
         current: {
           temperature_2m: 22,
-          relative_humidity_2m: 55,
-          apparent_temperature: 21,
-          weather_code: 1,
-          wind_speed_10m: 10,
-          time: "2026-10-28T12:00",
+          is_day: 0,
+          weather_code: 2,
+          time: "2026-10-28T22:15",
+        },
+        hourly: {
+          time: [
+            "2026-10-28T21:00",
+            "2026-10-28T22:00",
+            "2026-10-28T23:00",
+            "2026-10-29T00:00",
+            "2026-10-29T01:00",
+            "2026-10-29T02:00",
+            "2026-10-29T03:00",
+          ],
+          temperature_2m: [11, 10, 10, 9, 8, 7, 7],
+          weather_code: [0, 0, 0, 2, 3, 61, 61],
+          is_day: [0, 0, 0, 0, 0, 0, 0],
         },
         daily: {
-          time: ["2026-10-28", "2026-10-29", "2026-10-30"],
-          temperature_2m_max: [25, 24, 23],
-          temperature_2m_min: [16, 17, 15],
+          time: [
+            "2026-10-28",
+            "2026-10-29",
+            "2026-10-30",
+            "2026-10-31",
+            "2026-11-01",
+            "2026-11-02",
+          ],
+          weather_code: [2, 0, 0, 0, 61, 2],
+          temperature_2m_max: [25, 13, 16, 18, 20, 15],
+          temperature_2m_min: [16, 6, 7, 8, 11, 8],
         },
         timezone: "Asia/Tokyo",
       },
@@ -266,11 +286,40 @@ test("weather searches and saves a chosen city, renders forecast and reuses it o
   await start(page);
   const card = await tool(page, "天气");
   await expect(card.locator(".weather-current")).toContainText("22°");
+  await card.getByRole("button", { name: "搜索城市" }).click();
   await card.getByRole("textbox", { name: "搜索城市" }).fill("Tokyo");
   await card.getByRole("button", { name: "查找城市" }).click();
   await card.getByRole("button", { name: "Tokyo · Japan" }).click();
   await expect(card.locator(".weather-location")).toContainText("Tokyo, Japan");
-  await expect(card.locator(".weather-forecast > div")).toHaveCount(3);
+  await expect(card.locator(".weather-hourly time")).toHaveText([
+    "22",
+    "23",
+    "00",
+    "01",
+    "02",
+    "03",
+  ]);
+  await expect(card.locator(".weather-daily")).toHaveCount(0);
+  const fits = () =>
+    card
+      .locator(".tool-body")
+      .evaluate(
+        (el) =>
+          el.scrollWidth === el.clientWidth &&
+          el.scrollHeight === el.clientHeight,
+      );
+  expect(await fits()).toBe(true);
+  await card.locator(".tool-heading").click({ button: "right" });
+  await page.getByRole("menuitemradio", { name: "显示模式：大" }).click();
+  await expect(card.locator(".weather-daily time")).toHaveText([
+    "周四",
+    "周五",
+    "周六",
+    "周日",
+    "周一",
+  ]);
+  await expect(card.locator(".weather-range")).toHaveCount(5);
+  expect(await fits()).toBe(true);
   await saved(page);
   await page.reload();
   await expect(page.locator(".weather-location")).toContainText("Tokyo, Japan");

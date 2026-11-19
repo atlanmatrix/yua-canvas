@@ -10,9 +10,9 @@ import {
   ChevronLeft,
   ChevronRight,
   RotateCw,
-  Search,
   Delete,
 } from "./icons";
+import { WeatherTool } from "./WeatherTool";
 import type { Card } from "./storage";
 import { PreviewBoundary } from "./PreviewBoundary";
 import {
@@ -340,279 +340,6 @@ function Converter({
     </>
   );
 }
-type WeatherData = {
-  current: {
-    temperature_2m: number;
-    relative_humidity_2m: number;
-    apparent_temperature: number;
-    weather_code: number;
-    wind_speed_10m: number;
-    time: string;
-  };
-  daily: {
-    time: string[];
-    temperature_2m_max: number[];
-    temperature_2m_min: number[];
-  };
-  timezone: string;
-};
-type City = {
-  id: number;
-  name: string;
-  country?: string;
-  admin1?: string;
-  latitude: number;
-  longitude: number;
-};
-function validWeather(data: any): data is WeatherData {
-  const current = data?.current,
-    daily = data?.daily;
-  return (
-    !!current &&
-    [
-      "temperature_2m",
-      "relative_humidity_2m",
-      "apparent_temperature",
-      "weather_code",
-      "wind_speed_10m",
-    ].every(
-      (key) =>
-        typeof current[key] === "number" && Number.isFinite(current[key]),
-    ) &&
-    Array.isArray(daily?.time) &&
-    daily.time.length > 0 &&
-    daily.time.length <= 14 &&
-    daily.time.every(
-      (date: unknown) =>
-        typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date),
-    ) &&
-    [daily.temperature_2m_max, daily.temperature_2m_min].every(
-      (values) =>
-        Array.isArray(values) &&
-        values.length === daily.time.length &&
-        values.every(
-          (v: unknown) => typeof v === "number" && Number.isFinite(v),
-        ),
-    )
-  );
-}
-const weatherName = (code: number) =>
-  code === 0
-    ? "晴"
-    : code <= 3
-      ? "多云"
-      : code <= 48
-        ? "雾"
-        : code <= 67
-          ? "雨"
-          : code <= 77
-            ? "雪"
-            : code <= 82
-              ? "阵雨"
-              : code <= 86
-                ? "阵雪"
-                : "雷暴";
-function WeatherTool({ value, change }: { value: ToolState; change: Change }) {
-  const { language } = usePreferences();
-  const [query, setQuery] = useState(""),
-    [cities, setCities] = useState<City[]>([]),
-    [searchError, setSearchError] = useState(""),
-    [searching, setSearching] = useState(false);
-  const [data, setData] = useState<WeatherData>(),
-    [loading, setLoading] = useState(false),
-    [error, setError] = useState(""),
-    [revision, refresh] = useState(0),
-    [saved, setSaved] = useState(0);
-  const searchController = useRef<AbortController>(undefined);
-  const lat = value.latitude ?? 39.9042,
-    lon = value.longitude ?? 116.4074;
-  useEffect(() => () => searchController.current?.abort(), []);
-  useEffect(() => {
-    const controller = new AbortController(),
-      key = `weather:${lat.toFixed(3)}:${lon.toFixed(3)}`,
-      stored = readToolCache<WeatherData>(key),
-      cached = validWeather(stored?.data) ? stored : undefined;
-    setData(cached?.data);
-    setSaved(cached?.saved || 0);
-    setError("");
-    if (!revision && cached && Date.now() - cached.saved < 1800000) return;
-    setLoading(true);
-    toolJson(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&forecast_days=3&timezone=auto`,
-      controller.signal,
-    )
-      .then((data) => {
-        if (!validWeather(data)) throw Error("天气数据无效");
-        if (!controller.signal.aborted) {
-          const cache = saveToolCache(key, data);
-          setData(data);
-          setSaved(cache.saved);
-        }
-      })
-      .catch(() => {
-        if (!controller.signal.aborted)
-          setError(
-            cached ? "离线缓存，数据可能已过期" : "暂时无法获取天气，请重试",
-          );
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, [lat, lon, revision]);
-  const search = async () => {
-    if (!query.trim()) return;
-    searchController.current?.abort();
-    const controller = new AbortController();
-    searchController.current = controller;
-    setSearching(true);
-    setSearchError("");
-    setCities([]);
-    try {
-      const data = await toolJson(
-        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query.trim())}&count=5&language=${language}&format=json`,
-        controller.signal,
-      );
-      if (!controller.signal.aborted) {
-        const cities: City[] = (data.results || []).filter(
-          (city: City) =>
-            typeof city.name === "string" &&
-            Number.isFinite(city.latitude) &&
-            Math.abs(city.latitude) <= 90 &&
-            Number.isFinite(city.longitude) &&
-            Math.abs(city.longitude) <= 180,
-        );
-        setCities(cities);
-        if (!cities.length) setSearchError("未找到城市");
-      }
-    } catch {
-      if (!controller.signal.aborted) setSearchError("城市搜索失败，请重试");
-    } finally {
-      if (!controller.signal.aborted) setSearching(false);
-    }
-  };
-  return (
-    <>
-      <form
-        className="weather-search"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void search();
-        }}
-      >
-        <input
-          aria-label={tr("搜索城市")}
-          placeholder={tr("搜索城市")}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          maxLength={120}
-        />
-        <button aria-label={tr("查找城市")} disabled={searching}>
-          <Search size={16} />
-        </button>
-      </form>
-      {searchError && (
-        <p className="tool-error" role="status">
-          {tr(searchError)}
-        </p>
-      )}
-      {cities.length > 0 ? (
-        <div className="weather-cities">
-          {cities.map((city) => (
-            <button
-              key={city.id}
-              onClick={() => {
-                change({
-                  city: [city.name, city.country].filter(Boolean).join(", "),
-                  latitude: city.latitude,
-                  longitude: city.longitude,
-                });
-                setCities([]);
-                setQuery("");
-              }}
-            >
-              {[city.name, city.admin1, city.country]
-                .filter(Boolean)
-                .join(" · ")}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <>
-          <div className="weather-location">
-            <strong>{value.city || tr("北京")}</strong>
-            <button
-              aria-label={tr("刷新天气")}
-              disabled={loading}
-              onClick={() => refresh((n) => n + 1)}
-            >
-              <RotateCw size={14} motionBusy={loading} />
-            </button>
-          </div>
-          {data && (
-            <>
-              <div className="weather-current">
-                <CloudSun size={35} />
-                <strong>{numberText(data.current.temperature_2m)}°</strong>
-                <span>{tr(weatherName(data.current.weather_code))}</span>
-              </div>
-              <div className="weather-details">
-                <span>
-                  {tr(
-                    "体感 {0}°",
-                    numberText(data.current.apparent_temperature),
-                  )}
-                </span>
-                <span>
-                  {tr("湿度 {0}%", data.current.relative_humidity_2m)}
-                </span>
-                <span>{tr("风速 {0} km/h", data.current.wind_speed_10m)}</span>
-              </div>
-              <div className="weather-forecast">
-                {data.daily.time.map((date, i) => (
-                  <div key={date}>
-                    <span>
-                      {new Intl.DateTimeFormat(locale(), {
-                        weekday: "short",
-                      }).format(new Date(date + "T12:00:00"))}
-                    </span>
-                    <strong>
-                      {Math.round(data.daily.temperature_2m_max[i])}°
-                    </strong>
-                    <span>{Math.round(data.daily.temperature_2m_min[i])}°</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-          <p className="tool-data-status" role="status">
-            {loading
-              ? tr("正在更新…")
-              : error
-                ? tr(error)
-                : saved
-                  ? tr(
-                      "更新于 {0}",
-                      new Date(saved).toLocaleTimeString(locale(), {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      }),
-                    )
-                  : ""}
-          </p>
-        </>
-      )}
-      <a
-        className="tool-attribution"
-        href="https://open-meteo.com/"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Open-Meteo · CC BY 4.0
-      </a>
-    </>
-  );
-}
 const dateKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 function CalendarTool({ value, change }: { value: ToolState; change: Change }) {
@@ -736,7 +463,15 @@ const Content = memo(function ToolContent({
         {kind === "calculator" ? (
           <CalculatorTool value={value} change={change} />
         ) : kind === "weather" ? (
-          <WeatherTool value={value} change={change} />
+          <WeatherTool
+            value={value}
+            change={change}
+            showDaily={
+              card.displayMode === "large" ||
+              (card.displayMode === "custom" &&
+                card.customSize?.base === "large")
+            }
+          />
         ) : kind === "calendar" ? (
           <CalendarTool value={value} change={change} />
         ) : (
