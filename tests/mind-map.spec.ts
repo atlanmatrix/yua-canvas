@@ -31,6 +31,9 @@ test.beforeEach(async ({ page }) => {
     .click({ button: "right", position: { x: 180, y: 180 } });
   await page.getByRole("menuitem", { name: "新建", exact: true }).hover();
   await page.getByRole("menuitem", { name: "思维导图", exact: true }).click();
+  await expect(page.locator(".card-mindmap.selected")).toBeVisible();
+  await expect(selected(page)).toHaveCount(0);
+  await page.keyboard.press("Enter");
   await expect(selected(page)).toHaveText("root");
 });
 test("node creation, scoped keyboard navigation, editing and formatting", async ({
@@ -136,6 +139,7 @@ test("nested checkbox overrides restore earlier selections across views and relo
     page.locator('.save-indicator[data-state="已保存至本地"]'),
   ).toBeVisible();
   await page.reload();
+  await node(page, "root").dblclick();
   await expect(box("root")).toBeChecked();
   await box("root").click();
   await expect(box("C")).not.toBeChecked();
@@ -282,7 +286,7 @@ test("branch colors, curves and underline anchors follow the hierarchy across th
   await selected(page).getByRole("button", { name: "创建子节点" }).click();
   await rename(page, "Checklist");
 
-  const links = page.locator(".mind-links path");
+  const links = page.locator(".mind-links path[data-to]");
   await expect(links).toHaveCount(5);
   await expect(page.locator(".mind-links [data-trunk]")).toHaveCount(2);
   await expect(node(page, "Plan")).toHaveCSS(
@@ -365,6 +369,7 @@ test("space, letters and digits open inline editing with the original label sele
   }
   await page.keyboard.press("Tab");
   await page.emulateMedia({ colorScheme: "dark" });
+  await expect(selected(page)).toHaveCSS("background-color", "rgb(88, 166, 255)");
   await checkActivation("a", "新节点");
   await page.keyboard.type("Branch");
   await page.keyboard.press("Enter");
@@ -376,4 +381,126 @@ test("space, letters and digits open inline editing with the original label sele
   await page.keyboard.type(" 2");
   await page.keyboard.press("Enter");
   await expect(selected(page)).toHaveText("Branch 2");
+});
+
+test("map selection exposes ports, activation enables local drags and editable canvas curves", async ({
+  page,
+}) => {
+  const card = page.locator(".card-mindmap"),
+    root = node(page, "root");
+  await page.keyboard.press("Tab");
+  await rename(page, "Branch");
+  const child = node(page, "Branch");
+  await page.keyboard.press("Escape");
+  await expect(card).not.toHaveAttribute("data-mind-active", "true");
+  await expect(card.locator(".connection-port")).toHaveCount(4);
+  expect(
+    await card.evaluate((el) => getComputedStyle(el, "::after").borderTopStyle),
+  ).toBe("dashed");
+  const rect = async (el: typeof card) => (await el.boundingBox())!;
+  const original = await rect(card);
+  async function drag(el: typeof card, dx: number, dy: number) {
+    const b = await rect(el),
+      x = b.x + b.width / 2,
+      y = b.y + b.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + dx, y + dy, { steps: 6 });
+    await page.mouse.up();
+  }
+  await drag(child, 35, 28);
+  expect((await rect(card)).x - original.x).toBeCloseTo(35, 0);
+  await expect(selected(page)).toHaveCount(0);
+  await child.dblclick();
+  await expect(selected(page)).toHaveText("Branch");
+  await expect(card.locator(".connection-port")).toHaveCount(0);
+  const before = await rect(child),
+    fixed = await rect(root);
+  const path = card.locator(".mind-links [data-to]");
+  const previous = await path.getAttribute("d");
+  await drag(child, 56, 44);
+  expect((await rect(child)).x - before.x).toBeCloseTo(56, 0);
+  expect((await rect(child)).y - before.y).toBeCloseTo(44, 0);
+  expect((await rect(root)).x).toBeCloseTo(fixed.x, 0);
+  await expect(path).not.toHaveAttribute("d", previous!);
+  const hit = card.locator(".mind-link-hit");
+  const midpoint = await hit.evaluate((el: SVGPathElement) => {
+    const p = el
+      .getPointAtLength(el.getTotalLength() / 2)
+      .matrixTransform(el.getScreenCTM()!);
+    return { x: p.x, y: p.y };
+  });
+  await page.mouse.dblclick(midpoint.x, midpoint.y);
+  const editor = page.getByRole("textbox", { name: "连线文字" });
+  await expect(editor).toBeFocused();
+  await editor.fill("依赖");
+  await editor.press("Enter");
+  const label = card.locator(".mind-edge-label");
+  await expect(label).toHaveText("依赖");
+  await label.dblclick();
+  await editor.fill("取消");
+  await editor.press("Escape");
+  await expect(label).toHaveText("依赖");
+  await page.keyboard.press("Escape");
+  await expect(card.locator(".connection-port")).toHaveCount(4);
+  await page.keyboard.press("Space");
+  await expect(selected(page)).toHaveText("root");
+  await expect(card.locator(".connection-port")).toHaveCount(0);
+  await expect(
+    page.locator('.save-indicator[data-state="已保存至本地"]'),
+  ).toBeVisible();
+  await page.reload();
+  await expect(label).toHaveText("依赖");
+  await expect(path).not.toHaveAttribute("d", previous!);
+  await expect(hit).toHaveCount(0);
+  await child.click();
+  await expect(card.locator(".connection-port").first()).toHaveCSS(
+    "opacity",
+    "1",
+  );
+  await expect(selected(page)).toHaveCount(0);
+  await root.dblclick();
+  await label.dblclick();
+  await editor.fill("点击空白保存");
+  await page.mouse.click(900, 500);
+  await expect(label).toHaveText("点击空白保存");
+});
+
+test("map and table retain the same node palette and custom colors in both themes", async ({
+  page,
+}) => {
+  await page.keyboard.press("Tab");
+  await rename(page, "One");
+  await page.keyboard.press("Control+Enter");
+  await rename(page, "Two");
+  await page.keyboard.press("Tab");
+  await rename(page, "Detail");
+  await page.getByLabel("节点填充色").fill("#ddddee");
+  await page.getByLabel("节点边框色").fill("#505062");
+  await page.getByLabel("文字颜色", { exact: true }).fill("#202940");
+  const colors = () =>
+    nodes(page).evaluateAll((els) =>
+      Object.fromEntries(
+        els.map((el) => [
+          el.getAttribute("data-mind-node"),
+          [
+            getComputedStyle(el).backgroundColor,
+            getComputedStyle(el).borderTopColor,
+            getComputedStyle(el.querySelector(".mind-label")!).color,
+          ],
+        ]),
+      ),
+    );
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    await expect(node(page, "One")).toHaveCSS(
+      "background-color",
+      colorScheme === "dark" ? "rgb(88, 166, 255)" : "rgb(37, 99, 235)",
+    );
+    const map = await colors();
+    await menu(page, "root", "转为表格");
+    expect(await colors()).toEqual(map);
+    await menu(page, "root", "转为思维导图");
+    expect(await colors()).toEqual(map);
+  }
 });

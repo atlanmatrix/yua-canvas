@@ -18,15 +18,6 @@ const darkBranches = [
   ["#f78fba", "#37252f", "#714457"],
   ["#57cdd5", "#1a3036", "#345f65"],
 ];
-const tableBranches = [
-  "#d5d0df",
-  "#c9dcec",
-  "#d9ead2",
-  "#ddc6c2",
-  "#d3e4ea",
-  "#d6d8d9",
-];
-
 export function branchPalette(branch: number, dark: boolean) {
   return (dark ? darkBranches : lightBranches)[branch % lightBranches.length];
 }
@@ -54,31 +45,19 @@ export function mindNodeStyle(
   const table = view === "table";
   const rootFill = dark ? "#174c9f" : "#0f172a";
   const rootBorder = dark ? "#58a6ff" : "#334155";
-  const fill =
-    node.fill ??
-    (table
-      ? (["#000000", tableBranches[branch % tableBranches.length], "#f6f6f8"][
-          depth
-        ] ?? "#ffffff")
-      : ([rootFill, accent, tint][depth] ?? "transparent"));
-  const border =
-    node.border ??
-    (table ? "#151827" : ([rootBorder, accent, edge][depth] ?? accent));
-  const foreground = table
-    ? depth
-      ? "#111118"
-      : "#ffffff"
-    : [
-        "#ffffff",
-        dark ? "#0f172a" : "#ffffff",
-        dark ? "#e6edf3" : "#1e293b",
-        dark ? "#e6edf3" : "#334155",
-        dark ? "#b1bdcd" : "#475569",
-      ][level];
+  const fill = node.fill ?? [rootFill, accent, tint][depth] ?? "transparent";
+  const border = node.border ?? [rootBorder, accent, edge][depth] ?? accent;
+  const foreground = [
+    "#ffffff",
+    dark ? "#0f172a" : "#ffffff",
+    dark ? "#e6edf3" : "#1e293b",
+    dark ? "#e6edf3" : "#334155",
+    dark ? "#b1bdcd" : "#475569",
+  ][level];
   const text = {
     fontFamily: "system-ui",
     fontSize: (table ? [24, 17, 14, 13, 13] : [22, 16, 14, 13, 12])[level],
-    color: node.fill && !table ? textOnFill(node.fill) : foreground,
+    color: node.fill ? textOnFill(node.fill) : foreground,
     bold: depth < 2,
     ...node.style,
   };

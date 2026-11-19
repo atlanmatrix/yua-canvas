@@ -30,7 +30,6 @@ type Props = {
   text: string;
   active?: string;
   onSelect?: (id: string) => void;
-  onPointerDown?: (event: PointerEvent<HTMLDivElement>) => void;
   onInsert?: (id: string, sibling: boolean) => void;
   onChange?: (update: (map: MindMapData) => MindMapData) => void;
   onMeasure?: (width: number, height: number) => void;
@@ -39,7 +38,6 @@ export function MindMap({
   text,
   active,
   onSelect,
-  onPointerDown,
   onInsert,
   onChange,
   onMeasure,
@@ -58,6 +56,21 @@ export function MindMap({
     current &&
     mindNodeStyle(current.node, current.depth, current.branch, map.view, dark);
   const [editing, setEditing] = useState<string>();
+  const drag = useRef<
+    | {
+        id: string;
+        pointer: number;
+        clientX: number;
+        clientY: number;
+        scale: number;
+        x: number;
+        y: number;
+        minX: number;
+        minY: number;
+      }
+    | undefined
+  >(undefined);
+  const [moving, setMoving] = useState<{ id: string; x: number; y: number }>();
   const input = useRef<HTMLInputElement>(null);
   const layout = useRef<HTMLDivElement>(null);
   const measure = useRef(onMeasure);
@@ -78,6 +91,10 @@ export function MindMap({
         ?.focus({ preventScroll: true });
   };
   useLayoutEffect(() => {
+    if (!active) {
+      drag.current = undefined;
+      setMoving(undefined);
+    }
     if (editing && editing === active) {
       input.current?.focus({ preventScroll: true });
       input.current?.select();
@@ -133,6 +150,22 @@ export function MindMap({
     e.preventDefault();
     e.stopPropagation();
   }
+  function dragPosition(e: PointerEvent) {
+    const start = drag.current;
+    if (!start || start.pointer !== e.pointerId) return;
+    const dx = e.clientX - start.clientX,
+      dy = e.clientY - start.clientY;
+    if (!moving && Math.hypot(dx, dy) < 4) return;
+    return {
+      id: start.id,
+      x: Math.max(start.minX, Math.round(start.x + dx / start.scale)),
+      y: Math.max(start.minY, Math.round(start.y + dy / start.scale)),
+    };
+  }
+  function cancelDrag() {
+    drag.current = undefined;
+    setMoving(undefined);
+  }
   function label(node: MindNode, depth: number, branch: number) {
     const isRoot = depth === 0;
     const {
@@ -142,6 +175,12 @@ export function MindMap({
       label: typography,
     } = mindNodeStyle(node, depth, branch, map.view, dark);
     const state = states.get(node.id);
+    const offset =
+      map.view === "map"
+        ? moving?.id === node.id
+          ? moving
+          : node.offset
+        : undefined;
     return (
       <div
         className="mind-node"
@@ -152,6 +191,8 @@ export function MindMap({
         data-leaf={!node.children.length || undefined}
         style={
           {
+            left: offset?.x,
+            top: offset?.y,
             backgroundColor: fill,
             borderColor: border,
             color: typography.color,
@@ -174,10 +215,45 @@ export function MindMap({
                   return;
                 e.currentTarget.focus({ preventScroll: true });
                 e.stopPropagation();
-                onPointerDown?.(e);
+                if (map.view === "map") {
+                  const el = e.currentTarget,
+                    frame = layout.current!;
+                  const scale =
+                    frame.getBoundingClientRect().width / frame.offsetWidth ||
+                    1;
+                  const rect = el.getBoundingClientRect(),
+                    box = frame.getBoundingClientRect();
+                  const x = node.offset?.x ?? 0,
+                    y = node.offset?.y ?? 0;
+                  drag.current = {
+                    id: node.id,
+                    pointer: e.pointerId,
+                    clientX: e.clientX,
+                    clientY: e.clientY,
+                    scale,
+                    x,
+                    y,
+                    minX: Math.ceil(x - (rect.left - box.left) / scale),
+                    minY: Math.ceil(y - (rect.top - box.top) / scale),
+                  };
+                  el.setPointerCapture(e.pointerId);
+                }
               }
             : undefined
         }
+        onPointerMove={(e) => {
+          const next = dragPosition(e);
+          if (next) setMoving(next);
+        }}
+        onPointerUp={(e) => {
+          if (!drag.current || drag.current.pointer !== e.pointerId) return;
+          const next = dragPosition(e);
+          cancelDrag();
+          if (next)
+            patch(next.id, (n) => ({ ...n, offset: { x: next.x, y: next.y } }));
+        }}
+        onPointerCancel={cancelDrag}
+        onLostPointerCapture={cancelDrag}
         onDoubleClick={
           onSelect
             ? (e) => {
@@ -268,11 +344,27 @@ export function MindMap({
     );
   }
   function tree(node: MindNode, depth: number, branch: number) {
+    const labelLength = node.children.reduce(
+      (longest, child) => Math.max(longest, child.edgeLabel?.length ?? 0),
+      0,
+    );
     return (
       <div className="mind-branch" key={node.id}>
         {label(node, depth, branch)}
         {!!node.children.length && (
-          <div className="mind-children">
+          <div
+            className="mind-children"
+            style={
+              labelLength
+                ? {
+                    paddingLeft: Math.min(
+                      220,
+                      Math.max(90, labelLength * 13 + 32),
+                    ),
+                  }
+                : undefined
+            }
+          >
             {node.children.map((child, i) =>
               tree(child, depth + 1, depth === 0 ? i : branch),
             )}
@@ -284,11 +376,25 @@ export function MindMap({
   return (
     <>
       <div ref={layout} className="mind-layout" data-view={map.view}>
-        {map.view === "map" && (
-          <MindMapLinks parents={parents} cells={cells} dark={dark} />
-        )}
         {map.view === "map" ? (
-          tree(map.root, 0, 0)
+          <div className="mind-tree">
+            <MindMapLinks
+              parents={parents}
+              cells={cells}
+              dark={dark}
+              moving={moving}
+              onLabelChange={
+                onChange
+                  ? (id, edgeLabel) =>
+                      patch(id, (n) => ({
+                        ...n,
+                        edgeLabel: edgeLabel || undefined,
+                      }))
+                  : undefined
+              }
+            />
+            {tree(map.root, 0, 0)}
+          </div>
         ) : (
           <table className="mind-table" aria-label={tr("思维导图表格")}>
             <tbody>

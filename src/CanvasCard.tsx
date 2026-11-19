@@ -195,7 +195,8 @@ export const CanvasCard = memo(function CanvasCard({
       { recordHistory: false, preserveLayout: true },
     );
   };
-  const ports = cardPorts(c);
+  const mindFrame = mindMapFrameStyle(c);
+  const ports = mindFrame && activeMindNode ? [] : cardPorts(c);
   const [lastPort, setLastPort] = useState<Endpoint>();
   const portTabStop =
     ports.find(
@@ -204,7 +205,7 @@ export const CanvasCard = memo(function CanvasCard({
         sameEndpoint(endpoint, lastPort) &&
         (!endpoint.task ||
           taskOffsets[`${c.id}:${endpoint.task}`]?.visible !== false),
-    )?.endpoint ?? ports[0].endpoint;
+    )?.endpoint ?? ports[0]?.endpoint;
   const address = !editing && noteCardHref(c);
   const rect = cardRect(editing ? { ...c, linkDisabled: true } : c);
   return (
@@ -212,6 +213,8 @@ export const CanvasCard = memo(function CanvasCard({
       key={c.id}
       data-testid="card"
       data-card-id={c.id}
+      data-mind-frame={mindFrame ? true : undefined}
+      data-mind-active={mindFrame && activeMindNode ? true : undefined}
       data-connection-source={connectionSource || undefined}
       data-drop-target={dropTarget || undefined}
       data-menu-open={menuOpen || undefined}
@@ -226,7 +229,7 @@ export const CanvasCard = memo(function CanvasCard({
         const mindNode = (e.target as Element).closest<HTMLElement>(
           "[data-mind-node]",
         )?.dataset.mindNode;
-        if (mindNode) actions.selectMind(c.id, mindNode);
+        if (mindNode && activeMindNode) actions.selectMind(c.id, mindNode);
         setMenu({
           mindNode,
           x: e.clientX,
@@ -279,7 +282,7 @@ export const CanvasCard = memo(function CanvasCard({
                 c.color,
                 address ? "var(--surface-muted)" : undefined,
               ),
-        ...mindMapFrameStyle(c),
+        ...mindFrame,
       }}
       onPointerDown={(e) => {
         e.stopPropagation();
@@ -320,6 +323,15 @@ export const CanvasCard = memo(function CanvasCard({
             }),
             { preserveLayout: true },
           );
+          return;
+        }
+        if (mindFrame && !e.ctrlKey && !e.metaKey) {
+          const node = document
+            .elementFromPoint(e.clientX, e.clientY)
+            ?.closest<HTMLElement>("[data-mind-node]");
+          if (node?.dataset.mindNode)
+            actions.selectMind(c.id, node.dataset.mindNode);
+          else openCard(c);
           return;
         }
         if (c.kind === "vscode") return;
@@ -382,10 +394,21 @@ export const CanvasCard = memo(function CanvasCard({
             <MindMap
               text={c.text}
               active={activeMindNode}
-              onSelect={(id) => actions.selectMind(c.id, id)}
-              onPointerDown={(e) => pointerDown(e, c.id)}
-              onChange={(update) => actions.changeMind(c.id, update)}
-              onInsert={(id, sibling) => actions.insertMind(c.id, id, sibling)}
+              onSelect={
+                activeMindNode
+                  ? (id) => actions.selectMind(c.id, id)
+                  : undefined
+              }
+              onChange={
+                activeMindNode
+                  ? (update) => actions.changeMind(c.id, update)
+                  : undefined
+              }
+              onInsert={
+                activeMindNode
+                  ? (id, sibling) => actions.insertMind(c.id, id, sibling)
+                  : undefined
+              }
               onMeasure={(width, height) => {
                 if (c.width === width && c.height === height) return;
                 setBoard(
@@ -717,7 +740,9 @@ export const CanvasCard = memo(function CanvasCard({
             className={`connection-port ${task ? "task-port " : ""}port-${side} ${magnet ? "target-active" : ""}`}
             aria-label={label}
             aria-haspopup="dialog"
-            tabIndex={endpoint === portTabStop ? 0 : -1}
+            tabIndex={
+              endpoint === portTabStop && (!mindFrame || selected) ? 0 : -1
+            }
             onFocus={() => setLastPort(endpoint)}
             onKeyDown={(e) => {
               if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;

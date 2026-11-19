@@ -432,6 +432,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     }
     if (g) end();
   };
+  useEffect(() => {
+    if (
+      mindSelection &&
+      (selection.length !== 1 || selection[0] !== mindSelection.card)
+    )
+      setMindSelection(undefined);
+  }, [selection, mindSelection]);
   useLayoutEffect(() => {
     const el = surface.current;
     if (!el) return;
@@ -1120,11 +1127,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           },
         ],
       }));
-      if (mind) selectMind(id, mind.root.id);
-      else {
-        setSelection([id]);
-        setSelectedGroup(undefined);
-      }
+      setMindSelection(undefined);
+      setSelection([id]);
+      setSelectedGroup(undefined);
       if (kind === "mermaid") setDetail(id);
     } else if (kind === "canvas") addCanvas(point);
     else if (kind === "miniature") addMiniature(point);
@@ -1423,8 +1428,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     let ids = selection;
     if (!pan) {
       setSelectedConnection(undefined);
-      if (!(e.target as Element).closest("[data-mind-node]"))
-        setMindSelection(undefined);
+      setMindSelection(undefined);
     }
     if (id && !pan) {
       setSelectedGroup(undefined);
@@ -1466,8 +1470,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             id: (cardTarget.getAttribute("data-card-id") ||
               cardTarget.getAttribute("data-context-card-id"))!,
             kind: "card",
-            mindNode:
-              target.closest<HTMLElement>("[data-mind-node]")?.dataset.mindNode,
+            mindNode: target.closest<HTMLElement>(
+              "[data-mind-node]",
+            )?.dataset.mindNode,
           }
         : groupTarget
           ? { id: groupTarget.getAttribute("data-group-id")!, kind: "group" }
@@ -1862,7 +1867,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         setSelectedGroup(undefined);
         if (!selection.includes(g.context.id)) setSelection([g.context.id]);
       }
-      if (g.context.mindNode) selectMind(g.context.id, g.context.mindNode);
+      if (g.context.mindNode && mindSelection?.card === g.context.id)
+        selectMind(g.context.id, g.context.mindNode);
       setMenu({ ...g.context, x: e.clientX, y: e.clientY });
     }
     if (g?.kind === "create" && g.moved && e.type !== "pointercancel") {
@@ -2160,6 +2166,22 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       const key = e.key.toLowerCase(),
         mod = e.ctrlKey || e.metaKey;
       if (key === "escape") {
+        if (
+          !menu &&
+          mindSelection &&
+          selection.length === 1 &&
+          selection[0] === mindSelection.card &&
+          !document.querySelector('[role="dialog"]')
+        ) {
+          e.preventDefault();
+          setMindSelection(undefined);
+          surface.current
+            ?.querySelector<HTMLElement>(
+              `[data-card-id="${CSS.escape(mindSelection.card)}"]`,
+            )
+            ?.focus({ preventScroll: true });
+          return;
+        }
         if (tool === "draw") setTool("select");
         if (editSession.current && detail === editSession.current.id)
           finishEditing(detail, true);
@@ -2266,6 +2288,31 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           void exportAll();
         }
         return;
+      }
+      if (
+        !menu &&
+        mindSelection?.card !== selection[0] &&
+        selection.length === 1 &&
+        !target?.closest('button,a,[role="button"],[role="menu"]') &&
+        ((e.key === "Tab" && !e.shiftKey) ||
+          e.key === " " ||
+          e.key === "Enter" ||
+          e.key === "F2" ||
+          /^[\p{L}\p{Nd}]$/u.test(e.key))
+      ) {
+        const card = board.cards.find((c) => c.id === selection[0]);
+        if (
+          card?.kind === "mindmap" &&
+          !card.masked &&
+          !card.locked &&
+          card.displayMode !== "small"
+        ) {
+          e.preventDefault();
+          const root = parseMindMap(card.text).root;
+          if (e.key === "Tab") insertMind(card.id, root.id, false);
+          else selectMind(card.id, root.id);
+          return;
+        }
       }
       if (e.code === "Space" && !target?.closest("button")) {
         e.preventDefault();
@@ -2593,7 +2640,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         setSelectedGroup(undefined);
         setSelection([]);
       }
-      if (context.mindNode) selectMind(context.id, context.mindNode);
+      if (context.mindNode && mindSelection?.card === context.id)
+        selectMind(context.id, context.mindNode);
       setMenu(context);
     },
   });
@@ -2611,6 +2659,13 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       onPointerDownCapture={(e) => {
         pointer.current = { x: e.clientX, y: e.clientY };
         setTouchMode(e.pointerType === "touch");
+        // Commit inline text before a selection change can unmount its input.
+        const focused = document.activeElement;
+        if (
+          focused instanceof HTMLInputElement &&
+          focused !== e.target &&
+          focused.matches(".mind-edge-editor,.mind-label-editor")
+        ) focused.blur();
         cancelViewAnimation();
         setLinkModifier(e.metaKey || e.ctrlKey);
         if (
@@ -2934,7 +2989,6 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 card={c}
                 selected={selection.includes(c.id)}
                 activeMindNode={
-                  !menu &&
                   !preview3D &&
                   selection.length === 1 &&
                   selection[0] === c.id &&

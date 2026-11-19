@@ -5,6 +5,9 @@ export type MindNode = {
   text: string;
   children: MindNode[];
   style?: TextStyle;
+  offset?: { x: number; y: number };
+  // The incoming connection belongs to its child in both views.
+  edgeLabel?: string;
   fill?: string;
   border?: string;
   // A checked branch overrides its descendants without erasing their previous choices.
@@ -37,6 +40,11 @@ export function parseMindMap(text: string): MindMapData {
       ids.has(node.id) ||
       typeof node.text !== "string" ||
       !Array.isArray(node.children) ||
+      (node.edgeLabel !== undefined && typeof node.edgeLabel !== "string") ||
+      (node.offset !== undefined &&
+        (!node.offset ||
+          !Number.isFinite(node.offset.x) ||
+          !Number.isFinite(node.offset.y))) ||
       (node.checked !== undefined && typeof node.checked !== "boolean") ||
       [node.fill, node.border].some(
         (c) =>

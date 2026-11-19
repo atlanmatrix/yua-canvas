@@ -154,13 +154,13 @@
   position: relative;
   padding-left: 44px;
 }
-.mind-layout > .mind-branch > .mind-children {
+.mind-tree > .mind-branch > .mind-children {
   padding-left: 60px;
 }
 .mind-children > .mind-branch {
   padding-block: 6px;
 }
-.mind-layout > .mind-branch > .mind-children > .mind-branch {
+.mind-tree > .mind-branch > .mind-children > .mind-branch {
   padding-block: 9px;
 }
 .mind-table {
@@ -261,4 +261,74 @@
 }
 .mind-table [data-depth="0"] .mind-label {
   text-wrap: balance;
+}
+
+.card[data-mind-frame].selected::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1.5px dashed var(--accent);
+  border-radius: 6px;
+  pointer-events: none;
+}
+.card[data-mind-frame]:not(.selected) > .connection-port {
+  opacity: 0;
+  pointer-events: none;
+}
+.card[data-mind-frame].selected > .connection-port {
+  opacity: 1;
+  pointer-events: auto;
+}
+.mind-tree {
+  position: relative;
+  width: max-content;
+}
+.mind-tree :is(.mind-branch, .mind-children) {
+  pointer-events: none;
+}
+.mind-tree .mind-node {
+  pointer-events: auto;
+}
+[data-mind-active] .mind-tree .mind-node {
+  cursor: grab;
+  touch-action: none;
+}
+[data-mind-active] .mind-tree .mind-node:active {
+  cursor: grabbing;
+}
+.mind-link-hit {
+  stroke: transparent;
+  stroke-width: 14;
+  fill: none;
+  pointer-events: stroke;
+  cursor: text;
+}
+.mind-link-hit:focus-visible {
+  stroke: var(--accent);
+  stroke-opacity: 0.25;
+  outline: none;
+}
+.mind-edge-label,
+.mind-edge-editor {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  font: 12px/1.4 system-ui;
+  color: var(--ink);
+  text-align: center;
+}
+.mind-edge-label {
+  max-width: 180px;
+  overflow-wrap: anywhere;
+  background: var(--canvas-bg);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+[data-mind-active] .mind-edge-label {
+  cursor: text;
+}
+.mind-edge-editor {
+  width: 130px;
+  padding: 3px 7px;
+  background: var(--surface);
 }

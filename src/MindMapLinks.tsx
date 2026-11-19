@@ -1,79 +1,213 @@
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { indexMindMap } from "./mindMapData";
 import { branchPalette } from "./mindMapStyle";
+import { curve, curveMidpoint } from "./connections";
+import { t as tr } from "./i18n";
 
-// Work in the map's own layout coordinates, including in scaled previews and 3D.
-function anchor(node: HTMLElement, layout: HTMLElement) {
+// Layout coordinates are independent of camera zoom and preview scaling.
+function bounds(node: HTMLElement, tree: HTMLElement) {
   let x = 0,
     y = 0;
   for (
     let el: HTMLElement | null = node;
-    el && el !== layout;
+    el && el !== tree;
     el = el.offsetParent as HTMLElement | null
   ) {
     x += el.offsetLeft;
     y += el.offsetTop;
   }
-  y +=
-    node.dataset.depth === "3"
-      ? node.offsetHeight - 0.75
-      : node.offsetHeight / 2;
-  return { x, y, right: x + node.offsetWidth };
+  return {
+    x,
+    y,
+    right: x + node.offsetWidth,
+    bottom: y + node.offsetHeight,
+    anchorY:
+      y +
+      (node.dataset.depth === "3"
+        ? node.offsetHeight - 0.75
+        : node.offsetHeight / 2),
+  };
 }
-
 type MapIndex = ReturnType<typeof indexMindMap>;
+type Edge = { id: string; d: string; x: number; y: number };
 export function MindMapLinks({
   parents,
   cells,
   dark,
-}: Pick<MapIndex, "parents" | "cells"> & { dark: boolean }) {
+  moving,
+  onLabelChange,
+}: Pick<MapIndex, "parents" | "cells"> & {
+  dark: boolean;
+  moving?: { x: number; y: number };
+  onLabelChange?: (id: string, text: string) => void;
+}) {
   const svg = useRef<SVGSVGElement>(null);
+  const [edges, setEdges] = useState<Edge[]>([]);
+  const [editing, setEditing] = useState<string>();
+  const cancelled = useRef(false);
   useLayoutEffect(() => {
-    const container = svg.current!;
-    const layout = container.parentElement!;
-    const nodes = Array.from(
-      layout.querySelectorAll<HTMLElement>("[data-mind-node]"),
-    );
-    const paths = Array.from(container.querySelectorAll("path"));
+    const tree = svg.current!.parentElement!;
+    const nodes = [...tree.querySelectorAll<HTMLElement>("[data-mind-node]")];
     const draw = () => {
-      const positions = new Map(
-        nodes.map((node) => [node.dataset.mindNode!, anchor(node, layout)]),
+      const boxes = new Map(
+        nodes.map((node) => [node.dataset.mindNode!, bounds(node, tree)]),
       );
-      for (const path of paths) {
-        const to = positions.get(path.dataset.to!)!;
-        const from = positions.get(path.dataset.from!)!;
-        const mid = (from.right + to.x) / 2;
-        const curve = (a: number, b: number) =>
-          `C ${mid} ${a}, ${mid} ${b}, ${to.x} ${b}`;
-        const d = path.hasAttribute("data-trunk")
-          ? `M ${from.right} ${from.y - 1.5} ${curve(from.y - 1.5, to.y - 0.75)} L ${to.x} ${to.y + 0.75} C ${mid} ${to.y + 0.75}, ${mid} ${from.y + 1.5}, ${from.right} ${from.y + 1.5} Z`
-          : `M ${from.right} ${from.y} ${curve(from.y, to.y)}`;
-        path.setAttribute("d", d);
-      }
+      const paths = Array.from(parents, ([id, parent]) => {
+        const a = boxes.get(parent.id)!,
+          b = boxes.get(id)!;
+        const forward = a.right + a.x <= b.right + b.x;
+        const from = { x: forward ? a.right : a.x, y: a.anchorY },
+          to = { x: forward ? b.x : b.right, y: b.anchorY };
+        const args = [
+          from,
+          to,
+          forward ? "e" : "w",
+          forward ? "w" : "e",
+        ] as const;
+        return { id, d: curve(...args), ...curveMidpoint(...args) };
+      });
+      setEdges(paths);
     };
     draw();
     const observer = new ResizeObserver(draw);
-    nodes.forEach((node) => observer.observe(node));
-    observer.observe(layout);
+    nodes.forEach((n) => observer.observe(n));
+    observer.observe(tree);
     return () => observer.disconnect();
-  }, [parents]);
+  }, [parents, moving]);
+  useLayoutEffect(() => {
+    const layer = svg.current!,
+      tree = layer.parentElement!;
+    const lines = layer.getBBox();
+    let left = Math.min(0, lines.x),
+      top = Math.min(0, lines.y),
+      right = Math.max(tree.offsetWidth, lines.x + lines.width),
+      bottom = Math.max(tree.offsetHeight, lines.y + lines.height);
+    for (const node of tree.querySelectorAll<HTMLElement>(
+      "[data-mind-node],.mind-edge-label",
+    )) {
+      const box = bounds(node, tree);
+      const centered = node.classList.contains("mind-edge-label");
+      const dx = centered ? node.offsetWidth / 2 : 0,
+        dy = centered ? node.offsetHeight / 2 : 0;
+      left = Math.min(left, box.x - dx);
+      top = Math.min(top, box.y - dy);
+      right = Math.max(right, box.right - dx);
+      bottom = Math.max(bottom, box.bottom - dy);
+    }
+    tree.style.margin = `${Math.ceil(-top)}px ${Math.ceil(right - tree.offsetWidth)}px ${Math.ceil(bottom - tree.offsetHeight)}px ${Math.ceil(-left)}px`;
+  }, [edges]);
+  const edit = (id: string) => {
+    cancelled.current = false;
+    setEditing(id);
+  };
   return (
-    <svg ref={svg} className="mind-links" aria-hidden="true">
-      {Array.from(parents, ([id, parent]) => {
-        const { depth, branch } = cells.get(id)!;
-        const accent = branchPalette(branch, dark)[0];
+    <>
+      <svg
+        ref={svg}
+        className="mind-links"
+        aria-hidden={onLabelChange ? undefined : true}
+      >
+        {edges.map(({ id, d }) => {
+          const cell = cells.get(id);
+          if (!cell) return null;
+          return (
+            <g key={id}>
+              <path
+                d={d}
+                data-to={id}
+                data-from={parents.get(id)?.id}
+                data-trunk={cell.depth === 1 || undefined}
+                stroke={branchPalette(cell.branch, dark)[0]}
+                fill="none"
+                strokeWidth={cell.depth === 1 ? 3 : cell.depth === 2 ? 2 : 1.5}
+              />
+              {onLabelChange && (
+                <path
+                  d={d}
+                  className="mind-link-hit"
+                  role="button"
+                  aria-label={tr("连线文字") + " · " + cell.node.text}
+                  tabIndex={0}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    edit(id);
+                  }}
+                  onKeyDown={(e) => {
+                    if (["Enter", " ", "F2"].includes(e.key)) {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      edit(id);
+                    }
+                  }}
+                />
+              )}
+            </g>
+          );
+        })}
+      </svg>
+      {edges.map(({ id, x, y }) => {
+        const node = cells.get(id)?.node;
+        if (!node) return null;
+        const style = { left: x, top: y };
+        if (editing === id && onLabelChange)
+          return (
+            <input
+              key={id}
+              className="mind-edge-editor canvas-editor"
+              style={style}
+              autoFocus
+              aria-label={tr("连线文字")}
+              maxLength={1000}
+              defaultValue={node.edgeLabel ?? ""}
+              onFocus={(e) => e.target.select()}
+              onPointerDown={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+              onBlur={(e) => {
+                const label = e.target.value.trim();
+                if (!cancelled.current && label !== (node.edgeLabel ?? ""))
+                  onLabelChange(id, label);
+                setEditing(undefined);
+              }}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                if (e.key === "Enter" || e.key === "Escape") {
+                  e.preventDefault();
+                  cancelled.current = e.key === "Escape";
+                  e.currentTarget.blur();
+                  svg.current?.parentElement
+                    ?.querySelector<HTMLElement>(
+                      "[data-mind-node][data-selected]",
+                    )
+                    ?.focus({ preventScroll: true });
+                }
+              }}
+            />
+          );
         return (
-          <path
-            key={id}
-            data-to={id}
-            data-from={parent.id}
-            data-trunk={depth === 1 || undefined}
-            stroke={accent}
-            fill={depth === 1 ? accent : "none"}
-            strokeWidth={depth === 2 ? 2 : depth === 3 ? 1.5 : 1}
-          />
+          node.edgeLabel && (
+            <span
+              key={id}
+              className="mind-edge-label"
+              style={style}
+              onPointerDown={
+                onLabelChange ? (e) => e.stopPropagation() : undefined
+              }
+              onDoubleClick={
+                onLabelChange
+                  ? (e) => {
+                      e.stopPropagation();
+                      edit(id);
+                    }
+                  : undefined
+              }
+            >
+              {node.edgeLabel}
+            </span>
+          )
         );
       })}
-    </svg>
+    </>
   );
 }
