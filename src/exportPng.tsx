@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { type Board, type Card, groupDepth } from "./storage";
 import type { CSSProperties } from "react";
-import { Folder, PanelsTopLeft, ListTodo, FileText } from "./icons";
+import { Folder, PanelsTopLeft, FileText } from "./icons";
 import { cardRect } from "./geometry";
 import { strokeBounds, surfaceColor, customColor } from "./presentation";
 import {
@@ -53,19 +53,13 @@ function ExportContent({ card }: { card: Card }) {
       </>
     );
   const header =
-    card.kind === "todo" ||
-    (card.kind === "file" && !isTextFile(card) && !isPdfFile(card));
+    card.kind === "file" && !isTextFile(card) && !isPdfFile(card);
   return (
     <>
       {header && (
         <div className="card-top">
           <span>
-            {card.kind === "todo" ? (
-              <ListTodo size={13} />
-            ) : (
-              <FileText size={13} />
-            )}{" "}
-            {card.kind === "todo" ? "TODO" : "FILE"}
+            <FileText size={13} /> FILE
           </span>
         </div>
       )}

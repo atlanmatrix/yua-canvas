@@ -283,6 +283,7 @@ export const english: Record<string, string> = {
   解散分组: "Ungroup",
   画布层级: "Canvas hierarchy",
   画布: "Canvas",
+  待办名称: "TODO name",
   画布名称: "Canvas name",
   返回父画布: "Back to parent canvas",
   父画布: "Parent canvas",
@@ -846,8 +847,8 @@ export const english: Record<string, string> = {
   附件数据无效: "Invalid attachment data",
   附件文件元数据无效: "Invalid attachment file metadata",
   附件类型无效: "Invalid attachment type",
-  "双击 TODO 事项可从点击处继续编辑，双击卡片标题或空白处新增事项。粘贴图片按原始像素尺寸展示；宽度超过 2560 或高度超过 1440 时默认按 50% 展示，保留原始文件。":
-    "Double-click a TODO item to edit at the clicked position, or double-click its title or empty area to add an item. Pasted images use their original dimensions; images wider than 2560 or taller than 1440 pixels display at 50%, with the original file preserved.",
+  "双击 TODO 事项可从点击处继续编辑，双击标题可重命名，双击空白处可新增事项。粘贴图片按原始像素尺寸展示；宽度超过 2560 或高度超过 1440 时默认按 50% 展示，保留原始文件。":
+    "Double-click a TODO item to edit at the clicked position, double-click the title to rename the list, or double-click empty space to add an item. Pasted images use their original dimensions; images wider than 2560 or taller than 1440 pixels display at 50%, with the original file preserved.",
   "右键点击左下角缩略图，选择「分层视图」，或悬浮缩略图后点击右上角的分层图标，可在独立页面以 3D 方式按父子关系分层查看整个工作区。拖动旋转、滚轮缩放，按住 Shift 或右键拖动平移；触屏支持单指旋转、双指缩放和平移。父画布位于子画布上方，上下旋转限制在正负 90°。右上角可重置视角或退出预览。双击组件会进入其所属画布并立即执行原有的编辑或打开操作，Esc 也可返回画布。":
     "Right-click the minimap and choose Layered view, or use its layer icon, to explore the workspace hierarchy in 3D. Drag to rotate, scroll to zoom, and Shift or right-drag to pan. Touch supports rotation, pinch zoom and two-finger pan. Parent canvases appear above their children. Rotation is limited to ±90°. Use the top-right controls to reset or exit. Double-click a component to open it in its canvas; Esc returns to the canvas.",
   "在任意组件上右键选择 Pin。顶部纵向列表只显示当前画布的 Pin，点击定位，双击修改名称。右键列表项可通过圆形色板选择蓝色、浅橙、红色或默认颜色；右键原组件可取消 Pin。名称和颜色随本地保存、同步与导出保留。":

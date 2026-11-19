@@ -97,6 +97,41 @@ test("saved connection labels stay above later crossing curves through selection
   await page.screenshot({ path: "/tmp/yua-connection-label-top.png" });
 });
 
+test("Double-clicking the TODO title renames only the list", async ({ page }) => {
+  const tasks = [{ id: "one", text: "第一项", done: true }];
+  await load(page, {
+    version: 1,
+    groups: [],
+    cards: [{ ...card("todo", 100, 120, 300, 240), kind: "todo", tasks }],
+  });
+  const todo = page.locator(".card-todo");
+  const title = todo.locator(".todo-title");
+  const input = todo.getByRole("textbox", { name: "待办名称" });
+  await expect(title).toHaveText("TODO");
+  await title.dblclick();
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue("TODO");
+  await input.fill("本周计划");
+  await input.press("Enter");
+  await expect(title).toHaveText("本周计划");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(title).toHaveText("TODO");
+  await page.keyboard.press("ControlOrMeta+Shift+z");
+  await title.dblclick();
+  await expect(input).toHaveValue("本周计划");
+  await input.fill("取消修改");
+  await input.press("Escape");
+  await expect(title).toHaveText("本周计划");
+  await title.dblclick();
+  await input.fill("下周计划");
+  await page.locator(".canvas").click({ position: { x: 20, y: 110 } });
+  await expect(title).toHaveText("下周计划");
+  await saved(page);
+  await page.reload();
+  await expect(title).toHaveText("下周计划");
+  expect((await snapshot(page)).cards[0].tasks).toEqual(tasks);
+});
+
 test("Todo edits inline, preserves task IDs and links, autosaves and restores the entire edit with undo or Escape", async ({
   page,
 }) => {

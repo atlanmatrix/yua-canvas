@@ -148,7 +148,7 @@ for (const zoom of [1, 0.6])
       page.locator('.card-todo [data-task-id="one"] [data-task-text]'),
     ).toHaveText("ABCDEFGHIJKLMN 中文事项");
   });
-test("TODO double-click on header or blank space adds and focuses a new item, and Escape discards it", async ({
+test("TODO double-click on empty header space or blank space adds and focuses a new item, and Escape discards it", async ({
   page,
 }) => {
   await seed(page);

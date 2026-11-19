@@ -15,6 +15,7 @@ import { surfaceColor, customColor } from "./presentation";
 import {
   diagramFrameStyle,
   PreviewFrame,
+  TodoHeading,
   TypeIcon,
   Mask,
   Remark,
@@ -420,13 +421,16 @@ export function ShareViewer({ token }: { token: string }) {
                         ) : isTextFile(c) ? (
                           <FilePreview card={c} />
                         ) : c.kind === "todo" ? (
-                          <ul>
-                            {c.tasks?.map((t) => (
-                              <li key={t.id}>
-                                {t.done ? "☑" : "☐"} {t.text}
-                              </li>
-                            ))}
-                          </ul>
+                          <>
+                            <TodoHeading title={c.title} />
+                            <ul>
+                              {c.tasks?.map((t) => (
+                                <li key={t.id}>
+                                  {t.done ? "☑" : "☐"} {t.text}
+                                </li>
+                              ))}
+                            </ul>
+                          </>
                         ) : (
                           <>
                             <Asset card={c} />

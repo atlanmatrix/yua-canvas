@@ -63,6 +63,23 @@ export function diagramFrameStyle(card: Card): CSSProperties | undefined {
   };
 }
 
+export function TodoHeading({
+  title,
+  children,
+}: {
+  title: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="card-top">
+      <span className="todo-title">
+        <ListTodo size={13} />
+        {children || <span title={title || undefined}>{title || "TODO"}</span>}
+      </span>
+    </div>
+  );
+}
+
 export function TypeIcon({
   card,
   showName = false,
@@ -261,24 +278,27 @@ export function StaticContent({
     return <ApplicationCard card={card} />;
   if (card.kind === "todo")
     return (
-      <div className="todo-list">
-        {card.tasks?.map((t) => (
-          <div
-            key={t.id}
-            data-task-id={t.id}
-            className={`todo-row ${t.done ? "completed" : ""}`}
-          >
-            <input
-              type="checkbox"
-              aria-label={t.text}
-              checked={t.done}
-              readOnly={!onToggleTask}
-              onChange={() => onToggleTask?.(card, t.id)}
-            />
-            <span data-task-text>{t.text}</span>
-          </div>
-        ))}
-      </div>
+      <>
+        <TodoHeading title={card.title} />
+        <div className="todo-list">
+          {card.tasks?.map((t) => (
+            <div
+              key={t.id}
+              data-task-id={t.id}
+              className={`todo-row ${t.done ? "completed" : ""}`}
+            >
+              <input
+                type="checkbox"
+                aria-label={t.text}
+                checked={t.done}
+                readOnly={!onToggleTask}
+                onChange={() => onToggleTask?.(card, t.id)}
+              />
+              <span data-task-text>{t.text}</span>
+            </div>
+          ))}
+        </div>
+      </>
     );
   if (card.kind === "canvas")
     return onOpenCanvas ? (

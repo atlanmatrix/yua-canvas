@@ -32,6 +32,7 @@ export function GroupNameEditor({
       onBlur={save}
       onKeyDown={(e) => {
         e.stopPropagation();
+        if (e.nativeEvent.isComposing || e.keyCode === 229) return;
         if (e.key === "Enter") {
           e.preventDefault();
           save();

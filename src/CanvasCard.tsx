@@ -5,7 +5,6 @@ import { AgentCard } from "./AgentCard";
 import { LockedContent } from "./ComponentLock";
 import React, { memo, useEffect, useState } from "react";
 import {
-  ListTodo,
   FileText,
   Check,
   MoreHorizontal,
@@ -38,6 +37,7 @@ import {
   isDiagramKind,
   diagramFrameStyle,
   PreviewFrame,
+  TodoHeading,
   Mask,
   TypeIcon,
   Remark,
@@ -67,7 +67,7 @@ export type CanvasCardActions = {
   setSelection: React.Dispatch<React.SetStateAction<string[]>>;
   setDetail: (id?: string) => void;
   setActiveMiniature: (id?: string) => void;
-  setRenamingCanvas: (id?: string) => void;
+  setRenamingCard: (id?: string) => void;
   pointerDown: (e: React.PointerEvent, id?: string, group?: string) => void;
   resizeCard: (e: React.PointerEvent, card: Card, edge: string) => void;
   chooseConnectionTarget: (from: Endpoint) => void;
@@ -156,7 +156,7 @@ export const CanvasCard = memo(function CanvasCard({
     setSelection,
     setDetail,
     setActiveMiniature,
-    setRenamingCanvas,
+    setRenamingCard,
     pointerDown,
     resizeCard,
     startConnection,
@@ -201,6 +201,21 @@ export const CanvasCard = memo(function CanvasCard({
         (!endpoint.task ||
           taskOffsets[`${c.id}:${endpoint.task}`]?.visible !== false),
     )?.endpoint ?? ports[0]?.endpoint;
+  const displayedName = c.title || (c.kind === "todo" ? "TODO" : "");
+  const nameEditor = renaming && (
+    <GroupNameEditor
+      name={displayedName}
+      label={tr(c.kind === "todo" ? "待办名称" : "画布名称")}
+      onCancel={() => setRenamingCard(undefined)}
+      onSave={(title) => {
+        if (title !== displayedName)
+          updateCards((cards) =>
+            cards.map((card) => (card.id === c.id ? { ...card, title } : card)),
+          );
+        setRenamingCard(undefined);
+      }}
+    />
+  );
   const address = !editing && noteCardHref(c);
   const rect = cardRect(editing ? { ...c, linkDisabled: true } : c);
   return (
@@ -316,14 +331,14 @@ export const CanvasCard = memo(function CanvasCard({
         }
         if (c.kind === "vscode") return;
         if (
-          c.kind === "canvas" &&
+          (c.kind === "canvas" || c.kind === "todo") &&
           !e.ctrlKey &&
           !e.metaKey &&
           document
             .elementFromPoint(e.clientX, e.clientY)
-            ?.closest(".attachment-title")
+            ?.closest(c.kind === "todo" ? ".todo-title" : ".attachment-title")
         ) {
-          setRenamingCanvas(c.id);
+          setRenamingCard(c.id);
           return;
         }
         if (c.kind === "todo" && !e.ctrlKey && !e.metaKey) {
@@ -348,29 +363,15 @@ export const CanvasCard = memo(function CanvasCard({
         <TypeIcon card={c} showName />
       ) : (
         <PreviewFrame card={c} editing={editing}>
-          {c.kind !== "text" &&
-            c.kind !== "image" &&
-            c.kind !== "canvas" &&
-            c.kind !== "miniature" &&
-            c.kind !== "mindmap" &&
-            c.kind !== "mermaid" &&
-            c.kind !== "flowchart" &&
-            c.kind !== "agent" &&
-            !isToolKind(c.kind) &&
-            !isApplicationKind(c.kind) &&
-            !isPdfFile(c) &&
-            !(c.kind === "file" && isTextFile(c)) && (
-              <div className="card-top">
-                <span>
-                  {c.kind === "todo" ? (
-                    <ListTodo size={13} />
-                  ) : (
-                    <FileText size={13} />
-                  )}{" "}
-                  {c.kind === "todo" ? "TODO" : "FILE"}
-                </span>
-              </div>
-            )}
+          {c.kind === "todo" ? (
+            <TodoHeading title={c.title}>{nameEditor}</TodoHeading>
+          ) : c.kind === "file" && !isPdfFile(c) && !isTextFile(c) ? (
+            <div className="card-top">
+              <span>
+                <FileText size={13} /> FILE
+              </span>
+            </div>
+          ) : null}
           {c.kind === "mindmap" ? (
             <MindMap
               text={c.text}
@@ -515,23 +516,7 @@ export const CanvasCard = memo(function CanvasCard({
               </div>
               <div className="attachment-title">
                 <PanelsTopLeft size={16} />
-                {renaming ? (
-                  <GroupNameEditor
-                    name={c.title}
-                    label={tr("画布名称")}
-                    onCancel={() => setRenamingCanvas(undefined)}
-                    onSave={(title) => {
-                      updateCards((cards) =>
-                        cards.map((card) =>
-                          card.id === c.id ? { ...card, title } : card,
-                        ),
-                      );
-                      setRenamingCanvas(undefined);
-                    }}
-                  />
-                ) : (
-                  <span>{c.title || tr("子画布")}</span>
-                )}
+                {nameEditor || <span>{c.title || tr("子画布")}</span>}
               </div>
             </>
           ) : c.kind === "flowchart" ? (

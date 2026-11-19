@@ -322,7 +322,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     [detail, setDetail] = useState<string>(),
     [miniatureDraft, setMiniatureDraft] = useState<Card>(),
     [activeMiniature, setActiveMiniature] = useState<string>(),
-    [renamingCanvas, setRenamingCanvas] = useState<string>(),
+    [renamingCard, setRenamingCard] = useState<string>(),
     [renamingCurrentCanvas, setRenamingCurrentCanvas] = useState(false),
     [editingCard, setEditingCard] = useState<string>(),
     [editingTask, setEditingTask] = useState<string>(),
@@ -981,7 +981,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setLauncherSetup(undefined);
     setActiveMiniature(undefined);
 
-    setRenamingCanvas(undefined);
+    setRenamingCard(undefined);
     setRenamingCurrentCanvas(false);
 
     setConfirmImport(null);
@@ -2174,7 +2174,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         setSelectedGroup(undefined);
         setMenu(null);
 
-        setRenamingCanvas(undefined);
+        setRenamingCard(undefined);
 
         setRemarkDraft(undefined);
         setDetail(undefined);
@@ -2556,7 +2556,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       setSelection,
       setDetail,
       setActiveMiniature,
-      setRenamingCanvas,
+      setRenamingCard,
       pointerDown,
       resizeCard,
       chooseConnectionTarget,
@@ -2617,7 +2617,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         if (
           focused instanceof HTMLInputElement &&
           focused !== e.target &&
-          focused.matches(".mind-edge-editor,.mind-label-editor")
+          focused.matches(
+            ".mind-edge-editor,.mind-label-editor,.todo-title .group-name-editor",
+          )
         ) focused.blur();
         cancelViewAnimation();
         setLinkModifier(e.metaKey || e.ctrlKey);
@@ -2951,7 +2953,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 editingTaskOffset={
                   editingCard === c.id ? editingTaskOffset : undefined
                 }
-                renaming={renamingCanvas === c.id}
+                renaming={renamingCard === c.id}
                 miniatureActive={activeMiniature === c.id}
                 preview3D={preview3D}
                 groupName={
@@ -3568,7 +3570,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       role="menuitem"
                       onClick={() => {
                         setMenu(null);
-                        setRenamingCanvas(menuCard.id);
+                        setRenamingCard(menuCard.id);
                       }}
                     >
                       <Pencil size={14} />

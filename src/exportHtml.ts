@@ -32,7 +32,7 @@ function todoContent(card: Card, doc: Document) {
   const list = doc.createElement("div");
   list.className = "tasks";
   const header = doc.createElement("header");
-  header.textContent = "TODO";
+  header.textContent = card.title || "TODO";
   list.append(header);
   for (const task of card.tasks || []) {
     const label = doc.createElement("label"),
