@@ -38,7 +38,7 @@ test("hints clear on dismissal, creation tools form one tab stop and help return
   await expect(help).toBeFocused();
 });
 
-test("the full calculator keypad remains visible after evaluation in a default medium card", async ({
+test("the calculator display stays fully visible and stable as history grows in a default medium card", async ({
   page,
 }) => {
   await page.goto("/");
@@ -51,13 +51,25 @@ test("the full calculator keypad remains visible after evaluation in a default m
   await expect(card).toHaveCSS("width", "268px");
   await expect(card).toHaveCSS("height", "380px");
   const display = card.getByRole("textbox");
+  const body = card.locator(".tool-body");
+  await display.focus();
+  const initialHeight = await display.evaluate((el) => el.offsetHeight);
   for (const expression of ["2+3", "6*7", "12/4"]) {
     await display.fill(expression);
     await display.press("Enter");
+    expect(await display.evaluate((el) => el.offsetHeight)).toBe(initialHeight);
   }
   await expect(display).toHaveValue("3");
+  const focusClearance = await display.evaluate((el) => {
+    const style = getComputedStyle(el);
+    const ring =
+      parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset);
+    const inputTop = el.getBoundingClientRect().top;
+    const bodyTop = el.parentElement!.getBoundingClientRect().top;
+    return inputTop - ring - bodyTop;
+  });
+  expect(focusClearance).toBeGreaterThanOrEqual(0);
   await expect(card.locator(".calculator-keys button")).toHaveCount(20);
-  const body = card.locator(".tool-body");
   expect(await body.evaluate((el) => el.scrollHeight - el.clientHeight)).toBe(
     0,
   );
