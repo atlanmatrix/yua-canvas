@@ -105,7 +105,7 @@ import {
   workspaceCounts,
   type CanvasImport,
 } from "./workspaceBackup";
-import { linkTarget, openLink } from "./noteLinks";
+import { linkTarget, noteCardHref, openLink } from "./noteLinks";
 import { TodoEditor } from "./TodoEditor";
 import { TextFileEditor } from "./TextFileEditor";
 import { MermaidEditor } from "./MermaidEditor";
@@ -164,6 +164,7 @@ import {
 } from "./fragments";
 import {
   cardRect,
+  savedCustomSize,
   resizeRect,
   pdfGeometry,
   textSize,
@@ -1602,7 +1603,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     }
     if (g.kind === "pan" && ((g.button !== 2 && !g.toggleCard) || g.moved))
       setView({ ...g.view, x: g.view.x + dx, y: g.view.y + dy });
-    if (g.kind === "resize" && g.cardId && g.bounds) {
+    if (g.kind === "resize" && g.moved && g.cardId && g.bounds) {
       const original = g.cards.find((c) => c.id === g.cardId)!;
       const b = g.bounds,
         edge = g.edge!;
@@ -1626,7 +1627,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         original.textAutoHeight &&
         !e.shiftKey &&
         (edge === "e" || edge === "w");
-      if (autoHeight && original.displayMode !== "medium")
+      if (noteCardHref(original)) rect.height = b.height;
+      else if (autoHeight)
         rect.height = textSize(
           original.text,
           original.textMode,
@@ -1634,15 +1636,28 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           original.textStyle,
           original.textRuns,
         ).height;
-      const factor = pdfGeometry(original) ? 1.5 : 1;
-      const next = {
+      const next: Card = {
         ...original,
         ...(original.kind === "text" && !autoHeight
           ? { textAutoHeight: false }
           : {}),
-        ...(original.displayMode === "medium"
-          ? { previewWidth: rect.width, previewHeight: rect.height }
-          : { width: rect.width / factor, height: rect.height / factor }),
+        ...(original.kind === "canvas"
+          ? { width: rect.width, height: rect.height }
+          : {
+              displayMode: "custom" as const,
+              customSize: {
+                width: rect.width,
+                height: rect.height,
+                base:
+                  original.displayMode === "large" ||
+                  (original.displayMode === "custom" &&
+                    original.customSize?.base === "large")
+                    ? ("large" as const)
+                    : undefined,
+              },
+              previewWidth: undefined,
+              previewHeight: undefined,
+            }),
         x: rect.x,
         y: rect.y,
       };
@@ -3527,11 +3542,21 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                         ["small", tr("小"), Square],
                         ["medium", tr("中"), PanelsTopLeft],
                         ["large", tr("大"), Maximize],
+                        ["custom", tr("自定义"), null],
                       ] as const
                     ).map(([mode, label, Icon]) => (
                       <button
                         key={mode}
                         role="menuitemradio"
+                        disabled={
+                          mode === "custom" &&
+                          !board.cards.some(
+                            (c) =>
+                              menuCardIds.includes(c.id) &&
+                              c.kind !== "canvas" &&
+                              savedCustomSize(c),
+                          )
+                        }
                         aria-label={tr("显示模式：{0}", label)}
                         title={label}
                         aria-checked={
@@ -3541,19 +3566,29 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                           setBoard(
                             (b) => ({
                               ...b,
-                              cards: b.cards.map((c) =>
-                                menuCardIds.includes(c.id) &&
-                                c.kind !== "canvas"
-                                  ? { ...c, displayMode: mode }
-                                  : c,
-                              ),
+                              cards: b.cards.map((c) => {
+                                if (
+                                  !menuCardIds.includes(c.id) ||
+                                  c.kind === "canvas"
+                                )
+                                  return c;
+                                const customSize = savedCustomSize(c);
+                                if (mode === "custom" && !customSize) return c;
+                                return {
+                                  ...c,
+                                  displayMode: mode,
+                                  customSize,
+                                  previewWidth: undefined,
+                                  previewHeight: undefined,
+                                };
+                              }),
                             }),
                             { preserveLayout: true },
                           );
                           setMenu(null);
                         }}
                       >
-                        <Icon size={18} />
+                        {Icon ? <Icon size={18} /> : label}
                       </button>
                     ))}
                   </div>

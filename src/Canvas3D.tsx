@@ -90,7 +90,7 @@ function ComponentPreview({ card }: { card: Card }) {
   ]);
   if (card.locked) return <LockedContent />;
   if (card.masked) return <Mask />;
-  if (card.displayMode === "small") return <TypeIcon card={card} />;
+  if (card.displayMode === "small") return <TypeIcon card={card} showName />;
   if (card.kind === "agent") return <AgentCard card={card} />;
   if (isToolKind(card.kind)) return <ToolCard card={card} />;
   if ((card.kind === "image" || card.kind === "miniature") && image)

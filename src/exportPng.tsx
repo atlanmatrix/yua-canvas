@@ -257,7 +257,7 @@ export async function withExportScene(
                     {c.masked ? (
                       <Mask />
                     ) : c.kind !== "canvas" && c.displayMode === "small" ? (
-                      <TypeIcon card={c} />
+                      <TypeIcon card={c} showName />
                     ) : (
                       <PreviewFrame card={c}>
                         <ExportContent card={c} />

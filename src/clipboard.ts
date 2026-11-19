@@ -6,13 +6,15 @@ export class FileClipboardUnsupported extends Error {
     super("浏览器不支持复制系统文件，请下载原文件");
   }
 }
-export const isTextFile = (card: Card) =>
+export const isTextFile = (
+  card: Partial<Pick<Card, "title" | "mime" | "editableFile">>,
+) =>
   card.editableFile ||
-  !!languageForFile(card.title) ||
+  !!languageForFile(card.title || "") ||
   card.mime?.startsWith("text/") ||
-  /(?:^|\.)env(?:\.[^/]+)*$/i.test(card.title) ||
+  /(?:^|\.)env(?:\.[^/]+)*$/i.test(card.title || "") ||
   /\.(txt|md|markdown|mdown|csv|json|xml|yaml|yml|log|js|ts|tsx|jsx|css|html|svg)$/i.test(
-    card.title,
+    card.title || "",
   );
 export const isMarkdownFile = (card: Card) =>
   card.kind === "file" &&

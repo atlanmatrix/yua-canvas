@@ -1,4 +1,4 @@
-export type DisplayMode = "small" | "medium" | "large";
+export type DisplayMode = "small" | "medium" | "large" | "custom";
 export const FONT_FAMILIES = [
   "monospace",
   "system-ui",
@@ -49,9 +49,9 @@ export function validPresentation(value: any, group = false): boolean {
   if (!value || typeof value !== "object") return false;
   if (
     value.displayMode !== undefined &&
-    !(group ? ["flat", "list"] : ["small", "medium", "large"]).includes(
-      value.displayMode,
-    )
+    !(
+      group ? ["flat", "list"] : ["small", "medium", "large", "custom"]
+    ).includes(value.displayMode)
   )
     return false;
   if (value.masked !== undefined && typeof value.masked !== "boolean")
@@ -68,6 +68,18 @@ export function validPresentation(value: any, group = false): boolean {
   for (const k of ["previewWidth", "previewHeight"])
     if (value[k] !== undefined && (!finite(value[k]) || value[k] <= 0))
       return false;
+  const size = value.customSize;
+  if (size !== undefined || value.displayMode === "custom") {
+    if (
+      !size ||
+      !finite(size.width) ||
+      size.width <= 0 ||
+      !finite(size.height) ||
+      size.height <= 0 ||
+      (size.base !== undefined && size.base !== "large")
+    )
+      return false;
+  }
   const s = value.textStyle;
   if (
     value.contentAspectRatio !== undefined &&

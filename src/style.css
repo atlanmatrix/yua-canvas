@@ -1895,6 +1895,25 @@ body .note-address button.note-link-icon:is(:hover, :focus-visible) {
   justify-content: center;
   color: #52525b;
 }
+.component-type-icon:has(> span) {
+  gap: 8px;
+  padding: 0 10px;
+  font: 13px system-ui;
+}
+.component-type-icon > svg {
+  flex-shrink: 0;
+}
+.component-type-icon > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.component-viewport[data-document] :is(.markdown-file-preview, .file-content-thumbnail, .mermaid-preview) {
+  padding: var(--document-padding);
+}
+.share-card:has(> .component-viewport[data-document], > .component-type-icon) {
+  padding: 0;
+}
 .card.is-small {
   border-radius: 14px !important;
   min-width: 0 !important;

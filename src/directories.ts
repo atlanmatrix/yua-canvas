@@ -1,7 +1,7 @@
 import type { Card } from "./storage";
 import { canvasCard, newBoard } from "./workspace";
 import type { Fragment } from "./fragments";
-import { cardsFromFiles } from "./files";
+import { cardsFromFiles, placeFileRows } from "./files";
 
 export type ImportNode =
   | { kind: "file"; file: File }
@@ -126,17 +126,7 @@ async function directoryCard(node: DirectoryNode): Promise<Card> {
         : (await cardsFromFiles([child.file], { x: 0, y: 0 }))[0],
     ),
   );
-  let y = 32;
-  for (let start = 0; start < cards.length; start += 3) {
-    const row = cards.slice(start, start + 3);
-    let x = 32;
-    for (const card of row) {
-      card.x = x;
-      card.y = y;
-      x += (card.width || 240) + 24;
-    }
-    y += Math.max(...row.map((card) => card.height || 250)) + 24;
-  }
+  placeFileRows(cards, { x: 32, y: 32 }, 3);
   return canvasCard({ ...newBoard(), cards }, node.name);
 }
 export async function directoriesFragment(

@@ -78,7 +78,7 @@ test("component sizes preserve natural dimensions, mask unmounts content, and re
 }) => {
   await seed(page);
   const card = page.locator('[data-card-id="a"]');
-  await expect(card).toHaveCSS("width", "320px");
+  await expect(card).toHaveCSS("width", "410px");
   const scaled = await card
     .locator(".component-content")
     .evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
@@ -86,7 +86,8 @@ test("component sizes preserve natural dimensions, mask unmounts content, and re
   expect(scaled).toBe(1);
   await cardMenu(page);
   await mode(page, "小");
-  await expect(card).toHaveCSS("width", "56px");
+  await expect(card.locator(".component-type-icon")).toHaveText("笔记甲");
+  await expect(card).toHaveCSS("height", "56px");
   await expect(card.locator(".note-body")).toHaveCount(0);
   await expect(card.locator(".component-type-icon")).toBeVisible();
   await cardMenu(page);

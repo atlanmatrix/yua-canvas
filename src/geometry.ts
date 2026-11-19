@@ -1,3 +1,4 @@
+import { isTextFile } from "./clipboard";
 import { addressLayout, noteCardHref, NOTE_LINK_TEXT_STYLE } from "./noteLinks";
 import {
   textCss,
@@ -28,6 +29,8 @@ type CardGeometry = Pick<Card, "x" | "y" | "width" | "height"> &
       Card,
       | "kind"
       | "displayMode"
+      | "customSize"
+      | "editableFile"
       | "previewWidth"
       | "previewHeight"
       | "mime"
@@ -87,15 +90,39 @@ export function pastedLinkWidth(text: string) {
   );
 }
 
+// Document widths exclude the two 1px frame edges and the reading insets.
+const documentLayouts = {
+  medium: { contentWidth: 410, insetX: 24, insetY: 16 },
+  large: { contentWidth: 820, insetX: 48, insetY: 32 },
+};
+export function documentLayout(c: CardGeometry) {
+  if (c.kind !== "file" || pdfGeometry(c) || !isTextFile(c)) return;
+  const large =
+    c.displayMode === "large" ||
+    (c.displayMode === "custom" && c.customSize?.base === "large");
+  return documentLayouts[large ? "large" : "medium"];
+}
+
 export const cardRect = (c: CardGeometry): Rect => {
   const { width, height } = contentCardSize(c);
-  if (c.kind !== "canvas" && c.displayMode === "small")
-    return { x: c.x, y: c.y, width: 56, height: 56 };
+  if (c.kind !== "canvas" && c.displayMode === "small") {
+    let width = 56;
+    if (c.title && !c.masked && !c.locked) {
+      textContext.font = "13px system-ui";
+      width = Math.min(
+        320,
+        56 + Math.ceil(textContext.measureText(c.title).width),
+      );
+    }
+    return { x: c.x, y: c.y, width, height: 56 };
+  }
   if (noteCardHref(c)) {
     const previewWidth =
       c.displayMode === "medium"
         ? c.previewWidth || Math.min(width, 320)
-        : width;
+        : c.displayMode === "custom"
+          ? c.customSize?.width || width
+          : width;
     const baseSize = c.textStyle?.fontSize || NOTE_LINK_TEXT_STYLE.fontSize;
     const fontSize = (c.textRuns || []).reduce(
       (max, run) => Math.max(max, run.style.fontSize || baseSize),
@@ -110,14 +137,39 @@ export const cardRect = (c: CardGeometry): Rect => {
         2 * (addressLayout.inset + addressLayout.border),
     };
   }
+  if (c.displayMode === "custom" && c.customSize) {
+    const { width, height } = c.customSize;
+    return {
+      x: c.x,
+      y: c.y,
+      width,
+      height:
+        c.kind === "text" && c.textAutoHeight
+          ? previewTextHeight(c, width)
+          : height,
+    };
+  }
+  const layout = documentLayout(c);
+  if (
+    layout &&
+    !(c.displayMode === "medium" && (c.previewWidth || c.previewHeight))
+  ) {
+    return {
+      x: c.x,
+      y: c.y,
+      width: layout.contentWidth + 2 * layout.insetX + 2,
+      height: Math.round(layout.contentWidth * 0.75) + 2 * layout.insetY + 2,
+    };
+  }
   if (c.kind !== "canvas" && c.displayMode === "medium") {
+    const mediumWidth = documentLayouts.medium.contentWidth;
     const scale = pdfGeometry(c)
       ? 1 / 1.5
-      : Math.min(1, 320 / width, 240 / height);
+      : Math.min(1, mediumWidth / width, (mediumWidth * 0.75) / height);
     const previewWidth =
       c.previewWidth ||
       (c.kind === "text" && c.textAutoHeight
-        ? Math.min(width, 320)
+        ? Math.min(width, mediumWidth)
         : width * scale);
     const previewHeight =
       c.kind === "text" && c.textAutoHeight && typeof c.text === "string"
@@ -140,6 +192,15 @@ export const cardRect = (c: CardGeometry): Rect => {
   }
   return { x: c.x, y: c.y, width, height };
 };
+
+// Older versions recorded a manual resize as a medium preview override.
+export function savedCustomSize(card: Card) {
+  if (card.customSize) return card.customSize;
+  if (card.previewWidth || card.previewHeight) {
+    const { width, height } = cardRect({ ...card, displayMode: "medium" });
+    return { width, height };
+  }
+}
 
 export type ArrowDirection =
   "arrowup" | "arrowdown" | "arrowleft" | "arrowright";

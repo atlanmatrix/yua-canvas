@@ -256,6 +256,139 @@ for (const dpr of [1, 2])
     });
   });
 
+test("Markdown presets use the reading width and retain each manual size through reload and export", async ({
+  page,
+}) => {
+  await seed(page, [
+    {
+      ...note("doc"),
+      kind: "file",
+      title: "阅读笔记.md",
+      displayMode: "medium",
+      mime: "text/markdown",
+      blob:
+        "data:text/markdown;base64," +
+        Buffer.from("# Heading\n\nParagraph").toString("base64"),
+    },
+  ]);
+  const card = page.locator('[data-card-id="doc"]'),
+    body = card.locator(".markdown");
+  const contentWidth = () =>
+    body.evaluate(
+      (el) =>
+        el.getBoundingClientRect().width /
+        new DOMMatrix(getComputedStyle(el.closest(".world")!).transform).a,
+    );
+  await expect(body.locator("h1")).toHaveText("Heading");
+  await expect.poll(contentWidth).toBeCloseTo(410);
+  await expect(card.locator(".markdown-file-preview")).toHaveCSS(
+    "padding",
+    "16px 24px",
+  );
+  await card.dispatchEvent("contextmenu", { clientX: 400, clientY: 220 });
+  await expect(
+    page.getByRole("menuitemradio", { name: "显示模式：自定义" }),
+  ).toBeDisabled();
+  await page
+    .getByRole("menuitemradio", { name: "显示模式：大", exact: true })
+    .click();
+  await expect.poll(contentWidth).toBeCloseTo(820);
+  await expect(card.locator(".markdown-file-preview")).toHaveCSS(
+    "padding",
+    "32px 48px",
+  );
+  const preset = await logical(card);
+  await card.click({ position: { x: 45, y: 48 } });
+  const edge = card.getByTestId("card-resize-e");
+  await edge.hover({ position: { x: 3, y: 32 } });
+  const handle = (await edge.boundingBox())!;
+  const x = handle.x + 3,
+    y = handle.y + 32;
+  await page.mouse.down();
+  await page.mouse.move(x - 120, y, { steps: 4 });
+  await page.mouse.up();
+  const custom = await logical(card);
+  expect(custom.width).toBeLessThan(preset.width);
+  await card.dispatchEvent("contextmenu", { clientX: 400, clientY: 220 });
+  await expect(
+    page.getByRole("menuitemradio", { name: "显示模式：自定义" }),
+  ).toBeChecked();
+  await page
+    .getByRole("menuitemradio", { name: "显示模式：小", exact: true })
+    .click();
+  await expect(card.locator(".component-type-icon")).toHaveText("阅读笔记.md");
+  await expect(
+    card.locator(".component-type-icon svg[data-ui-icon=FileText]"),
+  ).toBeVisible();
+  await expect(body).toHaveCount(0);
+  await mode(page, card, "中");
+  await expect.poll(contentWidth).toBeCloseTo(410);
+  await mode(page, card, "大");
+  expect(await logical(card)).toEqual(preset);
+  await expect(
+    page.locator('.save-indicator[data-state="已保存至本地"]'),
+  ).toBeVisible();
+  await page.reload();
+  await mode(page, card, "自定义");
+  expect(await logical(card)).toEqual(custom);
+  await expect(card.locator(".markdown-file-preview")).toHaveCSS(
+    "padding",
+    "32px 48px",
+  );
+  await expect(
+    page.locator('.save-indicator[data-state="已保存至本地"]'),
+  ).toBeVisible();
+  const restored = await page.evaluate(async () => {
+    const { readBoard, exportBoard, importBoard } =
+      await import("/src/storage.ts");
+    const { cardRect } = await import("/src/geometry.ts");
+    const board = await readBoard();
+    const json = await importBoard(await exportBoard(board));
+    const { createArchive, readArchive } = await import("/src/archive.ts");
+    const archive = await createArchive(board);
+    const { cards } = await readArchive(new File([archive], "cards.zip"), {
+      x: 0,
+      y: 0,
+    });
+    return {
+      json: cardRect(json.cards[0]),
+      mode: json.cards[0].displayMode,
+      zip: cards[0].customSize,
+    };
+  });
+  expect(restored.mode).toBe("custom");
+  expect(restored.json.width).toBeCloseTo(custom.width, 2);
+  expect(restored.json.height).toBeCloseTo(custom.height, 2);
+  expect(restored.zip).toEqual({
+    width: restored.json.width,
+    height: restored.json.height,
+    base: "large",
+  });
+});
+
+test("multi-selection restores individual custom sizes from older previews and skips cards without a saved size", async ({
+  page,
+}) => {
+  const cards = [
+    { ...note("first"), x: 80, previewWidth: 213, previewHeight: 124 },
+    { ...note("second"), x: 380, previewWidth: 251, previewHeight: 173 },
+    { ...note("third"), x: 720 },
+  ].map((card) => ({ ...card, displayMode: "medium" }));
+  await seed(page, cards);
+  const first = page.locator('[data-card-id="first"]');
+  const second = page.locator('[data-card-id="second"]');
+  const third = page.locator('[data-card-id="third"]');
+  await first.click();
+  await page.keyboard.press("ControlOrMeta+a");
+  await mode(page, first, "小");
+  await mode(page, first, "自定义");
+  expect(await logical(first)).toMatchObject({ width: 213, height: 124 });
+  expect(await logical(second)).toMatchObject({ width: 251, height: 173 });
+  await expect(third.locator(".component-type-icon")).toBeVisible();
+  await mode(page, first, "中");
+  expect((await logical(first)).width).toBe(300);
+});
+
 test("medium frames preserve landscape and portrait proportions; PDF large is 150 percent and uses its page's real ratio", async ({
   page,
 }) => {

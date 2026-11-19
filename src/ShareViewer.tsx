@@ -372,7 +372,7 @@ export function ShareViewer({ token }: { token: string }) {
                     ) : c.masked ? (
                       <Mask />
                     ) : c.displayMode === "small" ? (
-                      <TypeIcon card={c} />
+                      <TypeIcon card={c} showName />
                     ) : (
                       <PreviewFrame card={c}>
                         {c.kind === "agent" ? (

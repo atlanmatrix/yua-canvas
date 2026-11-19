@@ -240,7 +240,7 @@ export const CanvasCard = memo(function CanvasCard({
         c.masked
           ? tr("已遮罩组件")
           : c.displayMode === "small"
-            ? tr("{0} 组件", c.kind)
+            ? c.title || tr("{0} 组件", c.kind)
             : c.kind === "text"
               ? c.text.slice(0, 80)
               : c.kind === "mermaid"
@@ -333,7 +333,7 @@ export const CanvasCard = memo(function CanvasCard({
       ) : c.masked ? (
         <Mask />
       ) : c.displayMode === "small" && !editing ? (
-        <TypeIcon card={c} />
+        <TypeIcon card={c} showName />
       ) : (
         <PreviewFrame card={c} editing={editing}>
           {c.kind !== "text" &&

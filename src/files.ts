@@ -1,3 +1,4 @@
+import { cardRect } from "./geometry";
 import { type Card } from "./storage";
 import { isTextFile } from "./clipboard";
 export function fileMime(name: string) {
@@ -34,13 +35,35 @@ export function fileMime(name: string) {
       : "application/octet-stream")
   );
 }
+// Use the displayed frames so wide reading previews leave the next file visible.
+export function placeFileRows(
+  cards: Card[],
+  point: { x: number; y: number },
+  columns: number,
+) {
+  let y = point.y;
+  for (let start = 0; start < cards.length; start += columns) {
+    const row = cards.slice(start, start + columns);
+    let x = point.x,
+      rowHeight = 0;
+    for (const card of row) {
+      card.x = x;
+      card.y = y;
+      const { width, height } = cardRect(card);
+      x += width + 24;
+      rowHeight = Math.max(rowHeight, height);
+    }
+    y += rowHeight + 24;
+  }
+  return cards;
+}
 export async function cardsFromFiles(
   files: File[],
   point: { x: number; y: number },
   pastedImages = false,
 ): Promise<Card[]> {
-  return Promise.all(
-    files.map(async (file, index) => {
+  const cards = await Promise.all(
+    files.map(async (file): Promise<Card> => {
       const mime = file.type || fileMime(file.name);
       const kind = mime.startsWith("image/") ? "image" : "file";
       let size = isTextFile({ title: file.name, mime } as Card)
@@ -84,8 +107,7 @@ export async function cardsFromFiles(
             : ("medium" as const),
         title: file.name,
         text: "",
-        x: point.x + (index % 4) * 270,
-        y: point.y + Math.floor(index / 4) * 290,
+        ...point,
         color: "#ffffff",
         blob: file,
         mime,
@@ -93,4 +115,5 @@ export async function cardsFromFiles(
       };
     }),
   );
+  return placeFileRows(cards, point, 4);
 }

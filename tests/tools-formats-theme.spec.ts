@@ -54,11 +54,12 @@ async function start(page: Page) {
   await page.goto("/");
   await saved(page);
 }
+const toolSpacing = 440;
 async function tool(page: Page, name: string) {
   const count = await page.getByTestId("card").count();
   await page
     .locator(".canvas")
-    .click({ button: "right", position: { x: 100 + count * 360, y: 100 } });
+    .click({ button: "right", position: { x: 100 + count * toolSpacing, y: 100 } });
   await page.getByRole("menuitem", { name: "新建工具", exact: true }).hover();
   await page
     .getByRole("menu", { name: "新建工具组件", exact: true })
@@ -121,7 +122,7 @@ test("tool submenu contains TODO and all six tools, separated from New, and reta
   ]);
   expect(snapshot.cards[1]).toMatchObject({
     displayMode: "medium",
-    x: snapshot.cards[0].x + 360,
+    x: snapshot.cards[0].x + toolSpacing,
     y: snapshot.cards[0].y,
   });
   await expect(card.locator(".tool-component")).toBeVisible();

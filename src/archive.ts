@@ -9,6 +9,7 @@ import {
 import { type Board, importBoard } from "./storage";
 import { type Fragment, selectedFragment } from "./fragments";
 import { cardDownload, textDownloadName } from "./downloads";
+import { cardRect } from "./geometry";
 import { isToolKind } from "./tools";
 import { cardsFromFiles, fileMime } from "./files";
 
@@ -128,6 +129,7 @@ export async function createArchive(fragment: Fragment): Promise<Blob> {
           file: path,
           coverFile,
           displayMode: card.displayMode,
+          customSize: card.customSize,
           previewWidth: card.previewWidth,
           previewHeight: card.previewHeight,
           contentAspectRatio: card.contentAspectRatio,
@@ -337,7 +339,7 @@ export async function readArchive(
     files,
     board.cards.length
       ? {
-          x: Math.max(...board.cards.map((c) => c.x + (c.width || 240))) + 30,
+          x: Math.max(...board.cards.map((c) => c.x + cardRect(c).width)) + 30,
           y: point.y,
         }
       : point,

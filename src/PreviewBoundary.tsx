@@ -116,6 +116,15 @@ export function previewScrollRoot(element: Element) {
     ) || null
   );
 }
+function hasReadableArea(element: HTMLElement) {
+  const box = element.getBoundingClientRect();
+  // A wide document can cover many pixels even when its text is unreadably small.
+  return (
+    box.width * box.height >= 6000 &&
+    (!element.closest(".component-viewport[data-document]") ||
+      box.width > element.offsetWidth / 4)
+  );
+}
 export const PreviewBoundary = memo(function PreviewBoundary({
   children,
   force = false,
@@ -150,11 +159,10 @@ export const PreviewBoundary = memo(function PreviewBoundary({
         element.contains(document.getSelection()!.anchorNode)
       );
     const detailed = () => {
-      const box = element.getBoundingClientRect();
       return (
         chunk ||
         allowTiny ||
-        box.width * box.height >= 6000 ||
+        hasReadableArea(element) ||
         element.matches(":hover") ||
         pinned()
       );
@@ -222,12 +230,11 @@ export const PreviewBoundary = memo(function PreviewBoundary({
   }, [chunk, allowTiny]);
   useEffect(() => {
     if (busy || !state.visible) return;
-    const element = host.current!,
-      box = element.getBoundingClientRect();
+    const element = host.current!;
     const detailed =
       chunk ||
       allowTiny ||
-      box.width * box.height >= 6000 ||
+      hasReadableArea(element) ||
       element.matches(":hover") ||
       element.contains(document.activeElement) ||
       !!(

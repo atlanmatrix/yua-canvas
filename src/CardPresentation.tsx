@@ -1,6 +1,12 @@
 import { AgentCard } from "./AgentCard";
 import { t as tr } from "./i18n";
-import { useState, useRef, useLayoutEffect, type ReactNode } from "react";
+import {
+  useState,
+  useRef,
+  useLayoutEffect,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import {
   Type,
   Bot,
@@ -15,7 +21,12 @@ import {
   EyeOff,
 } from "./icons";
 import { type Card, type Group, type Board, groupTreeIds } from "./storage";
-import { cardRect, contentCardSize, pdfGeometry } from "./geometry";
+import {
+  cardRect,
+  contentCardSize,
+  documentLayout,
+  pdfGeometry,
+} from "./geometry";
 import { NoteText } from "./NoteText";
 import { Diagram } from "./Markdown";
 import { Attachment } from "./Attachment";
@@ -26,7 +37,13 @@ import { isToolKind } from "./tools";
 import { surfaceColor, customColor } from "./presentation";
 import { isTextFile } from "./clipboard";
 import { LockedContent } from "./ComponentLock";
-export function TypeIcon({ card }: { card: Card }) {
+export function TypeIcon({
+  card,
+  showName = false,
+}: {
+  card: Card;
+  showName?: boolean;
+}) {
   if (card.locked) return <LockedContent />;
   const Icon = {
     text: Type,
@@ -44,6 +61,7 @@ export function TypeIcon({ card }: { card: Card }) {
   return (
     <div className="component-type-icon" aria-label={tr("{0} 组件", card.kind)}>
       <Icon size={24} />
+      {showName && card.title && <span title={card.title}>{card.title}</span>}
     </div>
   );
 }
@@ -77,7 +95,8 @@ export function PreviewFrame({
   children: ReactNode;
 }) {
   const r = cardRect(card),
-    natural = contentCardSize(card);
+    natural = contentCardSize(card),
+    document = documentLayout(card);
   // Dimensions stored on cards include the one-pixel frame on each side.
   const width = Math.max(1, natural.width - 2),
     height = Math.max(1, natural.height - 2);
@@ -110,6 +129,14 @@ export function PreviewFrame({
   return (
     <div
       ref={element}
+      style={
+        document
+          ? ({
+              "--document-padding": `${document.insetY}px ${document.insetX}px`,
+            } as CSSProperties)
+          : undefined
+      }
+      data-document={document ? true : undefined}
       className={`component-viewport ${editing ? "component-editing" : ""}`}
     >
       <div
@@ -319,7 +346,7 @@ export function GroupList({
               {active.masked ? (
                 <Mask />
               ) : active.displayMode === "small" ? (
-                <TypeIcon card={active} />
+                <TypeIcon card={active} showName />
               ) : (
                 <PreviewFrame card={active}>
                   {renderContent?.(active) || <StaticContent card={active} />}

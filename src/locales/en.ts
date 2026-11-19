@@ -252,6 +252,7 @@ export const english: Record<string, string> = {
   全选: "Select all",
   创建副本: "Duplicate",
   显示模式: "Display mode",
+  自定义: "Custom",
   "显示模式：{0}": "Display mode: {0}",
   内容显示: "Content display",
   平铺: "Free layout",
@@ -787,8 +788,8 @@ export const english: Record<string, string> = {
     "Miniature embeds a 3D scene from a URL or iframe, with an example city available. It has a transparent background and no title bar. Hover or select to reveal its frame, name and link. Double-click the model to interact; click outside to save its view and static preview. Double-click the name or link to edit, Enter or blur to save, Esc to cancel. Cmd/Ctrl-click a link to open it in a new tab.",
   "画布右键「新建应用关联」可添加 VS Code 或 iTerm2。VS Code 配置完整本地路径后，在组件悬浮工具栏点击打开按钮即可在 VS Code 新窗口打开；右键「配置关联」可修改路径。iTerm2 支持多行命令，每行前显示 > 标记，组件悬浮工具栏可复制或执行命令，双击容器修改命令。首次执行时按弹窗下载、解压并安装 macOS 本地打开器；安装后系统可能询问是否允许打开应用和控制 iTerm2。配对设置仅保存在当前浏览器，不随画布导出或分享。":
     "Right-click the canvas and choose New app link for VS Code or iTerm2. Configure a full local path for VS Code; use the component toolbar to open a new VS Code window, or use Configure link to change it. iTerm2 supports multiline commands with > prompts and Copy/Run buttons on hover. Double-click to edit. First-time use requires installing the macOS launcher from its setup dialog. macOS may ask for permission to open apps and control iTerm2. Pairing stays in this browser and is excluded from exports and shares.",
-  "组件默认使用中尺寸预览；右键「显示模式」的三个图标可切换小（类型图标）、中（缩小预览）、大（原尺寸预览），子画布除外。右键「遮罩」隐藏内容，「备注」将文字显示在组件右侧。画笔入口位于底部工具栏左侧，点击进入绘画模式，顶部可设置颜色和粗细、撤销、清空、隐藏或退出。笔迹自动平滑并显示在内容上方。双击编辑文本，选中文字后可调整字体、字号、粗细、倾斜、下划线、删除线、文字颜色和文字底色。右键菜单的背景色应用于整张卡片。":
-    "Components default to medium previews. Display mode offers small (type icon), medium (scaled preview), and large (actual size), excluding child canvases. Mask hides content; Note adds text to its right. The brush button sits beside the bottom toolbar and opens a top toolbar for color, width, undo, clear, hide and exit. Strokes are smoothed and drawn above components. Select text to change its font, size, emphasis, color or highlight. The background color in the card menu applies to the whole card.",
+  "组件默认使用中尺寸预览；右键「显示模式」可切换小、中、大尺寸。小尺寸显示类型图标和组件名称。拖动边框后，可用「自定义」恢复上次调整的尺寸，子画布除外。右键「遮罩」隐藏内容，「备注」将文字显示在组件右侧。画笔入口位于底部工具栏左侧，点击进入绘画模式，顶部可设置颜色和粗细、撤销、清空、隐藏或退出。笔迹自动平滑并显示在内容上方。双击编辑文本，选中文字后可调整字体、字号、粗细、倾斜、下划线、删除线、文字颜色和文字底色。右键菜单的背景色应用于整张卡片。":
+    "Components default to medium previews. Use Display mode to choose Small, Medium, or Large. Small shows the type icon and component name. After dragging a border, choose Custom to restore the last manual size. These options apply to components other than child canvases. Mask hides content; Note adds text to its right. The brush button sits beside the bottom toolbar and opens a top toolbar for color, width, undo, clear, hide and exit. Strokes are smoothed and drawn above components. Select text to change its font, size, emphasis, color or highlight. The background color in the card menu applies to the whole card.",
   "进入子画布后，可通过返回按钮或缩略图旁的层级短线切换。⌘/Ctrl + ↑ 返回父画布；选中一个子画布后，⌘/Ctrl + ↓ 进入该子画布。深灰短线表示当前画布，悬浮可预览对应画布。缩略图在闲置时淡出，悬浮、缩放或拖动时恢复。每个子画布只有一个直接父画布；已有父级或已创建父画布时不能重复创建父画布。":
     "Use Back or the hierarchy markers beside the minimap to navigate child canvases. ⌘/Ctrl + ↑ opens the parent; ⌘/Ctrl + ↓ opens a selected child. The dark marker indicates the current canvas; hover to preview another. The minimap fades when idle and returns on hover, zoom or drag. Each canvas has one direct parent, and a parent cannot be created twice.",
   "设置「导出 → 画布」会备份整个工作区，包括父级、兄弟和全部子画布、组件、原始附件、连线、Pin，以及各层缩放、平移和当前层级。导入完整备份会替换整个工作区并恢复原有标识和视图；旧版画布 JSON 仍导入当前层，选中元素的画布或 ZIP 导出用于局部迁移。Miniature 保存场景地址、最新视角和已生成的静态图片，不打包外部网站内容。":

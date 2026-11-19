@@ -345,7 +345,7 @@ test("creating a parent wraps once, disallows another parent and undoes without 
   await expect(page.getByTestId("card")).toHaveCount(2);
   await page
     .locator(".canvas")
-    .click({ button: "right", position: { x: 1100, y: 550 } });
+    .click({ button: "right", position: { x: 28, y: 130 } });
   await expect(
     page.getByRole("menuitem", { name: "创建父画布", exact: true }),
   ).toBeDisabled();

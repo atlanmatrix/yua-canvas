@@ -98,14 +98,14 @@ test("double-click activates a full-size model, outside clicks deactivate and pe
     text: src,
     width: 640,
     height: 520,
-    displayMode: "medium",
+    displayMode: "custom",
   });
   const shown = await card.evaluate((el) => ({
     width: parseFloat((el as HTMLElement).style.width),
     height: parseFloat((el as HTMLElement).style.height),
   }));
-  expect(exported.cards[0].previewWidth).toBeCloseTo(shown.width, 3);
-  expect(exported.cards[0].previewHeight).toBeCloseTo(shown.height, 3);
+  expect(exported.cards[0].customSize.width).toBeCloseTo(shown.width, 3);
+  expect(exported.cards[0].customSize.height).toBeCloseTo(shown.height, 3);
   expect(
     new URL(exported.cards[0].miniatureView).searchParams.get("view"),
   ).toBe("rotated");

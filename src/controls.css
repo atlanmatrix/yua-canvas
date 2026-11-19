@@ -337,6 +337,10 @@ body input[type="range"]:not(.preference-range)::-moz-range-thumb {
   background: var(--accent);
   box-shadow: none;
 }
+body .display-mode-options > button:last-child {
+  flex: 1.7 !important;
+  white-space: nowrap;
+}
 body .display-mode-options > button {
   min-width: 0;
   padding-inline: 6px;

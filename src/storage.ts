@@ -49,6 +49,7 @@ export type Card = {
   width?: number;
   height?: number;
   displayMode?: DisplayMode;
+  customSize?: { width: number; height: number; base?: "large" };
   previewWidth?: number;
   previewHeight?: number;
   contentAspectRatio?: number;
@@ -594,6 +595,7 @@ export async function importBoard(
       return {
         ...(c.lock ? { lock: c.lock as Envelope, locked: true } : {}),
         displayMode: c.displayMode as Card["displayMode"],
+        customSize: c.customSize as Card["customSize"],
         previewWidth: c.previewWidth as number | undefined,
         previewHeight: c.previewHeight as number | undefined,
         contentAspectRatio: c.contentAspectRatio as number | undefined,
