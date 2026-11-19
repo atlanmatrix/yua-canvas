@@ -1,3 +1,4 @@
+import { FlowchartPreview } from "./Flowchart";
 import { MindMap } from "./MindMap";
 import { StyledNoteText } from "./NoteText";
 import { AgentCard } from "./AgentCard";
@@ -22,6 +23,7 @@ import {
   Bot,
   FileText,
   Network,
+  Workflow,
   Code2,
   Terminal,
   Image as ImageIcon,
@@ -58,6 +60,7 @@ const icons = {
   miniature: Box,
   mindmap: Network,
   mermaid: Network,
+  flowchart: Workflow,
   vscode: Code2,
   iterm2: Terminal,
   agent: Bot,
@@ -118,6 +121,7 @@ function ComponentPreview({ card }: { card: Card }) {
         <MindMap text={card.text} />
       </PreviewFrame>
     );
+  if (card.kind === "flowchart") return <FlowchartPreview text={card.text} />;
   if (card.kind === "mermaid")
     return (
       <div className="mermaid-preview">

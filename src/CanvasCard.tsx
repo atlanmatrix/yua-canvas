@@ -1,3 +1,4 @@
+import { FlowchartPreview } from "./Flowchart";
 import { MindMap } from "./MindMap";
 import { cardPorts } from "./connectionPorts";
 import { AgentCard } from "./AgentCard";
@@ -374,6 +375,7 @@ export const CanvasCard = memo(function CanvasCard({
             c.kind !== "miniature" &&
             c.kind !== "mindmap" &&
             c.kind !== "mermaid" &&
+            c.kind !== "flowchart" &&
             c.kind !== "agent" &&
             !isToolKind(c.kind) &&
             !isApplicationKind(c.kind) &&
@@ -569,6 +571,8 @@ export const CanvasCard = memo(function CanvasCard({
                 )}
               </div>
             </>
+          ) : c.kind === "flowchart" ? (
+            <FlowchartPreview text={c.text} />
           ) : c.kind === "mermaid" ? (
             <div className="mermaid-preview">
               <Diagram

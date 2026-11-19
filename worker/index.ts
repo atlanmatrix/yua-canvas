@@ -1,3 +1,4 @@
+import { parseFlowchart } from "../src/flowchartData";
 import { parseMindMap } from "../src/mindMapData";
 import { validAgentText } from "../src/agent";
 import { validPresentation, validStrokes } from "../src/presentation";
@@ -126,6 +127,7 @@ function validateSnapshot(data: any): string[] {
           "canvas",
           "miniature",
           "mermaid",
+          "flowchart",
           "mindmap",
           "vscode",
           "iterm2",
@@ -145,6 +147,13 @@ function validateSnapshot(data: any): string[] {
           parseMindMap(c.text);
         } catch {
           fail(400, "思维导图数据无效");
+        }
+      }
+      if (c.kind === "flowchart") {
+        try {
+          parseFlowchart(c.text);
+        } catch {
+          fail(400, "流程图数据无效");
         }
       }
       if (c.kind === "agent" && !validAgentText(c.text))

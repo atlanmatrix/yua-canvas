@@ -78,6 +78,7 @@ import {
   Trash2,
   FileText,
   Network,
+  Workflow,
   Terminal,
   Code2,
   EyeOff,
@@ -116,6 +117,8 @@ import {
 import { linkTarget, noteCardHref, openLink } from "./noteLinks";
 import { TodoEditor } from "./TodoEditor";
 import { TextFileEditor } from "./TextFileEditor";
+import { FlowchartEditor } from "./FlowchartEditor";
+import { newFlowchart } from "./flowchartData";
 import { MermaidEditor } from "./MermaidEditor";
 import { Attachment } from "./Attachment";
 import { ImagePreview, canvasImages } from "./ImagePreview";
@@ -1090,19 +1093,32 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       setSelectedGroup(undefined);
     } else if (isApplicationKind(kind))
       setApplicationDraft({ kind, ...point, text: "" });
-    else if (kind === "mermaid" || kind === "file" || kind === "mindmap") {
+    else if (
+      kind === "mermaid" ||
+      kind === "file" ||
+      kind === "mindmap" ||
+      kind === "flowchart"
+    ) {
       const mind = kind === "mindmap" ? newMindMap() : undefined;
       const id = uid();
       const card: Card = {
         id,
         kind,
         displayMode: mind ? "large" : "medium",
-        title: mind ? tr("思维导图") : kind === "file" ? tr("未命名.txt") : "",
+        title: mind
+          ? tr("思维导图")
+          : kind === "flowchart"
+            ? tr("流程图")
+            : kind === "file"
+              ? tr("未命名.txt")
+              : "",
         text: mind
           ? JSON.stringify(mind)
           : kind === "mermaid"
             ? DEFAULT_MERMAID
-            : "",
+            : kind === "flowchart"
+              ? JSON.stringify(newFlowchart(tr))
+              : "",
         color: colors[0],
         ...point,
         ...(kind === "file"
@@ -1113,7 +1129,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               blob: new Blob([""], { type: "text/plain" }),
               editableFile: true,
             }
-          : {}),
+          : kind === "flowchart"
+            ? { width: 460, height: 420 }
+            : {}),
       };
       setBoard((b) => ({
         ...b,
@@ -1130,7 +1148,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       setMindSelection(undefined);
       setSelection([id]);
       setSelectedGroup(undefined);
-      if (kind === "mermaid") setDetail(id);
+      if (kind === "mermaid" || kind === "flowchart") setDetail(id);
     } else if (kind === "canvas") addCanvas(point);
     else if (kind === "miniature") addMiniature(point);
     else {
@@ -2392,7 +2410,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         c.kind === "todo" ||
         c.kind === "image" ||
         c.kind === "file" ||
-        c.kind === "mermaid"),
+        c.kind === "mermaid" ||
+        c.kind === "flowchart"),
   );
   const updatePinProperties = (
     pin: PinnedItem,
@@ -3386,6 +3405,14 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   <button
                     role="menuitem"
                     disabled={!ready}
+                    onClick={() => createFromMenu("flowchart")}
+                  >
+                    <Workflow size={14} />
+                    {tr("流程图")}
+                  </button>
+                  <button
+                    role="menuitem"
+                    disabled={!ready}
                     onClick={() => createFromMenu("mermaid")}
                   >
                     <Network size={14} />
@@ -3526,6 +3553,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   {(menuCard.kind === "canvas" ||
                     menuCard.kind === "miniature" ||
                     menuCard.kind === "mermaid" ||
+                    menuCard.kind === "flowchart" ||
                     menuCard.kind === "file" ||
                     isApplicationKind(menuCard.kind)) && (
                     <MenuButton
@@ -3971,7 +3999,23 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           onDownload={(card) => void downloadCard(card)}
         />
       )}
-      {current && current.kind !== "image" && (
+      {current?.kind === "flowchart" && (
+        <FlowchartEditor
+          key={current.id}
+          text={current.text}
+          onClose={() => setDetail(undefined)}
+          onSave={(text) => {
+            if (text !== current.text)
+              updateCards((cards) =>
+                cards.map((card) =>
+                  card.id === current.id ? { ...card, text } : card,
+                ),
+              );
+            setDetail(undefined);
+          }}
+        />
+      )}
+      {current && current.kind !== "image" && current.kind !== "flowchart" && (
         <div className="modal-backdrop">
           <div
             className={`modal detail-modal${current.kind === "file" ? " file-detail-modal" : ""}`}

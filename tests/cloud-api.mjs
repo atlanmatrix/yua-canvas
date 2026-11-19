@@ -328,7 +328,7 @@ test("miniature snapshots sync and share; unsafe scene URLs are rejected", async
   assert.deepEqual(resolved.data.snapshot.cards, snapshot.cards);
 });
 
-test("Mind maps, Mermaid and document metadata sync and share with lossless PDF attachments", async () => {
+test("Diagrams and document metadata sync and share with lossless PDF attachments", async () => {
   const bytes = pdfFixture(),
     id = hash(bytes);
   assert.equal(
@@ -360,6 +360,34 @@ test("Mind maps, Mermaid and document metadata sync and share with lossless PDF 
       },
     }),
   });
+  const flowchart = {
+    version: 1,
+    nodes: ["start", "end"].map((id, i) => ({
+      id,
+      shape: "terminal",
+      tone: "mint",
+      label: id,
+      x: 0,
+      y: i * 120,
+      width: 116,
+      height: 46,
+    })),
+    edges: [
+      {
+        id: "arrow",
+        from: { node: "start", side: "s" },
+        to: { node: "end", side: "n" },
+        label: "Proceed",
+      },
+    ],
+  };
+  const flowCard = {
+    ...snapshot.cards[0],
+    id: "flow",
+    kind: "flowchart",
+    text: JSON.stringify(flowchart),
+  };
+  snapshot.cards.push(flowCard);
   snapshot.cards.push({
     id: "pdf",
     kind: "file",
@@ -416,6 +444,22 @@ test("Mind maps, Mermaid and document metadata sync and share with lossless PDF 
     null,
   );
   assert.deepEqual(resolved.data.snapshot.cards, snapshot.cards);
+  const invalid = {
+    ...flowchart,
+    edges: [{ ...flowchart.edges[0], to: { node: "missing" } }],
+  };
+  const rejected = await request("/canvas", "PUT", {
+    baseRevision: updated.data.revision,
+    snapshot: {
+      ...snapshot,
+      cards: [{ ...flowCard, text: JSON.stringify(invalid) }],
+    },
+  });
+  assert.equal(rejected.status, 400);
+  assert.deepEqual(
+    (await request("/canvas")).data.snapshot.cards,
+    snapshot.cards,
+  );
   const asset = await fetch(origin + "/api/assets/" + id, {
     headers: { "X-Share-Token": share.data.token },
   });

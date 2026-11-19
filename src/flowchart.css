@@ -1,0 +1,398 @@
+.flow-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  font-family: system-ui, sans-serif;
+}
+.flow-preview-empty {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+.flow-editor.modal {
+  display: flex;
+  flex-direction: column;
+  width: min(1080px, 100%);
+  height: min(720px, 92dvh, calc(100dvh - 28px));
+  max-height: none;
+  padding: 0;
+  scrollbar-gutter: auto;
+  border-color: var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+  color: var(--ink);
+}
+.flow-header,
+.flow-toolbar,
+.flow-status {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+.flow-header {
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 66px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.flow-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 18px;
+}
+.flow-heading-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.flow-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.flow-header-actions > :is(.button, .primary) {
+  min-height: var(--action-height);
+  padding: 4px 11px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.flow-toolbar {
+  gap: 8px;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.flow-tool-group {
+  display: flex;
+  gap: 3px;
+  padding-right: 8px;
+  border-right: 1px solid var(--border);
+}
+.flow-icon-button {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  padding: 0;
+  border-radius: 7px;
+  color: var(--muted);
+}
+.flow-icon-button:enabled:hover {
+  background: var(--surface-muted);
+}
+.flow-icon-button[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.flow-editor :is(button, textarea, select):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.flow-workspace {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr) 200px;
+}
+.flow-palette,
+.flow-inspector {
+  min-width: 0;
+  overflow: auto;
+  padding: 16px 12px;
+}
+.flow-palette {
+  border-right: 1px solid var(--border);
+}
+.flow-inspector {
+  border-left: 1px solid var(--border);
+}
+.flow-palette h3,
+.flow-inspector h3 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 650;
+}
+.flow-palette p,
+.flow-inspector p {
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 12px 0 0;
+  color: var(--muted);
+}
+.flow-shapes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.flow-shapes button {
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  min-height: 68px;
+  padding: 5px 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.2;
+  cursor: grab;
+}
+.flow-shapes button:enabled:hover {
+  background: var(--surface-muted);
+}
+.flow-stage {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  background-color: color-mix(in srgb, var(--canvas-bg) 70%, var(--surface));
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+.flow-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  font-family: system-ui, sans-serif;
+  touch-action: none;
+  user-select: none;
+}
+.flow-canvas:focus {
+  outline: none;
+}
+.flow-stage[data-mode="pan"] .flow-canvas,
+.flow-stage[data-mode="pan"] :is(.flow-node, .flow-edge) {
+  cursor: grab;
+}
+.flow-stage[data-panning] .flow-canvas,
+.flow-stage[data-panning] :is(.flow-node, .flow-edge) {
+  cursor: grabbing;
+}
+.flow-stage[data-mode="connect"] :is(.flow-canvas, .flow-node) {
+  cursor: crosshair;
+}
+.flow-node {
+  cursor: move;
+}
+.flow-edge {
+  cursor: pointer;
+}
+.flow-node:focus,
+.flow-edge:focus {
+  outline: none;
+}
+.flow-node:focus-visible {
+  filter: drop-shadow(0 0 3px var(--accent));
+}
+.flow-edge:focus-visible .flow-edge-hit {
+  stroke: var(--accent);
+  opacity: 0.28;
+}
+.flow-edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 15px;
+  vector-effect: non-scaling-stroke;
+}
+.flow-selection,
+.flow-link-draft {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5px;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.flow-port,
+.flow-resize {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+}
+.flow-port {
+  cursor: crosshair;
+  opacity: 0;
+  pointer-events: none;
+}
+.flow-node:is(:hover, [aria-pressed="true"], [data-connecting]) .flow-port {
+  opacity: 1;
+  pointer-events: auto;
+}
+.flow-port:hover {
+  fill: var(--accent);
+}
+.flow-resize {
+  cursor: nwse-resize;
+}
+.flow-empty-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  pointer-events: none;
+  color: var(--muted);
+  font-size: 13px;
+}
+.flow-zoom {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: 0 2px 8px #10182b12;
+}
+.flow-zoom .flow-icon-button {
+  width: 29px;
+  height: 29px;
+}
+.flow-zoom output {
+  min-width: 44px;
+  text-align: center;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.flow-field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.flow-field textarea,
+.flow-field select {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+.flow-field textarea {
+  resize: vertical;
+}
+.flow-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.flow-colors button {
+  width: 22px;
+  height: 22px;
+  border: 1px solid;
+  border-radius: 50%;
+}
+.flow-colors button[aria-pressed="true"] {
+  box-shadow:
+    0 0 0 1px var(--surface),
+    0 0 0 2px var(--accent);
+}
+.flow-status {
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 34px;
+  padding: 5px 12px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+}
+.flow-status > :last-child {
+  flex: none;
+}
+
+@media (max-width: 700px) {
+  .flow-header {
+    padding: 6px 9px;
+    min-height: 51px;
+  }
+  .flow-header h2 {
+    font-size: 16px;
+    gap: 6px;
+  }
+  .flow-heading-icon {
+    width: 28px;
+    height: 28px;
+  }
+  .flow-header-actions {
+    gap: 4px;
+  }
+  .flow-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(64px, 1fr) min(118px, 24dvh);
+  }
+  .flow-palette {
+    padding: 5px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .flow-palette h3,
+  .flow-palette p {
+    display: none;
+  }
+  .flow-shapes {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 3px;
+  }
+  .flow-shapes button {
+    min-height: 43px;
+    padding: 2px 0;
+    gap: 1px;
+    font-size: 9px;
+  }
+  .flow-shapes svg {
+    width: 24px;
+    height: 19px;
+  }
+  .flow-inspector {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 5px 10px;
+    max-height: 120px;
+    padding: 6px 9px;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+  .flow-inspector h3 {
+    display: none;
+  }
+  .flow-inspector :is(p, .flow-field:last-child) {
+    grid-column: 1 / -1;
+  }
+  .flow-inspector p {
+    margin: 0;
+    align-self: center;
+  }
+  .flow-field {
+    margin: 0;
+    gap: 2px;
+  }
+  .flow-field textarea {
+    max-height: 40px;
+  }
+  .flow-status {
+    min-height: 26px;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 380px) {
+  .flow-status > :last-child {
+    display: none;
+  }
+}

@@ -49,6 +49,7 @@ import {
   Moon as BaseMoon,
   MoreHorizontal as BaseMoreHorizontal,
   Network as BaseNetwork,
+  Workflow as BaseWorkflow,
   Package as BasePackage,
   Pen as BasePaintbrush,
   Palette as BasePalette,
@@ -141,6 +142,7 @@ export const MoreHorizontal = animatedIcon(
   BaseMoreHorizontal,
 );
 export const Network = animatedIcon("Network", BaseNetwork);
+export const Workflow = BaseWorkflow;
 export const Package = animatedIcon("Package", BasePackage);
 export const Paintbrush = animatedIcon("Paintbrush", BasePaintbrush);
 export const Palette = animatedIcon("Palette", BasePalette);

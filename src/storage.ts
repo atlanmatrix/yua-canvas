@@ -1,3 +1,4 @@
+import { parseFlowchart } from "./flowchartData";
 import { parseMindMap } from "./mindMapData";
 import { locateBoard, migrateGroups } from "./canvasHierarchy";
 import { validAgentText } from "./agent";
@@ -39,6 +40,7 @@ export type Card = {
     | "miniature"
     | "mindmap"
     | "mermaid"
+    | "flowchart"
     | "vscode"
     | "iterm2"
     | "agent"
@@ -432,6 +434,7 @@ export async function importBoard(
           "canvas",
           "miniature",
           "mermaid",
+          "flowchart",
           "mindmap",
           "vscode",
           "iterm2",
@@ -447,6 +450,7 @@ export async function importBoard(
       )
         throw new Error("卡片数据无效");
       if (c.kind === "mindmap") parseMindMap(c.text);
+      if (c.kind === "flowchart") parseFlowchart(c.text);
       if (!validPresentation(c)) throw Error("组件显示设置无效");
       if (c.lock !== undefined || c.locked !== undefined) {
         if (

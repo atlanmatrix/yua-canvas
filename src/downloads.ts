@@ -8,6 +8,11 @@ export function textDownloadName(now = new Date()): string {
 export function cardDownload(card: Card): { blob: Blob; name: string } {
   if (card.kind === "mindmap")
     return { blob: new Blob([card.text], { type: "application/json" }), name: "mindmap.json" };
+  if (card.kind === "flowchart")
+    return {
+      blob: new Blob([card.text], { type: "application/json" }),
+      name: "flowchart.json",
+    };
   if (card.kind === "agent") return { blob: new Blob([card.text], { type: "application/json" }), name: "agent.json" };
   if (isToolKind(card.kind)) return { blob: new Blob([card.text], { type: "application/json" }), name: `${card.kind}.json` };
   if (card.kind === "mermaid")

@@ -1,3 +1,4 @@
+import { FlowchartPreview } from "./Flowchart";
 import { MindMap } from "./MindMap";
 import { AgentCard } from "./AgentCard";
 import { t as tr } from "./i18n";
@@ -17,6 +18,7 @@ import {
   PanelsTopLeft,
   Box,
   Network,
+  Workflow,
   Code2,
   Terminal,
   EyeOff,
@@ -76,6 +78,7 @@ export function TypeIcon({
     miniature: Box,
     mindmap: Network,
     mermaid: Network,
+    flowchart: Workflow,
     vscode: Code2,
     iterm2: Terminal,
     agent: Bot,
@@ -245,6 +248,7 @@ export function StaticContent({
       />
     );
   if (card.kind === "mindmap") return <MindMap text={card.text} />;
+  if (card.kind === "flowchart") return <FlowchartPreview text={card.text} />;
   if (card.kind === "mermaid")
     return (
       <div className="mermaid-preview">

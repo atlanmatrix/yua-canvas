@@ -1,3 +1,4 @@
+import { FlowchartPreview } from "./Flowchart";
 import { MindMap } from "./MindMap";
 import { noteCardHref } from "./noteLinks";
 import { useCanvasTouch } from "./useCanvasTouch";
@@ -403,6 +404,8 @@ export function ShareViewer({ token }: { token: string }) {
                           />
                         ) : c.kind === "mindmap" ? (
                           <MindMap text={c.text} />
+                        ) : c.kind === "flowchart" ? (
+                          <FlowchartPreview text={c.text} />
                         ) : c.kind === "mermaid" ? (
                           <div className="mermaid-preview">
                             <Diagram
