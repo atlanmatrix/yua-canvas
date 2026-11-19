@@ -73,6 +73,78 @@ function ExportContent({ card }: { card: Card }) {
   );
 }
 
+export async function waitForExportContent(scene: HTMLElement) {
+  await frame();
+  await frame();
+  // Wait for asynchronous PDF/diagram previews instead of exporting placeholders.
+  const deadline = performance.now() + 30000;
+  while (
+    scene.querySelector(
+      '.pdf-preview[aria-busy="true"],[data-diagram-state="loading"],[data-file-preview-state="loading"]',
+    )
+  ) {
+    if (performance.now() > deadline)
+      throw new Error(tr("预览尚未完成，请稍后重试导出"));
+    await new Promise((resolve) => setTimeout(resolve, 80));
+  }
+  await document.fonts.ready;
+  await Promise.all(
+    [...scene.querySelectorAll("img")].map((img) =>
+      img.decode().catch(() => {}),
+    ),
+  );
+}
+
+export function ExportMarks({ board, cards }: { board: Board; cards: Card[] }) {
+  const arrow = `export-arrow-${crypto.randomUUID()}`;
+  const edges = (board.connections || []).filter((edge) =>
+    [edge.from.card, edge.to.card].every((id) =>
+      cards.some((card) => card.id === id),
+    ),
+  );
+  return (
+    <svg
+      style={{
+        position: "absolute",
+        width: 1,
+        height: 1,
+        overflow: "visible",
+      }}
+    >
+      <defs>
+        <ConnectionArrow id={arrow} size={8} color="var(--connection-color)" />
+      </defs>
+      <StrokeView strokes={board.strokesHidden ? [] : board.strokes} />
+      {edges.map((c) => {
+        const a = endpointPoint(c.from, cards),
+          b = endpointPoint(c.to, cards),
+          mid = curveMidpoint(a, b, c.from.side, c.to.side);
+        return (
+          <g key={c.id}>
+            <path
+              d={curve(a, b, c.from.side, c.to.side)}
+              stroke="var(--connection-color)"
+              strokeWidth={2}
+              fill="none"
+              markerEnd={`url(#${arrow})`}
+            />
+            {c.label && (
+              <text
+                x={mid.x}
+                y={mid.y - 8}
+                textAnchor="middle"
+                fill="currentColor"
+                fontSize={12}
+              >
+                {c.label}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 /** A frozen, readonly scene: never mounts agent settings, live embeds or selection UI. */
 export async function withExportScene(
   board: Board,
@@ -141,7 +213,6 @@ export async function withExportScene(
       8192 / height,
       Math.sqrt(16_000_000 / (width * height)),
     );
-    const arrow = `export-arrow-${crypto.randomUUID()}`;
     flushSync(() =>
       root.render(
         <ExportPreviewContext.Provider value={pixelRatio}>
@@ -184,52 +255,7 @@ export async function withExportScene(
                   {!g.masked && <Remark text={g.remark} />}
                 </div>
               ))}
-              <svg
-                style={{
-                  position: "absolute",
-                  width: 1,
-                  height: 1,
-                  overflow: "visible",
-                }}
-              >
-                <defs>
-                  <ConnectionArrow
-                    id={arrow}
-                    size={8}
-                    color="var(--connection-color)"
-                  />
-                </defs>
-                <StrokeView
-                  strokes={board.strokesHidden ? [] : board.strokes}
-                />
-                {edges.map((c) => {
-                  const a = endpointPoint(c.from, cards),
-                    b = endpointPoint(c.to, cards),
-                    mid = curveMidpoint(a, b, c.from.side, c.to.side);
-                  return (
-                    <g key={c.id}>
-                      <path
-                        d={curve(a, b, c.from.side, c.to.side)}
-                        stroke="var(--connection-color)"
-                        strokeWidth={2}
-                        fill="none"
-                        markerEnd={`url(#${arrow})`}
-                      />
-                      {c.label && (
-                        <text
-                          x={mid.x}
-                          y={mid.y - 8}
-                          textAnchor="middle"
-                          fill="currentColor"
-                          fontSize={12}
-                        >
-                          {c.label}
-                        </text>
-                      )}
-                    </g>
-                  );
-                })}
-              </svg>
+              <ExportMarks board={board} cards={cards} />
               {cards.map((c) => {
                 const r = cardRect(c),
                   address = noteCardHref(c);
@@ -273,25 +299,7 @@ export async function withExportScene(
       ),
     );
     const scene = host.firstElementChild as HTMLElement;
-    await frame();
-    await frame();
-    // Wait for asynchronous PDF/diagram previews instead of exporting placeholders.
-    const deadline = performance.now() + 30000;
-    while (
-      scene.querySelector(
-        '.pdf-preview[aria-busy="true"],[data-diagram-state="loading"],[data-file-preview-state="loading"]',
-      )
-    ) {
-      if (performance.now() > deadline)
-        throw new Error(tr("预览尚未完成，请稍后重试导出"));
-      await new Promise((resolve) => setTimeout(resolve, 80));
-    }
-    await document.fonts.ready;
-    await Promise.all(
-      [...scene.querySelectorAll("img")].map((img) =>
-        img.decode().catch(() => {}),
-      ),
-    );
+    await waitForExportContent(scene);
     // Remarks and long edge labels can extend beyond their component frames.
     const bounds = scene.getBoundingClientRect();
     let left = 0,

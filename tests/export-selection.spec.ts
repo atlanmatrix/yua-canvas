@@ -180,9 +180,10 @@ test("PDF downloads use a single page sized to the selected components", async (
   // Both selected notes and their internal link fit inside these bounds.
   // Including the third note would extend the page down and to the right.
   const size = pdf.getPages()[0].getSize();
-  expect(size.width).toBe((680 - 100 + 64) * 0.75);
-  expect(size.height).toBe((100 + 72) * 0.75);
-  await expect(page.locator(".png-export")).toHaveCount(0);
+  expect(size.width).toBe((680 - 100) * 0.75);
+  expect(size.height).toBeGreaterThanOrEqual(24 * 0.75);
+  expect(size.height).toBeLessThan(60 * 0.75);
+  await expect(page.locator(".pdf-export")).toHaveCount(0);
 });
 
 test("PNG renders selected offscreen PDF and diagrams without exporting controls or unselected content", async ({
@@ -736,4 +737,186 @@ test("exporting from empty space in a child canvas includes its drawing and excl
     );
     expect(includesInk, format).toBe(true);
   }
+});
+
+async function downloadCardPdf(page: Page, id: string) {
+  await card(page, id).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "导出", exact: true }).click();
+  return bytes(page, () =>
+    page.getByRole("menuitem", { name: "PDF 文档", exact: true }).click(),
+  );
+}
+
+async function pdfPageColors(page: Page, file: Buffer, pageNumber: number) {
+  return page.evaluate(
+    async ({ data, last }) => {
+      const { requestPdfPreview } = await import("/src/pdfPreviewCache.ts");
+      const pdf = new Blob(
+        [Uint8Array.from(atob(data), (c) => c.charCodeAt(0))],
+        { type: "application/pdf" },
+      );
+      const page = await requestPdfPreview(
+        pdf,
+        last,
+        820,
+        1800,
+        new AbortController().signal,
+      );
+      const img = await createImageBitmap(page.blob);
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0);
+      const { data: pixels } = ctx.getImageData(0, 0, img.width, img.height);
+      let green = 0,
+        red = 0,
+        dark = 0,
+        rightStripWhite = true;
+      for (let i = 0; i < pixels.length; i += 4) {
+        const [r, g, b] = [pixels[i], pixels[i + 1], pixels[i + 2]];
+        if (g > 155 && g > r * 2 && g > b * 2) green++;
+        if (Math.max(r, g, b) < 145) dark++;
+        if (r > 200 && g < 60 && b < 60) red++;
+        if ((i / 4) % img.width >= img.width - 12 && Math.min(r, g, b) < 250)
+          rightStripWhite = false;
+      }
+      img.close();
+      return { green, red, dark, rightStripWhite };
+    },
+    { data: file.toString("base64"), last: pageNumber },
+  );
+}
+
+test("Markdown PDF includes the final table row on paper without the card or scrollbar", async ({
+  page,
+}) => {
+  const marker = "http://127.0.0.1:5173/pdf-last-row.svg";
+  await page.route("**/pdf-last-row.svg*", (route) =>
+    route.fulfill({
+      contentType: "image/svg+xml",
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="45" height="18"><rect width="45" height="18" fill="#26bf40"/></svg>',
+    }),
+  );
+  const rows = Array.from(
+    { length: 85 },
+    (_, i) => "| Item " + (i + 1) + " | 内容 |",
+  );
+  const md = [
+    "# 数据需求",
+    "",
+    "| 模块 | 数据 |",
+    "| --- | --- |",
+    ...rows,
+    "| 完成 | ![末行](" + marker + ") |",
+  ].join("\n");
+  await setup(page, [
+    {
+      ...note("doc", 150, 300),
+      kind: "file",
+      title: "需求.md",
+      mime: "text/markdown",
+      displayMode: "small",
+      color: "#ff0000",
+      blob: "data:text/markdown;base64," + Buffer.from(md).toString("base64"),
+    },
+  ]);
+  const file = await downloadCardPdf(page, "doc");
+  const pages = (await PDFDocument.load(file.data)).getPages();
+  expect(pages.length).toBeGreaterThan(1);
+  for (const sheet of pages) expect(sheet.getWidth()).toBe(410 * 0.75);
+  const colors = await pdfPageColors(page, file.data, pages.length);
+  expect(colors.green).toBeGreaterThan(100);
+  expect(colors.red).toBe(0);
+  expect(colors.rightStripWhite).toBe(true);
+});
+
+test("full PDF export retains code beyond the preview limit and every page of a PDF attachment", async ({
+  page,
+}) => {
+  const source = (" ".repeat(80) + "\n").repeat(1000) + "END OF FILE";
+  const attachment = pdfFixture(3);
+  await setup(page, [
+    {
+      ...note("code", 105, 300),
+      kind: "file",
+      title: "source.txt",
+      mime: "text/plain",
+      displayMode: "small",
+      blob: "data:text/plain;base64," + Buffer.from(source).toString("base64"),
+    },
+    {
+      ...note("pdf", 550, 310),
+      kind: "file",
+      title: "pages.pdf",
+      mime: "application/pdf",
+      displayMode: "small",
+      pdfPage: 2,
+      blob: "data:application/pdf;base64," + attachment.toString("base64"),
+    },
+  ]);
+  expect((await downloadCardPdf(page, "pdf")).data).toEqual(attachment);
+  const file = await downloadCardPdf(page, "code");
+  const count = (await PDFDocument.load(file.data)).getPageCount();
+  // At 24px per line this exceeds both the normal preview limit and the
+  // maximum height of a conventional 16K screenshot canvas.
+  expect(count).toBeGreaterThan(20);
+  const colors = await pdfPageColors(page, file.data, count);
+  expect(colors.dark).toBeGreaterThan(0);
+});
+
+test("a wide Markdown table exports through its rightmost column", async ({
+  page,
+}) => {
+  await page.route("**/pdf-last-col.svg*", (route) =>
+    route.fulfill({
+      contentType: "image/svg+xml",
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" fill="#26bf40"/></svg>',
+    }),
+  );
+  const header = Array(20).fill("A").join("|");
+  const rule = Array(20).fill("---").join("|");
+  const row = Array(19).fill("X").concat("![end](/pdf-last-col.svg)").join("|");
+  await setup(page, [
+    {
+      ...note("wide", 160, 300),
+      kind: "file",
+      title: "wide.md",
+      displayMode: "custom",
+      customSize: { width: 200, height: 100 },
+      mime: "text/markdown",
+      blob:
+        "data:text/markdown;base64," +
+        Buffer.from([header, rule, row].join("\n")).toString("base64"),
+    },
+  ]);
+  const file = await downloadCardPdf(page, "wide");
+  const [sheet] = (await PDFDocument.load(file.data)).getPages();
+  expect(sheet.getWidth()).toBeGreaterThan(200 * 0.75);
+  expect((await pdfPageColors(page, file.data, 1)).green).toBeGreaterThan(0);
+});
+
+test("PDF includes mind map branches outside the card width", async ({
+  page,
+}) => {
+  let branch = {
+    id: "leaf",
+    text: "末端",
+    fill: "#26bf40",
+    children: [] as unknown[],
+  };
+  for (let i = 0; i < 8; i++)
+    branch = { id: "n" + i, text: "节点", fill: "#eeeeee", children: [branch] };
+  await setup(page, [
+    {
+      ...note("map", 160, 300),
+      kind: "mindmap",
+      text: JSON.stringify({ root: branch, view: "map", checkboxes: false }),
+      displayMode: "small",
+    },
+  ]);
+  const file = await downloadCardPdf(page, "map");
+  const [sheet] = (await PDFDocument.load(file.data)).getPages();
+  expect(sheet.getWidth()).toBeGreaterThan(900 * 0.75);
+  expect((await pdfPageColors(page, file.data, 1)).green).toBeGreaterThan(100);
 });

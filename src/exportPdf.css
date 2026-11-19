@@ -1,0 +1,87 @@
+.pdf-export {
+  position: relative;
+  overflow: hidden;
+  background: white;
+  color: #334155;
+  --ink: #334155;
+  --muted: #64748b;
+  --surface: white;
+  --surface-muted: #f1f5f9;
+  color-scheme: light;
+}
+.pdf-export-world,
+.pdf-export-world > article {
+  position: absolute;
+}
+.pdf-export-world > article {
+  display: flow-root;
+  overflow-wrap: anywhere;
+}
+.pdf-export * {
+  scrollbar-width: none;
+  scrollbar-gutter: auto;
+}
+.pdf-export *::-webkit-scrollbar {
+  display: none;
+}
+.pdf-export
+  :is(
+    .preview-boundary,
+    .markdown-chunk,
+    .mind-scroll,
+    .mermaid-preview,
+    .markdown-diagram,
+    .mermaid-preview .markdown-diagram > div,
+    .todo-list,
+    .tool-component,
+    .tool-body,
+    .agent-card,
+    .agent-messages,
+    .file-text
+  ) {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  contain: none;
+  container-type: normal;
+}
+.pdf-export
+  :is(.file-text, .mermaid-preview, .tool-component, .agent-card, .todo-list) {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.pdf-export .mind-layout {
+  padding: 0;
+}
+.pdf-export .markdown table {
+  display: table;
+  overflow: visible;
+}
+.pdf-export :is(pre, .pdf-export-note) {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: visible;
+}
+.pdf-export article > :is(pre, p),
+.pdf-export .markdown > :first-child {
+  margin-top: 0;
+}
+.pdf-export article > :last-child,
+.pdf-export .markdown > :last-child {
+  margin-bottom: 0;
+}
+.pdf-export .mermaid-preview .markdown-diagram svg {
+  height: auto;
+}
+.pdf-export .pdf-export-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.pdf-export .agent-readonly {
+  display: none;
+}

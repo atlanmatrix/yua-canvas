@@ -1,4 +1,5 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { FullContentExportContext } from "./ExportPreviewContext";
+import { memo, useContext, useEffect, useRef, useState } from "react";
 import {
   Calculator,
   ArrowLeftRight,
@@ -55,6 +56,7 @@ function CalculatorTool({
   value: ToolState;
   change: Change;
 }) {
+  const full = useContext(FullContentExportContext);
   const [error, setError] = useState("");
   const expression = value.expression || "";
   const run = () => {
@@ -144,9 +146,11 @@ function CalculatorTool({
         ))}
       </div>
       <div className="calculator-history" aria-label={tr("计算历史")}>
-        {value.history?.slice(0, 3).map((entry, i) => (
-          <div key={i}>{entry}</div>
-        ))}
+        {(full ? value.history : value.history?.slice(0, 3))?.map(
+          (entry, i) => (
+            <div key={i}>{entry}</div>
+          ),
+        )}
       </div>
     </>
   );

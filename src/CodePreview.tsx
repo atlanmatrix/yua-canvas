@@ -1,4 +1,5 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useContext, useEffect, useState } from "react";
+import { FullContentExportContext } from "./ExportPreviewContext";
 import { CODE_PREVIEW_LIMIT, highlightCode } from "./syntaxHighlight";
 import { normalizeLanguage } from "./textFormats";
 import { PreviewBoundary } from "./PreviewBoundary";
@@ -17,6 +18,7 @@ const Content = memo(function CodeContent({
   loading?: boolean;
 }) {
   usePreferences();
+  const full = useContext(FullContentExportContext);
   const [result, setResult] = useState<{
     source: string;
     language: string;
@@ -51,8 +53,11 @@ const Content = memo(function CodeContent({
             ? { dangerouslySetInnerHTML: { __html: html } }
             : { children: source.slice(0, CODE_PREVIEW_LIMIT) })}
         />
+        {full && source.length > CODE_PREVIEW_LIMIT && (
+          <code>{source.slice(CODE_PREVIEW_LIMIT)}</code>
+        )}
       </pre>
-      {source.length > CODE_PREVIEW_LIMIT && (
+      {!full && source.length > CODE_PREVIEW_LIMIT && (
         <small className="code-truncated">
           {tr("仅预览前 64 KB，完整内容可编辑或下载")}
         </small>

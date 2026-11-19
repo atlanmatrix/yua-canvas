@@ -4,3 +4,5 @@ import { createContext } from "react";
 export const ExportPreviewContext = createContext<number | undefined>(
   undefined,
 );
+
+export const FullContentExportContext = createContext(false);
