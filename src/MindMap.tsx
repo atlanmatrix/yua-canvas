@@ -97,11 +97,13 @@ export function MindMap({
       e.target.closest("button,input,select,textarea")
     )
       return;
+    const editKey = e.key === " " || /^[\p{L}\p{Nd}]$/u.test(e.key);
     if (
       node.id !== active ||
       e.nativeEvent.isComposing ||
+      e.nativeEvent.keyCode === 229 ||
       e.altKey ||
-      e.shiftKey
+      (e.shiftKey && !editKey)
     )
       return;
     const mod = e.ctrlKey || e.metaKey;
@@ -109,7 +111,8 @@ export function MindMap({
     if ((!mod && e.key === "Tab") || (mod && e.key === "Enter")) {
       if (!mod || parent) onInsert?.(node.id, mod);
     } else if (mod) return;
-    else if (e.key === "Enter" || e.key === "F2") setEditing(node.id);
+    else if (editKey || e.key === "Enter" || e.key === "F2")
+      setEditing(node.id);
     else if (parent && (e.key === "Delete" || e.key === "Backspace")) {
       patch(parent.id, (n) => ({
         ...n,
@@ -220,8 +223,7 @@ export function MindMap({
             defaultValue={node.text}
             style={{
               ...typography,
-              color: "var(--ink)",
-              backgroundColor: "var(--surface)",
+              backgroundColor: typography.backgroundColor ?? "transparent",
             }}
             onPointerDown={(e) => e.stopPropagation()}
             onDoubleClick={(e) => e.stopPropagation()}

@@ -333,3 +333,47 @@ test("branch colors, curves and underline anchors follow the hierarchy across th
   );
   await expect(incoming).toHaveAttribute("stroke", "#58a6ff");
 });
+
+test("space, letters and digits open inline editing with the original label selected", async ({
+  page,
+}) => {
+  const editor = page.getByRole("textbox", { name: "节点文字" });
+  async function checkActivation(key: string, original: string) {
+    const color = await selected(page)
+      .locator(".mind-label")
+      .evaluate((el) => getComputedStyle(el).color);
+    await page.keyboard.press(key);
+    await expect(editor, `editing after ${key}`).toBeFocused();
+    await expect(editor).toHaveValue(original);
+    expect(
+      await editor.evaluate((el: HTMLInputElement) => [
+        el.selectionStart,
+        el.selectionEnd,
+      ]),
+    ).toEqual([0, original.length]);
+    await expect(editor).toHaveCSS("color", color);
+    await expect(editor).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(editor).toHaveCSS("border-top-width", "0px");
+    await expect(editor).toHaveCSS("border-radius", "0px");
+  }
+  for (const key of ["Space", "h", "Shift+A", "0", "Shift+Numpad3"]) {
+    await checkActivation(key, "root");
+    await page.keyboard.type("replace 123");
+    await expect(editor).toHaveValue("replace 123");
+    await page.keyboard.press("Escape");
+    await expect(selected(page)).toHaveText("root");
+  }
+  await page.keyboard.press("Tab");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await checkActivation("a", "新节点");
+  await page.keyboard.type("Branch");
+  await page.keyboard.press("Enter");
+  await expect(selected(page)).toHaveText("Branch");
+  await menu(page, "root", "转为表格");
+  await node(page, "Branch").click();
+  await checkActivation("7", "Branch");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.type(" 2");
+  await page.keyboard.press("Enter");
+  await expect(selected(page)).toHaveText("Branch 2");
+});
