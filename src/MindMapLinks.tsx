@@ -58,13 +58,20 @@ export function MindMapLinks({
         const forward = a.right + a.x <= b.right + b.x;
         const from = { x: forward ? a.right : a.x, y: a.anchorY },
           to = { x: forward ? b.x : b.right, y: b.anchorY };
-        const args = [
-          from,
-          to,
-          forward ? "e" : "w",
-          forward ? "w" : "e",
-        ] as const;
-        return { id, d: curve(...args), ...curveMidpoint(...args) };
+        // Keep outward-facing handles when a dragged node overlaps its parent.
+        if (forward ? from.x > to.x : from.x < to.x) {
+          const args = [
+            from,
+            to,
+            forward ? "e" : "w",
+            forward ? "w" : "e",
+          ] as const;
+          return { id, d: curve(...args), ...curveMidpoint(...args) };
+        }
+        const x = (from.x + to.x) / 2;
+        const y = (from.y + to.y) / 2;
+        const d = `M ${from.x} ${from.y} C ${x} ${from.y}, ${x} ${to.y}, ${to.x} ${to.y}`;
+        return { id, d, x, y };
       });
       setEdges(paths);
     };

@@ -270,6 +270,39 @@ test("map and table show every node on a transparent canvas without inner scroll
   await checkFrame();
 });
 
+test("default branches run straight across a row and fan out without doubling back", async ({
+  page,
+}) => {
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Control+Enter");
+  await page.keyboard.press("Control+Enter");
+  const links = page.locator(".mind-links path[data-to]");
+  await expect(links).toHaveCount(4);
+  const spans = await links.evaluateAll((links) =>
+    links.map((el) => {
+      const path = el as SVGPathElement;
+      const length = path.getTotalLength();
+      const samples = Array.from({ length: 33 }, (_, i) =>
+        path.getPointAtLength((length * i) / 32),
+      );
+      const start = samples[0],
+        end = samples[32];
+      return {
+        rise: end.y - start.y,
+        straight: Math.abs(length - (end.x - start.x)) < 0.1,
+        forward: samples.every((point, i) => !i || point.x >= samples[i - 1].x),
+      };
+    }),
+  );
+  expect(
+    spans.filter((span) => Math.abs(span.rise) <= 1 && span.straight),
+  ).toHaveLength(2);
+  expect(spans.some((span) => span.rise < -1)).toBe(true);
+  expect(spans.some((span) => span.rise > 1)).toBe(true);
+  expect(spans.every((span) => span.forward)).toBe(true);
+});
+
 test("branch colors, curves and underline anchors follow the hierarchy across themes", async ({
   page,
 }) => {
@@ -424,19 +457,24 @@ test("map selection exposes ports, activation enables local drags and editable c
   expect((await rect(root)).x).toBeCloseTo(fixed.x, 0);
   await expect(path).not.toHaveAttribute("d", previous!);
   const hit = card.locator(".mind-link-hit");
-  const midpoint = await hit.evaluate((el: SVGPathElement) => {
+  const midpoint = () => hit.evaluate((el: SVGPathElement) => {
     const p = el
       .getPointAtLength(el.getTotalLength() / 2)
       .matrixTransform(el.getScreenCTM()!);
     return { x: p.x, y: p.y };
   });
-  await page.mouse.dblclick(midpoint.x, midpoint.y);
+  const clickPoint = await midpoint();
+  await page.mouse.dblclick(clickPoint.x, clickPoint.y);
   const editor = page.getByRole("textbox", { name: "连线文字" });
   await expect(editor).toBeFocused();
   await editor.fill("依赖");
   await editor.press("Enter");
   const label = card.locator(".mind-edge-label");
   await expect(label).toHaveText("依赖");
+  const labelBox = await rect(label);
+  const center = await midpoint();
+  expect(Math.abs(labelBox.x + labelBox.width / 2 - center.x)).toBeLessThan(1);
+  expect(Math.abs(labelBox.y + labelBox.height / 2 - center.y)).toBeLessThan(1);
   await label.dblclick();
   await editor.fill("取消");
   await editor.press("Escape");
