@@ -238,3 +238,69 @@ test("after a click, vertical hover switches rows immediately on either side of 
     await page.mouse.click(640, 40);
   }
 });
+
+test("switching submenu rows moves and resizes the open panel in place", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await (await menu(page, 240, 160)).hover();
+  const panel = page.getByRole("menu", { name: "新建组件", exact: true });
+  const original = await panel.elementHandle();
+  const before = (await panel.boundingBox())!;
+  // Hold the transition long enough to inspect its midpoint on slow machines.
+  await page.addStyleTag({
+    content: ".shared-submenu { --motion-state: 10s; }",
+  });
+  const apps = page.getByRole("menuitem", {
+    name: "新建应用关联",
+    exact: true,
+  });
+  await apps.hover();
+  const next = page.getByRole("menu", {
+    name: "新建应用关联组件",
+    exact: true,
+  });
+  await expect(next.getByRole("menuitem")).toHaveText(["VS Code", "iTerm2"]);
+  expect(await next.evaluate((el, first) => el === first, original)).toBe(true);
+  const mid = await next.evaluate((el) => {
+    for (const animation of el.getAnimations()) {
+      if (animation instanceof CSSTransition) {
+        animation.pause();
+        animation.currentTime = 5000;
+      }
+    }
+    const rect = el.getBoundingClientRect();
+    return {
+      top: rect.top,
+      height: rect.height,
+      targetTop: parseFloat((el as HTMLElement).style.top),
+      targetHeight: parseFloat((el as HTMLElement).style.height),
+    };
+  });
+  expect(mid.top).toBeGreaterThan(before.y);
+  expect(mid.top).toBeLessThan(mid.targetTop);
+  expect(mid.height).toBeLessThan(before.height);
+  expect(mid.height).toBeGreaterThan(mid.targetHeight);
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const tools = page.getByRole("menuitem", { name: "新建工具", exact: true });
+  await tools.hover();
+  const last = page.getByRole("menu", { name: "新建工具组件", exact: true });
+  expect(await last.evaluate((el, first) => el === first, original)).toBe(true);
+  expect(
+    await last.evaluate((el) =>
+      el
+        .getAnimations({ subtree: true })
+        .some(
+          (animation) =>
+            animation instanceof CSSTransition &&
+            animation.transitionProperty === "height",
+        ),
+    ),
+  ).toBe(false);
+  await tools.press("ArrowRight");
+  await expect(last.getByRole("menuitem").first()).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
+  await expect(tools).toBeFocused();
+  await expect(last).toHaveCount(0);
+});

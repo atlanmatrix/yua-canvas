@@ -9,13 +9,23 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
   type CSSProperties,
   type Dispatch,
   type SetStateAction,
 } from "react";
+type SubmenuContent = {
+  id: string;
+  trigger: RefObject<HTMLButtonElement | null>;
+  focusFirst: RefObject<boolean>;
+  label: string;
+  children: ReactNode;
+};
+
 const SubmenuContext = createContext<
   | {
       active?: string;
+      setContent: Dispatch<SetStateAction<SubmenuContent | undefined>>;
       setActive: Dispatch<SetStateAction<string | undefined>>;
     }
   | undefined
@@ -151,6 +161,7 @@ export function CanvasContextMenu({
     y: Number.isFinite(y) ? y : 8,
   });
   const [active, setActive] = useState<string>();
+  const [content, setContent] = useState<SubmenuContent>();
   const previousPointer = useRef<{ x: number; y: number } | undefined>(
     undefined,
   );
@@ -188,7 +199,7 @@ export function CanvasContextMenu({
     return () => window.removeEventListener("resize", place);
   }, [x, y, children]);
   return (
-    <SubmenuContext.Provider value={{ active, setActive }}>
+    <SubmenuContext.Provider value={{ active, setActive, setContent }}>
       <div
         ref={ref}
         className="context-menu"
@@ -207,6 +218,11 @@ export function CanvasContextMenu({
           previousPointer.current = current;
           const target = e.target as Element;
           if (target.closest(".context-submenu, .submenu-bridge")) return;
+          // Keep the panel alive while crossing the padding between sections.
+          if (active && !target.closest("button")) {
+            hoverTimer.current = setTimeout(() => setActive(undefined), 150);
+            return;
+          }
           const trigger = target.closest<HTMLButtonElement>(
             "button[aria-haspopup=menu]:enabled",
           );
@@ -239,6 +255,12 @@ export function CanvasContextMenu({
         onContextMenu={(e) => e.preventDefault()}
       >
         {children}
+        {active && content && (
+          <SubmenuPanel
+            content={content}
+            onClose={() => setActive(undefined)}
+          />
+        )}
       </div>
     </SubmenuContext.Provider>
   );
@@ -271,135 +293,40 @@ export function ContextSubmenu({
           value ? id : current === id ? undefined : current,
         )
       : setLocalOpen(value);
-  const [position, setPosition] = useState<{
-    x: number;
-    y: number;
-    bridge?: CSSProperties;
-  }>({ x: 0, y: 0 });
   const trigger = useRef<HTMLButtonElement>(null);
-  const submenu = useRef<HTMLDivElement>(null);
-  const layer = useRef<HTMLDivElement>(null);
   const entryX = useRef<number | undefined>(undefined);
-  useLayoutEffect(() => {
-    if (!open || !layer.current) return;
-    layer.current.showPopover();
-    const settings = trigger.current?.closest(".settings-popover");
-    const onToggle = (event: Event) => {
-      if ((event as ToggleEvent).newState === "closed") setOpen(false);
-    };
-    settings?.addEventListener("beforetoggle", onToggle);
-    return () => settings?.removeEventListener("beforetoggle", onToggle);
-  }, [open]);
+  const focusFirst = useRef(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
-  const focusFirst = useRef(false);
   const cancelClose = () => clearTimeout(closeTimer.current);
+  useLayoutEffect(() => cancelClose, []);
+  const accessibleLabel = menuLabel || tr("{0}组件", label);
+  const setContent = controller?.setContent;
   useLayoutEffect(() => {
-    if (!open) return;
-    const place = () => {
-      const anchor = trigger.current?.getBoundingClientRect();
-      const element = submenu.current;
-      if (!anchor || !element) return;
-      const bounds = element.getBoundingClientRect();
-      const parent =
-        trigger.current
-          ?.closest(".context-menu, .settings-popover")
-          ?.getBoundingClientRect() ?? anchor;
-      const inset =
-        element.clientTop + parseFloat(getComputedStyle(element).paddingTop);
-      const gap = controller ? -10 : 8;
-      const preferred = parent.right + gap;
-      const below =
-        preferred + bounds.width > innerWidth - 8 &&
-        parent.left - bounds.width - gap < 8;
-      const opensRight = preferred + bounds.width <= innerWidth - 8;
-      const x = Math.max(
-        8,
-        Math.min(
-          below
-            ? anchor.left
-            : opensRight
-              ? preferred
-              : parent.left - bounds.width - gap,
-          innerWidth - bounds.width - 8,
-        ),
-      );
-      const y = Math.max(
-        8,
-        Math.min(
-          below
-            ? anchor.bottom + 8 + bounds.height <= innerHeight - 8
-              ? anchor.bottom + 8
-              : anchor.top - bounds.height - 8
-            : anchor.top - inset,
-          innerHeight - bounds.height - 8,
-        ),
-      );
-      let bridge: CSSProperties | undefined;
-      if (below) {
-        const left = Math.max(x, anchor.left);
-        bridge = {
-          left,
-          width: Math.max(0, Math.min(x + bounds.width, anchor.right) - left),
-          top: y >= anchor.bottom ? anchor.bottom : y + bounds.height,
-          height: Math.max(
-            0,
-            y - anchor.bottom,
-            anchor.top - y - bounds.height,
-          ),
-        };
-      } else if (!controller) {
-        // Standalone settings submenus span a gap between the two panels.
-        const top = Math.min(y, anchor.top);
-        const edge = opensRight ? anchor.right : anchor.left;
-        const entry = Math.max(
-          anchor.left,
-          Math.min(
-            anchor.right,
-            entryX.current ?? (anchor.left + anchor.right) / 2,
-          ),
-        );
-        const start = opensRight
-          ? Math.min(edge, entry + 8)
-          : Math.max(edge, entry - 8);
-        const end = opensRight ? x : x + bounds.width;
-        const left = Math.min(start, end);
-        const point = (px: number, py: number) =>
-          `${px - left}px ${py - top}px`;
-        bridge = {
-          left,
-          top,
-          width: Math.abs(end - start),
-          height: Math.max(anchor.bottom, y + bounds.height) - top,
-          clipPath: `polygon(${[
-            point(start, anchor.top),
-            point(end, y),
-            point(end, y + bounds.height),
-            point(start, anchor.bottom),
-            point(edge, anchor.bottom),
-            point(edge, anchor.top),
-          ].join(", ")})`,
-        };
-      }
-      setPosition({ x, y, bridge });
-      if (focusFirst.current) {
-        submenu.current
-          ?.querySelector<HTMLButtonElement>("button:not(:disabled)")
-          ?.focus();
-        focusFirst.current = false;
-      }
+    if (!open || !setContent) return;
+    const content = {
+      id,
+      trigger,
+      focusFirst,
+      label: accessibleLabel,
+      children,
     };
-    place();
-    window.addEventListener("resize", place);
-    const panel = trigger.current?.closest(".settings-popover, .context-menu");
-    panel?.addEventListener("scroll", place);
-    return () => {
-      panel?.removeEventListener("scroll", place);
-      window.removeEventListener("resize", place);
-      cancelClose();
-    };
-  }, [open, children]);
+    setContent(content);
+    return () =>
+      setContent((current) => (current === content ? undefined : current));
+  }, [id, open, setContent, accessibleLabel, children]);
+  const openMenu = (focus: boolean) => {
+    if (open && focus) {
+      document
+        .getElementById(id + "-menu")
+        ?.querySelector<HTMLButtonElement>("button:enabled")
+        ?.focus();
+    } else {
+      focusFirst.current = focus;
+    }
+    setOpen(true);
+  };
   const close = () => {
     cancelClose();
     setOpen(false);
@@ -438,14 +365,10 @@ export function ContextSubmenu({
         disabled={disabled}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-controls={open ? id + "-menu" : undefined}
         onClick={(e) => {
           cancelClose();
-          focusFirst.current = !e.detail;
-          if (open && !e.detail)
-            submenu.current
-              ?.querySelector<HTMLButtonElement>("button:not(:disabled)")
-              ?.focus();
-          setOpen(true);
+          openMenu(!e.detail);
         }}
         onKeyDown={(e) => {
           const settings = !!trigger.current?.closest(".settings-popover");
@@ -455,12 +378,7 @@ export function ContextSubmenu({
           ) {
             e.preventDefault();
             e.stopPropagation();
-            focusFirst.current = true;
-            if (open)
-              submenu.current
-                ?.querySelector<HTMLButtonElement>("button")
-                ?.focus();
-            else setOpen(true);
+            openMenu(true);
           }
           if (e.key === "Escape" && open) {
             e.preventDefault();
@@ -473,39 +391,197 @@ export function ContextSubmenu({
         <span>{label}</span>
         <ChevronRight className="submenu-arrow" size={14} aria-hidden="true" />
       </button>
-      {open && (
-        <div ref={layer} popover="manual" className="submenu-layer">
-          {position.bridge && (
-            <span
-              aria-hidden="true"
-              className="submenu-bridge"
-              style={position.bridge}
-            />
-          )}
-          <div
-            ref={submenu}
-            className="context-menu context-submenu"
-            role="menu"
-            aria-label={menuLabel || tr("{0}组件", label)}
-            style={{ left: position.x, top: position.y }}
-            onKeyDown={(e) => {
-              if (
-                ["Escape", "ArrowLeft"].includes(e.key) ||
-                (e.key === "ArrowRight" &&
-                  trigger.current?.closest(".settings-popover"))
-              ) {
-                e.stopPropagation();
-                e.preventDefault();
-                close();
-                return;
-              }
-              navigateMenu(e);
-            }}
-          >
+      {open && !controller && (
+        <SubmenuPanel
+          content={{
+            id,
+            trigger,
+            focusFirst,
+            label: accessibleLabel,
+            children,
+          }}
+          entryX={entryX}
+          onClose={() => setLocalOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function SubmenuPanel({
+  content: { id, trigger, focusFirst, label, children },
+  entryX,
+  onClose,
+}: {
+  content: SubmenuContent;
+  entryX?: RefObject<number | undefined>;
+  onClose: () => void;
+}) {
+  const layer = useRef<HTMLDivElement>(null);
+  const submenu = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
+  const [bridge, setBridge] = useState<CSSProperties>();
+  useLayoutEffect(() => {
+    layer.current?.showPopover();
+  }, []);
+  useLayoutEffect(() => {
+    const settings = trigger.current?.closest(".settings-popover");
+    const onToggle = (event: Event) => {
+      if ((event as ToggleEvent).newState === "closed") onClose();
+    };
+    settings?.addEventListener("beforetoggle", onToggle);
+    return () => settings?.removeEventListener("beforetoggle", onToggle);
+  }, [trigger, onClose]);
+  useLayoutEffect(() => {
+    const sizeSource = inner.current ?? submenu.current;
+    if (!sizeSource) return;
+    const place = () => {
+      const anchor = trigger.current?.getBoundingClientRect();
+      const element = submenu.current;
+      if (!anchor || !element) return;
+      const bounds = sizeSource.getBoundingClientRect();
+      const width = bounds.width + (inner.current ? 2 * element.clientLeft : 0);
+      const height =
+        bounds.height + (inner.current ? 2 * element.clientTop : 0);
+      const parent =
+        trigger.current
+          ?.closest(".context-menu, .settings-popover")
+          ?.getBoundingClientRect() ?? anchor;
+      const inset =
+        element.clientTop + parseFloat(getComputedStyle(sizeSource).paddingTop);
+      const gap = entryX ? 8 : -10;
+      const preferred = parent.right + gap;
+      const below =
+        preferred + width > innerWidth - 8 && parent.left - width - gap < 8;
+      const opensRight = preferred + width <= innerWidth - 8;
+      const x = Math.max(
+        8,
+        Math.min(
+          below
+            ? anchor.left
+            : opensRight
+              ? preferred
+              : parent.left - width - gap,
+          innerWidth - width - 8,
+        ),
+      );
+      const y = Math.max(
+        8,
+        Math.min(
+          below
+            ? anchor.bottom + 8 + height <= innerHeight - 8
+              ? anchor.bottom + 8
+              : anchor.top - height - 8
+            : anchor.top - inset,
+          innerHeight - height - 8,
+        ),
+      );
+      let bridge: CSSProperties | undefined;
+      if (below) {
+        const left = Math.max(x, anchor.left);
+        bridge = {
+          left,
+          width: Math.max(0, Math.min(x + width, anchor.right) - left),
+          top: y >= anchor.bottom ? anchor.bottom : y + height,
+          height: Math.max(0, y - anchor.bottom, anchor.top - y - height),
+        };
+      } else if (entryX) {
+        // Standalone settings submenus span a gap between the two panels.
+        const top = Math.min(y, anchor.top);
+        const edge = opensRight ? anchor.right : anchor.left;
+        const entry = Math.max(
+          anchor.left,
+          Math.min(
+            anchor.right,
+            entryX.current ?? (anchor.left + anchor.right) / 2,
+          ),
+        );
+        const start = opensRight
+          ? Math.min(edge, entry + 8)
+          : Math.max(edge, entry - 8);
+        const end = opensRight ? x : x + width;
+        const left = Math.min(start, end);
+        const point = (px: number, py: number) =>
+          `${px - left}px ${py - top}px`;
+        bridge = {
+          left,
+          top,
+          width: Math.abs(end - start),
+          height: Math.max(anchor.bottom, y + height) - top,
+          clipPath: `polygon(${[
+            point(start, anchor.top),
+            point(end, y),
+            point(end, y + height),
+            point(start, anchor.bottom),
+            point(edge, anchor.bottom),
+            point(edge, anchor.top),
+          ].join(", ")})`,
+        };
+      }
+      if (inner.current) {
+        // Measure the intrinsic content independently of the animating shell.
+        element.classList.toggle("submenu-morphing", !!element.style.left);
+        element.style.width = width + "px";
+        element.style.height = height + "px";
+      }
+      element.style.left = x + "px";
+      element.style.top = y + "px";
+      setBridge(bridge);
+      if (focusFirst.current) {
+        submenu.current
+          ?.querySelector<HTMLButtonElement>("button:not(:disabled)")
+          ?.focus();
+        focusFirst.current = false;
+      }
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(sizeSource);
+    window.addEventListener("resize", place);
+    const panel = trigger.current?.closest(".settings-popover, .context-menu");
+    panel?.addEventListener("scroll", place);
+    return () => {
+      panel?.removeEventListener("scroll", place);
+      window.removeEventListener("resize", place);
+      observer.disconnect();
+    };
+  }, [trigger, children, entryX, focusFirst]);
+  return (
+    <div ref={layer} popover="manual" className="submenu-layer">
+      {bridge && (
+        <span aria-hidden="true" className="submenu-bridge" style={bridge} />
+      )}
+      <div
+        ref={submenu}
+        id={id + "-menu"}
+        className={
+          "context-menu context-submenu" + (entryX ? "" : " shared-submenu")
+        }
+        role="menu"
+        aria-label={label}
+        onKeyDown={(e) => {
+          if (
+            ["Escape", "ArrowLeft"].includes(e.key) ||
+            (e.key === "ArrowRight" &&
+              trigger.current?.closest(".settings-popover"))
+          ) {
+            e.stopPropagation();
+            e.preventDefault();
+            onClose();
+            trigger.current?.focus();
+            return;
+          }
+          navigateMenu(e);
+        }}
+      >
+        {entryX ? (
+          children
+        ) : (
+          <div key={id} ref={inner} className="submenu-content">
             {children}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

@@ -1876,6 +1876,36 @@ body .note-address button.note-link-icon:is(:hover, :focus-visible) {
 .context-submenu-host > button[aria-expanded="true"] { background: var(--accent-soft); }
 .submenu-arrow { margin-left: 24px; font-size: 18px; line-height: 14px; color: var(--muted); }
 .context-submenu { min-width: 160px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); overflow-y: auto; z-index: 21; }
+body .context-submenu.shared-submenu {
+  padding: 0;
+  min-width: 0;
+  overflow: clip;
+}
+.submenu-content {
+  display: grid;
+  grid-auto-rows: max-content;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: min(160px, calc(100vw - 18px));
+  max-width: calc(100vw - 18px);
+  max-height: calc(100dvh - 18px);
+  padding: 8px;
+  overflow: auto;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .shared-submenu.submenu-morphing {
+    transition-property: left, top, width, height;
+    transition-duration: var(--motion-state);
+    transition-timing-function: var(--ease-morph);
+  }
+  .submenu-content {
+    animation: submenu-content-in var(--motion-micro) ease-out;
+  }
+}
+@keyframes submenu-content-in {
+  from { opacity: .35; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .context-submenu button:focus-visible { border-color: var(--accent); background: var(--accent-soft); }
 
 .pwa-offline { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; white-space: nowrap; }
