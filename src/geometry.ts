@@ -166,6 +166,9 @@ export const cardRect = (c: CardGeometry): Rect => {
       height: Math.round(layout.contentWidth * 0.75) + 2 * layout.insetY + 2,
     };
   }
+  if (c.kind === "calculator" && c.displayMode === "large") {
+    return { x: c.x, y: c.y, width: 384, height: 408 };
+  }
   if (c.kind === "calculator" && c.displayMode === "medium" && !c.previewWidth && !c.previewHeight) {
     return { x: c.x, y: c.y, width: 268, height: 380 };
   }

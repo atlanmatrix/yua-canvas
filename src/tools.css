@@ -444,16 +444,19 @@
   font-variant-numeric: tabular-nums;
 }
 .calculator-keys {
-  /* Reserve space for the display and history before sizing the square keys. */
+  --columns: 4;
+  /* Keep the keys round and distribute spare width between the columns. */
   --key-size: clamp(24px, min(
-    (100cqw - 3 * var(--key-space)) / 4,
+    (100cqw - (var(--columns) - 1) * var(--key-space)) / var(--columns),
     (100cqh - var(--display-height) - var(--history-height) - 2 * var(--section-gap) - 4 * var(--key-space)) / 5
   ), 48px);
-  justify-content: center;
-  grid-template-columns: repeat(4, var(--key-size));
+  justify-content: space-between;
+  grid-template-columns: repeat(var(--columns), var(--key-size));
   grid-auto-rows: var(--key-size);
   gap: var(--key-space);
 }
+.calculator-keys.scientific-keys { --columns: 6; }
+.calculator-angle { margin-left: auto; font-size: 11px; }
 .calculator-keys button { width: 100%; min-height: 0; padding: 0; }
 .calculator-history:empty { display: none; }
 .calculator-history:not(:empty) {

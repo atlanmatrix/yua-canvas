@@ -245,6 +245,8 @@ export const english: Record<string, string> = {
   转换工具: "Conversion tools",
   新建应用关联: "New app link",
   计算器: "Calculator",
+  科学计算器: "Scientific calculator",
+  弧度: "Radians",
   汇率计算: "Currency exchange",
   "摄氏度 / 华氏度": "Celsius / Fahrenheit",
   距离单位转换: "Distance converter",

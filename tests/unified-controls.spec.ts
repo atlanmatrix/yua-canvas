@@ -75,6 +75,69 @@ test("the calculator display stays fully visible and stable as history grows in 
   );
 });
 
+test("calculator size presets align every row with the display and share calculations", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page
+    .locator(".canvas")
+    .click({ button: "right", position: { x: 210, y: 120 } });
+  await page.getByRole("menuitem", { name: "新建工具", exact: true }).hover();
+  await page.getByRole("menuitem", { name: "计算器", exact: true }).click();
+  const card = page.locator(".card-calculator");
+  const input = card.getByRole("textbox");
+  const key = (name: string) => card.getByRole("button", { name, exact: true });
+  const switchSize = async (size: string) => {
+    await card.locator(".tool-heading").click({ button: "right" });
+    await page
+      .getByRole("menuitemradio", { name: `显示模式：${size}`, exact: true })
+      .click();
+  };
+  const checkRows = async (columns: number) => {
+    const display = (await input.boundingBox())!;
+    const keys = card.locator(".calculator-keys button");
+    await expect(keys).toHaveCount(columns * 5);
+    for (let row = 0; row < 5; row++) {
+      const first = (await keys.nth(row * columns).boundingBox())!;
+      const last = (await keys.nth((row + 1) * columns - 1).boundingBox())!;
+      expect(first.x).toBeCloseTo(display.x, 0);
+      expect(last.x + last.width).toBeCloseTo(display.x + display.width, 0);
+      expect(first.y).toBe(last.y);
+    }
+  };
+
+  await checkRows(4);
+  await input.fill("2+");
+  await switchSize("大");
+  await expect(card.locator(".tool-heading")).toContainText("科学计算器");
+  await expect(input).toHaveValue("2+");
+  await checkRows(6);
+  for (const label of [
+    "sin",
+    "π",
+    "÷",
+    "2",
+    ")",
+    "+",
+    "√",
+    "9",
+    ")",
+    "+",
+    "2",
+    "xʸ",
+    "3",
+    "=",
+  ])
+    await key(label).click();
+  await expect(input).toHaveValue("14");
+  await switchSize("中");
+  await checkRows(4);
+  await expect(input).toHaveValue("14");
+  await expect(card.locator(".calculator-history")).toContainText(
+    "2+sin(π÷2)+sqrt(9)+2^3 = 14",
+  );
+});
+
 test("zoom steps, limits and sparse dots survive a reload", async ({
   page,
 }) => {

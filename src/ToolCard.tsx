@@ -49,12 +49,39 @@ const unitNames: Record<string, string> = {
   C: "摄氏度",
   F: "华氏度",
 };
+const basicKeyRows = [
+  ["AC", "(", ")", "÷"],
+  ["7", "8", "9", "×"],
+  ["4", "5", "6", "−"],
+  ["1", "2", "3", "+"],
+  ["⌫", "0", ".", "="],
+];
+const scientificKeyRows = [
+  ["sin", "cos"],
+  ["tan", "√"],
+  ["log", "ln"],
+  ["x²", "xʸ"],
+  ["π", "e"],
+];
+const scientificTokens: Record<string, string> = {
+  sin: "sin(",
+  cos: "cos(",
+  tan: "tan(",
+  "√": "sqrt(",
+  log: "log(",
+  ln: "ln(",
+  "x²": "^2",
+  xʸ: "^",
+};
+
 function CalculatorTool({
   value,
   change,
+  scientific,
 }: {
   value: ToolState;
   change: Change;
+  scientific: boolean;
 }) {
   const full = useContext(FullContentExportContext);
   const [error, setError] = useState("");
@@ -81,7 +108,7 @@ function CalculatorTool({
           ? ""
           : key === "⌫"
             ? expression.slice(0, -1)
-            : expression + key,
+            : (expression + (scientificTokens[key] ?? key)).slice(0, 2000),
     });
     setError("");
   };
@@ -110,40 +137,27 @@ function CalculatorTool({
           {tr(error)}
         </p>
       )}
-      <div className="calculator-keys">
-        {[
-          "AC",
-          "(",
-          ")",
-          "÷",
-          "7",
-          "8",
-          "9",
-          "×",
-          "4",
-          "5",
-          "6",
-          "−",
-          "1",
-          "2",
-          "3",
-          "+",
-          "⌫",
-          "0",
-          ".",
-          "=",
-        ].map((key) => (
-          <button
-            key={key}
-            className={key === "=" ? "primary" : ""}
-            aria-label={
-              key === "⌫" ? tr("退格") : key === "AC" ? tr("清空") : key
-            }
-            onClick={() => (key === "=" ? run() : append(key))}
-          >
-            {key === "⌫" ? <Delete size={16} /> : key}
-          </button>
-        ))}
+      <div
+        className={
+          scientific ? "calculator-keys scientific-keys" : "calculator-keys"
+        }
+      >
+        {basicKeyRows
+          .flatMap((row, i) =>
+            scientific ? [...scientificKeyRows[i], ...row] : row,
+          )
+          .map((key) => (
+            <button
+              key={key}
+              className={key === "=" ? "primary" : ""}
+              aria-label={
+                key === "⌫" ? tr("退格") : key === "AC" ? tr("清空") : key
+              }
+              onClick={() => (key === "=" ? run() : append(key))}
+            >
+              {key === "⌫" ? <Delete size={16} /> : key}
+            </button>
+          ))}
       </div>
       <div className="calculator-history" aria-label={tr("计算历史")}>
         {(full ? value.history : value.history?.slice(0, 3))?.map(
@@ -440,15 +454,25 @@ const Content = memo(function ToolContent({
   };
   const kind = card.kind as ToolKind,
     Icon = TOOL_ICONS[kind];
+  const large =
+    card.displayMode === "large" ||
+    (card.displayMode === "custom" && card.customSize?.base === "large");
+  const scientific = kind === "calculator" && large;
+  const title = tr(scientific ? "科学计算器" : TOOL_NAMES[kind]);
   return (
     <section
       className={`tool-component tool-${kind}`}
-      aria-label={tr(TOOL_NAMES[kind])}
+      aria-label={title}
       onDoubleClick={(e) => e.stopPropagation()}
     >
       <header className="tool-heading">
         <Icon size={17} />
-        <strong>{tr(TOOL_NAMES[kind])}</strong>
+        <strong>{title}</strong>
+        {scientific && (
+          <span className="calculator-angle" title={tr("弧度")}>
+            RAD
+          </span>
+        )}
       </header>
       <div
         className="tool-body"
@@ -461,17 +485,13 @@ const Content = memo(function ToolContent({
         }}
       >
         {kind === "calculator" ? (
-          <CalculatorTool value={value} change={change} />
-        ) : kind === "weather" ? (
-          <WeatherTool
+          <CalculatorTool
             value={value}
             change={change}
-            showDaily={
-              card.displayMode === "large" ||
-              (card.displayMode === "custom" &&
-                card.customSize?.base === "large")
-            }
+            scientific={scientific}
           />
+        ) : kind === "weather" ? (
+          <WeatherTool value={value} change={change} showDaily={large} />
         ) : kind === "calendar" ? (
           <CalendarTool value={value} change={change} />
         ) : (
