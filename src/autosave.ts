@@ -1,8 +1,7 @@
 import { useEffect, useRef } from "react";
 import { saveBoard, type Board, type View, type Navigation } from "./storage";
 
-// Save only after the user has stopped interacting; an older write must not
-// report success over a newer pending change.
+// Game moves checkpoint immediately. Other canvas edits wait for input to settle.
 export function useAutosave(
   board: Board,
   view: View,
@@ -11,6 +10,7 @@ export function useAutosave(
   navigation?: Navigation,
 ) {
   const initialized = useRef(false);
+  const immediate = useRef(false);
   useEffect(() => {
     if (!ready) return;
     if (!initialized.current) {
@@ -21,27 +21,34 @@ export function useAutosave(
     let pending = true;
     let revision = 0;
     let timer: ReturnType<typeof setTimeout>;
+    const save = (current: number) => {
+      saveBoard(board, view, navigation).then(
+        () => {
+          if (active && current === revision) {
+            pending = false;
+            setStatus("已保存至本地");
+          }
+        },
+        () => {
+          if (active && current === revision) {
+            pending = false;
+            setStatus("保存失败");
+          }
+        },
+      );
+    };
+    if (immediate.current) {
+      immediate.current = false;
+      setStatus("正在保存…");
+      save(revision);
+      return () => { active = false; };
+    }
     const schedule = () => {
       if (!pending) return;
       clearTimeout(timer);
       const current = ++revision;
       setStatus("正在保存…");
-      timer = setTimeout(() => {
-        saveBoard(board, view, navigation).then(
-          () => {
-            if (active && current === revision) {
-              pending = false;
-              setStatus("已保存至本地");
-            }
-          },
-          () => {
-            if (active && current === revision) {
-              pending = false;
-              setStatus("保存失败");
-            }
-          },
-        );
-      }, 600);
+      timer = setTimeout(() => save(current), 600);
     };
     const move = (e: PointerEvent) => {
       if (e.buttons) schedule();
@@ -74,4 +81,5 @@ export function useAutosave(
       window.removeEventListener("pointermove", move, true);
     };
   }, [board, view, ready, setStatus, navigation]);
+  return () => { immediate.current = true; };
 }

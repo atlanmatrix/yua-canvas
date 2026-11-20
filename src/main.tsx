@@ -36,6 +36,7 @@ import {
   isToolKind,
   type ToolKind,
 } from "./tools";
+import { GAME_KINDS, isGameKind, newGame } from "./relaxGames";
 import { TOOL_ICONS } from "./ToolCard";
 import { ExportMenu, type ExportFormat } from "./ExportMenu";
 import { MenuButton } from "./MenuShortcut";
@@ -512,7 +513,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         notify("无法读取浏览器存储，请检查浏览器设置后刷新。");
       });
   }, []);
-  useAutosave(
+  const saveNextChangeImmediately = useAutosave(
     root,
     view,
     ready && !importBusy && !lockBusy,
@@ -1040,13 +1041,15 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     if (kind === "text") addText(point);
     else if (kind === "todo") addTodo(point);
     else if (kind === "agent" || isToolKind(kind)) {
+      const game = isGameKind(kind) ? newGame(kind) : undefined;
+      if (game) saveNextChangeImmediately();
       const card: Card = {
         id: uid(),
         kind,
         title: kind === "agent" ? "Agent" : tr(TOOL_NAMES[kind]),
-        text: kind === "agent" ? JSON.stringify(defaultAgent) : "{}",
+        text: JSON.stringify(kind === "agent" ? defaultAgent : game ?? {}),
         color: colors[0],
-        displayMode: kind === "agent" ? "large" : "medium",
+        displayMode: kind === "agent" || game ? "large" : "medium",
         width: kind === "agent" ? 400 : kind === "calculator" ? 268 : 360,
         height:
           kind === "agent"
@@ -1056,6 +1059,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               : kind === "calendar" || kind === "weather"
                 ? 370
                 : 290,
+        ...(game && { width: 312, height: 424 }),
         ...point,
       };
       setBoard((b) => ({
@@ -1067,6 +1071,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       }));
       setSelection([card.id]);
       setSelectedGroup(undefined);
+      if (game) requestAnimationFrame(() => {
+        surface.current?.querySelector<HTMLElement>(`[data-card-id="${card.id}"] .relax-body`)?.focus({ preventScroll: true });
+      });
     } else if (isApplicationKind(kind))
       setApplicationDraft({ kind, ...point, text: "" });
     else if (kind === "file" || isDiagramKind(kind)) {
@@ -2587,6 +2594,14 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       copyCommands,
       openCard,
       updateCards,
+      updateToolText: (card: Card, text: string) => {
+        const game = isGameKind(card.kind);
+        if (game) saveNextChangeImmediately();
+        setBoard((b) => ({
+          ...b,
+          cards: b.cards.map(c => c.id === card.id ? { ...c, text } : c),
+        }), game ? { preserveLayout: true, recordHistory: false } : undefined);
+      },
       navigateCanvas,
       changeText,
       changeTodo,
@@ -2778,6 +2793,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           onClickCapture={touch.click}
           onDoubleClickCapture={touch.doubleClick}
           onPointerDownCapture={(e) => {
+            if ((e.target as Element).closest(".relax-body")) return;
             if (touch.down(e)) return;
             if ((e.target as Element).closest(".canvas-editor,.note-link-icon"))
               return;
@@ -2795,7 +2811,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             if (touch.context(e)) return;
             if (
               e.button === 2 &&
-              !(e.target as Element).closest(".canvas-editor,.note-link-icon")
+              !(e.target as Element).closest(".canvas-editor,.note-link-icon,.relax-body")
             ) {
               e.preventDefault();
               e.stopPropagation();
@@ -3476,6 +3492,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     <Terminal size={14} />
                     iTerm2
                   </button>
+                </ContextSubmenu>
+                <ContextSubmenu label="Relax" menuLabel="Relax">
+                  {GAME_KINDS.map(renderToolMenuItem)}
                 </ContextSubmenu>
               </MenuSection>
               <MenuSection label={tr("内容操作")}>

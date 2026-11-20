@@ -12,6 +12,8 @@ import {
   RotateCw,
   Delete,
 } from "./icons";
+import { GameCard, GAME_ICONS } from "./GameCard";
+import { isGameKind, type GameKind } from "./relaxGames";
 import { WeatherTool } from "./WeatherTool";
 import type { Card } from "./storage";
 import { PreviewBoundary } from "./PreviewBoundary";
@@ -28,6 +30,7 @@ import {
 import { readToolCache, saveToolCache, toolJson } from "./toolData";
 import { t as tr, locale, usePreferences } from "./i18n";
 export const TOOL_ICONS = {
+  ...GAME_ICONS,
   calculator: Calculator,
   currency: ArrowLeftRight,
   temperature: Thermometer,
@@ -452,7 +455,7 @@ const Content = memo(function ToolContent({
     setValue(updated);
     onChange?.(JSON.stringify(updated));
   };
-  const kind = card.kind as ToolKind,
+  const kind = card.kind as Exclude<ToolKind, GameKind>,
     Icon = TOOL_ICONS[kind];
   const large =
     card.displayMode === "large" ||
@@ -507,7 +510,9 @@ export function ToolCard(props: {
 }) {
   return (
     <PreviewBoundary allowTiny>
-      <Content {...props} />
+      {isGameKind(props.card.kind) ? (
+        <GameCard kind={props.card.kind} text={props.card.text} onChange={props.onChange} />
+      ) : <Content {...props} />}
     </PreviewBoundary>
   );
 }

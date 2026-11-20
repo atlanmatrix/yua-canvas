@@ -1,6 +1,7 @@
+import { GAME_KINDS, isGameKind, validGame } from "./relaxGames";
 export const GENERAL_TOOL_KINDS = ["calculator", "weather", "calendar"] as const;
 export const CONVERSION_TOOL_KINDS = ["distance", "temperature", "currency"] as const;
-export const TOOL_KINDS = [...GENERAL_TOOL_KINDS, ...CONVERSION_TOOL_KINDS] as const;
+export const TOOL_KINDS = [...GENERAL_TOOL_KINDS, ...CONVERSION_TOOL_KINDS, ...GAME_KINDS] as const;
 export type ToolKind = (typeof TOOL_KINDS)[number];
 export const TOOL_NAMES: Record<ToolKind, string> = {
   calculator: "计算器",
@@ -9,6 +10,9 @@ export const TOOL_NAMES: Record<ToolKind, string> = {
   distance: "距离单位转换",
   weather: "天气",
   calendar: "日历",
+  minesweeper: "扫雷",
+  snake: "贪吃蛇",
+  "2048": "2048",
 };
 export const isToolKind = (kind: string): kind is ToolKind =>
   (TOOL_KINDS as readonly string[]).includes(kind);
@@ -82,6 +86,7 @@ export function validToolText(kind: ToolKind, text: unknown): boolean {
   } catch {
     return false;
   }
+  if (isGameKind(kind)) return validGame(kind, state);
   if (!state || typeof state !== "object" || Array.isArray(state)) return false;
   if (
     Object.keys(state).some(

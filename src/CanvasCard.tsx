@@ -80,6 +80,7 @@ export type CanvasCardActions = {
     offset?: number,
     append?: boolean,
   ) => void;
+  updateToolText: (card: Card, text: string) => void;
   updateCards: (fn: (cards: Card[]) => Card[]) => void;
   navigateCanvas: (path: string[]) => void;
   changeText: (id: string, text: string, runs: TextRun[]) => void;
@@ -402,13 +403,7 @@ export const CanvasCard = memo(function CanvasCard({
           ) : isToolKind(c.kind) ? (
             <ToolCard
               card={c}
-              onChange={(text) =>
-                updateCards((cards) =>
-                  cards.map((card) =>
-                    card.id === c.id ? { ...card, text } : card,
-                  ),
-                )
-              }
+              onChange={(text) => actions.updateToolText(c, text)}
             />
           ) : isApplicationKind(c.kind) ? (
             <ApplicationCard card={c} />
