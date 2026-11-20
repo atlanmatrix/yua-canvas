@@ -76,16 +76,20 @@ test("rounded submenus align the first choice with the trigger and remain inside
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
+  // Measure the resting layout rather than an intermediate animation frame.
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   await page.mouse.click(500, 220, { button: "right" });
-  const trigger = page.getByRole("menuitem", { name: "新建", exact: true });
-  await trigger.hover();
-  const submenu = page.getByRole("menu", { name: "新建组件", exact: true });
-  await expect(submenu).toBeVisible();
-  const item = await submenu.getByRole("menuitem").first().boundingBox(),
-    anchor = await trigger.boundingBox(),
-    panel = await submenu.boundingBox();
-  expect(item!.y).toBeCloseTo(anchor!.y, 0);
-  expect(panel!.y).toBeGreaterThanOrEqual(8);
-  expect(panel!.y + panel!.height).toBeLessThanOrEqual(892);
+  for (const [label, menu] of [["新建", "新建组件"], ["Relax", "Relax"]]) {
+    const trigger = page.getByRole("menuitem", { name: label, exact: true });
+    await trigger.hover();
+    const submenu = page.getByRole("menu", { name: menu, exact: true });
+    await expect(submenu).toBeVisible();
+    const item = await submenu.getByRole("menuitem").first().boundingBox(),
+      anchor = await trigger.boundingBox(),
+      panel = await submenu.boundingBox();
+    expect(item!.y).toBeCloseTo(anchor!.y, 0);
+    expect(panel!.y).toBeGreaterThanOrEqual(8);
+    expect(panel!.y + panel!.height).toBeLessThanOrEqual(892);
+  }
 });
