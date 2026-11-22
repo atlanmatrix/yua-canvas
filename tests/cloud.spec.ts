@@ -325,7 +325,7 @@ test("offline sign-in stays visible, refresh recovers, and OAuth waits for manua
       signedIn = true;
       return route.fulfill({
         contentType: "text/html",
-        body: `<script>window.opener.postMessage({type:"yua-login",token:"${"a".repeat(64)}"}, "http://127.0.0.1:5173");window.close();</script>`,
+        body: `<script>window.opener.postMessage({type:"yua-login",token:"${"a".repeat(64)}"}, ${JSON.stringify(new URL(page.url()).origin)});window.close();</script>`,
       });
     }
     if (!online) return route.abort("internetdisconnected");

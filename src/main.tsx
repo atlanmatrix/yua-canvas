@@ -836,7 +836,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       if (
         !ready ||
         preview3D ||
-        document.querySelector('[role="dialog"]') ||
+        document.querySelector(
+          '[role="dialog"]:not(.settings-popover), .settings-popover:popover-open',
+        ) ||
         (target instanceof HTMLElement &&
           (target.isContentEditable ||
             target.closest(
@@ -2246,8 +2248,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         }
         return;
       }
+      // The native popover is checked above because its toggle event can lag behind closing.
       if (
-        document.querySelector('[role="dialog"]') ||
+        document.querySelector('[role="dialog"]:not(.settings-popover)') ||
         menu ||
         !ready ||
         e.altKey

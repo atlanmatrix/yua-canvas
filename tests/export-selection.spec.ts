@@ -813,8 +813,9 @@ async function pdfPageColors(page: Page, file: Buffer, pageNumber: number) {
 
 test("Markdown PDF includes the final table row on paper without the card or scrollbar", async ({
   page,
+  baseURL,
 }) => {
-  const marker = "http://127.0.0.1:5173/pdf-last-row.svg";
+  const marker = new URL("/pdf-last-row.svg", baseURL).href;
   await page.route("**/pdf-last-row.svg*", (route) =>
     route.fulfill({
       contentType: "image/svg+xml",

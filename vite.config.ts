@@ -25,6 +25,7 @@ const commit = (
   }).trim()
 ).slice(0, 7);
 export default defineConfig(({ mode }) => ({
+  cacheDir: mode === "e2e" ? "node_modules/.vite-e2e" : undefined,
   plugins: [react(), pdfAssets(), ...(mode === "dsh" ? [] : [canvasPwa()])],
   define: {
     __BUILD_VERSION__: JSON.stringify(`${buildDate.slice(2).replaceAll("-", "")}.${commit}`),
