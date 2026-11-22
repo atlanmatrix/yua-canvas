@@ -43,17 +43,68 @@
     const { pointerId } = drag;
     drag = undefined;
     document.body.classList.remove("is-grabbing");
-    if (document.body.hasPointerCapture(pointerId))
-      document.body.releasePointerCapture(pointerId);
+    try {
+      if (document.body.hasPointerCapture(pointerId))
+        document.body.releasePointerCapture(pointerId);
+    } catch {}
+  };
+  const touches = new Map();
+  let pinch;
+  const resetTouch = () => {
+    touches.clear();
+    pinch = undefined;
   };
   document.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "touch") {
+      if (event.target.closest?.(".note, input, a")) return;
+      touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (touches.size === 2) {
+        const [a, b] = [...touches.values()];
+        pinch = {
+          distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+          zoom,
+          midX: (a.x + b.x) / 2,
+          midY: (a.y + b.y) / 2,
+        };
+      }
+      return;
+    }
     if (event.button !== 2) return;
     event.preventDefault();
     drag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
-    document.body.setPointerCapture(event.pointerId);
+    try {
+      document.body.setPointerCapture(event.pointerId);
+    } catch {}
     document.body.classList.add("is-grabbing");
   });
   document.addEventListener("pointermove", (event) => {
+    if (event.pointerType === "touch" && touches.has(event.pointerId)) {
+      const prev = touches.get(event.pointerId);
+      const dx = event.clientX - prev.x;
+      const dy = event.clientY - prev.y;
+      touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (touches.size >= 2 && pinch) {
+        const [a, b] = [...touches.values()];
+        const dist = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+        const midX = (a.x + b.x) / 2;
+        const midY = (a.y + b.y) / 2;
+        x += midX - pinch.midX;
+        y += midY - pinch.midY;
+        pinch.midX = midX;
+        pinch.midY = midY;
+        const next = Math.max(
+          Math.min(0.1, fitScale()),
+          Math.min(4, (pinch.zoom * dist) / pinch.distance),
+        );
+        zoomAt(next, midX, midY);
+      } else if (dx || dy) {
+        fitting = false;
+        x += dx;
+        y += dy;
+        render();
+      }
+      return;
+    }
     if (event.pointerId !== drag?.pointerId) return;
     if (!(event.buttons & 2)) {
       stopDrag();
@@ -70,17 +121,24 @@
     render();
   });
   const endDrag = (event) => {
+    if (touches.has(event.pointerId)) {
+      touches.delete(event.pointerId);
+      if (touches.size < 2) pinch = undefined;
+    }
     if (event.pointerId === drag?.pointerId) stopDrag();
   };
   document.addEventListener("pointerup", endDrag);
   document.addEventListener("pointercancel", endDrag);
   document.addEventListener("lostpointercapture", endDrag);
-  window.addEventListener("blur", stopDrag);
+  window.addEventListener("blur", () => {
+    stopDrag();
+    resetTouch();
+  });
 
   document.addEventListener(
     "wheel",
     (event) => {
-      if (!drag) return;
+      if (!drag && !event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
       const unit =
         event.deltaMode === 1
@@ -88,7 +146,8 @@
           : event.deltaMode === 2
             ? viewport.clientHeight
             : 1;
-      const scale = zoom * Math.exp(-event.deltaY * unit * 0.006);
+      const factor = drag ? 0.006 : 0.003;
+      const scale = zoom * Math.exp(-event.deltaY * unit * factor);
       zoomAt(
         Math.max(Math.min(0.1, fitScale()), Math.min(4, scale)),
         event.clientX,
@@ -98,19 +157,34 @@
     { passive: false },
   );
   document.addEventListener("keydown", (event) => {
-    if (
-      !(event.metaKey || event.ctrlKey) ||
-      event.altKey ||
-      event.shiftKey ||
-      event.isComposing
-    )
-      return;
-    if (event.key === "0") {
+    if (event.altKey || event.isComposing || event.keyCode === 229) return;
+    const editing =
+      event.target instanceof HTMLElement &&
+      (event.target.isContentEditable ||
+        event.target.closest("input,textarea,select"));
+    const mod = event.metaKey || event.ctrlKey;
+    if (!mod && editing) return;
+    const cx = viewport.clientWidth / 2;
+    const cy = viewport.clientHeight / 2;
+    if ((mod || !editing) && !event.shiftKey && event.key === "0") {
       event.preventDefault();
       fit();
-    } else if (event.key === "1") {
+    } else if ((mod || !editing) && !event.shiftKey && event.key === "1") {
       event.preventDefault();
-      zoomAt(1, viewport.clientWidth / 2, viewport.clientHeight / 2);
+      zoomAt(1, cx, cy);
+    } else if (
+      (mod || !editing) &&
+      (event.key === "+" || event.key === "=")
+    ) {
+      event.preventDefault();
+      zoomAt(Math.min(4, Math.round((zoom + 0.2) * 10) / 10), cx, cy);
+    } else if ((mod || !editing) && event.key === "-") {
+      event.preventDefault();
+      zoomAt(
+        Math.max(Math.min(0.1, fitScale()), Math.round((zoom - 0.2) * 10) / 10),
+        cx,
+        cy,
+      );
     }
   });
 

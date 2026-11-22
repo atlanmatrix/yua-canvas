@@ -82,6 +82,51 @@
   --surface: #ffffff;
   --surface-muted: #f1f5f9;
   --border: #d5dae4;
+  --accent: #2563eb;
+  --accent-strong: #1d4ed8;
+  --accent-soft: #eff6ff;
+  --accent-tint: rgb(37 99 235 / 12%);
+  --float-surface: #ffffff;
+  --float-edge: rgb(15 23 42 / 10%);
+  --glass-surface: color-mix(in srgb, #ffffff 94%, transparent);
+  --focus-gap: #ffffff;
+  --danger: #b91c1c;
+}
+:root[data-theme="dark"] .card.is-masked {
+  background: #2b303b !important;
+}
+:root[data-theme="dark"] .file-preview {
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+:root[data-theme="dark"] .file-preview small {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .shortcut-list > div,
+:root[data-theme="dark"] .mermaid-editor-content .mermaid-preview {
+  border-color: var(--border);
+}
+:root[data-theme="dark"] .creation-preview {
+  background: rgb(30 41 59 / 75%);
+}
+:root[data-theme="dark"] .group-canvas-open {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .pwa-error {
+  color: #fdba74;
+}
+:root[data-theme="dark"] .share-connections text {
+  fill: var(--ink);
+}
+:root[data-theme="dark"] .share-group {
+  border-color: var(--border);
+}
+:root[data-theme="dark"] .minimap-card rect {
+  stroke: #475569;
+}
+:root[data-theme="dark"] .minimap-group rect {
+  fill: rgb(59 130 246 / 14%);
+  stroke: #5572a6;
 }
 :root[data-theme="dark"] .component-mask,
 :root[data-theme="dark"] .component-locked {
@@ -126,7 +171,7 @@
   color: #e2e8f0;
 }
 :root[data-theme="dark"] .primary {
-  color: #132442;
+  color: var(--primary-ink, #0b111e);
 }
 :root[data-theme="dark"] :is(.share-viewer, .canvas3d-page) {
   background: var(--canvas-bg);

@@ -83,7 +83,8 @@ export function NoteText({
             aria-label={tr("链接选项")}
             aria-haspopup="menu"
             onClick={(e) => {
-              if (e.detail === 0) onLinkMenu(e.currentTarget);
+              if (!e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey)
+                onLinkMenu(e.currentTarget);
             }}
             onPointerDown={(e) => e.stopPropagation()}
             onDoubleClick={(e) => e.stopPropagation()}

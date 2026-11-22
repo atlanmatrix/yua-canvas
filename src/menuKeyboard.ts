@@ -1,5 +1,22 @@
 import type { KeyboardEvent } from "react";
 
+export function isVisible(el: HTMLElement) {
+  if (typeof el.checkVisibility === "function") return el.checkVisibility();
+  const style = getComputedStyle(el);
+  return (
+    style.display !== "none" &&
+    style.visibility !== "hidden" &&
+    el.getClientRects().length > 0
+  );
+}
+
+export function isImeEvent(
+  event: Pick<KeyboardEvent, "nativeEvent"> | globalThis.KeyboardEvent,
+) {
+  const native = "nativeEvent" in event ? event.nativeEvent : event;
+  return native.isComposing || native.keyCode === 229;
+}
+
 // Leave sliders and text fields to the browser. Nested menus handle their own keys.
 export function navigateMenu(event: KeyboardEvent<HTMLElement>) {
   const { key, currentTarget, target } = event;
@@ -15,7 +32,7 @@ export function navigateMenu(event: KeyboardEvent<HTMLElement>) {
     ),
   ].filter(
     (el) =>
-      el.checkVisibility() &&
+      isVisible(el) &&
       el.closest('[role="menu"], .settings-popover') === currentTarget,
   );
   if (!items.length) return;

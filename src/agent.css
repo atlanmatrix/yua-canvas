@@ -193,7 +193,7 @@
   flex-shrink: 0;
   margin: 0;
   padding: 8px 12px;
-  color: #b45309;
+  color: var(--danger);
   background: var(--surface-muted);
   font-size: 12px;
   line-height: 1.5;

@@ -1,6 +1,6 @@
 import { ModalBackdrop } from "./ModalBackdrop";
 import { t as tr } from "./i18n";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CircleHelp, X } from "./icons";
 const shortcuts = [
   ["单指 / 双指拖动", "平移画布；拖动节点移动"],
@@ -11,8 +11,8 @@ const shortcuts = [
   ["V", "选择工具"],
   ["H", "屏蔽 / 取消屏蔽选中内容；未选中时平移"],
   ["P", "进入绘画模式；Esc 退出"],
-  ["空格 / 右键拖动 / ⌘或Ctrl＋拖动", "平移画布"],
-  ["滚轮 / ⌘或Ctrl＋滚轮", "平移 / 缩放"],
+  ["空格 / 右键拖动 / ⌘/Ctrl + 拖动", "平移画布"],
+  ["滚轮 / ⌘/Ctrl + 滚轮", "平移 / 缩放"],
   ["⌘/Ctrl + C / X / V", "复制 / 剪切 / 粘贴"],
   ["⌘/Ctrl + Z", "撤销"],
   ["⌘/Ctrl + Shift + Z / Ctrl + Y", "重做"],
@@ -26,7 +26,7 @@ const shortcuts = [
     "方向键切换同一组件的端点。端点上按 Enter 或空格选择目标，Esc 取消。连线上按 F2 编辑文字。",
   ],
   ["方向键", "思维导图中左右切换父子节点，上下切换同级节点"],
-  ["Tab / ⌘或Ctrl＋Enter", "创建子节点 / 在非根节点后创建同级节点"],
+  ["Tab / ⌘/Ctrl + Enter", "创建子节点 / 在非根节点后创建同级节点"],
   ["Delete / Backspace", "删除选中内容"],
   ["Enter / 双击", "打开或编辑组件"],
   ["⌘/Ctrl + Enter / Esc", "完成编辑 / 取消"],
@@ -35,8 +35,11 @@ const shortcuts = [
 ];
 export function HelpDialog() {
   const [open, setOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
+      if (e.isComposing || e.keyCode === 229 || e.defaultPrevented) return;
+      if (trigger.current?.closest("[inert]")) return;
       const target = e.target as HTMLElement;
       if (
         e.key === "?" &&
@@ -44,7 +47,8 @@ export function HelpDialog() {
         !e.metaKey &&
         !e.altKey &&
         !target?.closest("input,textarea,[contenteditable]") &&
-        !document.querySelector('[role="dialog"]')
+        !document.querySelector('[role="dialog"]') &&
+        !document.querySelector(".canvas3d-page")
       ) {
         e.preventDefault();
         setOpen(true);
@@ -56,6 +60,7 @@ export function HelpDialog() {
   return (
     <>
       <button
+        ref={trigger}
         className="help-button floating-button"
         aria-label={tr("使用说明")}
         data-tooltip={tr("使用说明 (?)")}
@@ -77,6 +82,7 @@ export function HelpDialog() {
             aria-label={tr("使用说明")}
             onKeyDown={(e) => {
               if (e.key === "Escape") {
+                e.preventDefault();
                 e.stopPropagation();
                 setOpen(false);
               }
@@ -122,7 +128,7 @@ export function HelpDialog() {
               <h3>{tr("Miniature · 3D 场景")}</h3>
               <p>
                 {tr(
-                  "工具栏的 Miniature 可嵌入 3D 场景：输入场景 URL 或 iframe 代码，也可使用示例城市。背景透明、无标题栏，平时只显示模型；悬浮或选中后显示虚线框和框下方的名称、链接。 双击模型激活交互，点击模型区域外 结束交互并保存视角和静态预览。 双击名称或链接可直接在画布编辑，Enter 或失焦保存、Esc 取消；Cmd/Ctrl + 点击链接在新标签页打开。",
+                  "工具栏的 Miniature 可嵌入 3D 场景：输入场景 URL 或 iframe 代码，也可使用示例城市。背景透明、无标题栏，平时只显示模型；悬浮或选中后显示虚线框和框下方的名称、链接。 双击模型激活交互，点击模型区域外 结束交互并保存视角和静态预览。 双击名称或链接可直接在画布编辑，Enter 或失焦保存、Esc 取消；⌘/Ctrl + 点击链接在新标签页打开。",
                 )}
               </p>
               <h3>{tr("本地应用关联")}</h3>

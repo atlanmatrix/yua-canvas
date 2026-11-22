@@ -50,7 +50,7 @@ export function ApplicationDialog({
         className="modal application-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label={tr("{0} {1} 关联", draft.id ? "配置" : "新建", name)}
+        aria-label={tr("{0} {1} 关联", tr(draft.id ? "配置" : "新建"), name)}
         onSubmit={(e) => {
           e.preventDefault();
           save();
@@ -98,7 +98,8 @@ export function ApplicationDialog({
                 if (
                   (e.ctrlKey || e.metaKey) &&
                   e.key === "Enter" &&
-                  !e.nativeEvent.isComposing
+                  !e.nativeEvent.isComposing &&
+                  e.keyCode !== 229
                 ) {
                   e.preventDefault();
                   e.stopPropagation();

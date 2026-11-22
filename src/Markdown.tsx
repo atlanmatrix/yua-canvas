@@ -1,6 +1,5 @@
-import { t as tr } from "./i18n";
+import { t as tr, useDarkTheme, usePreferences } from "./i18n";
 import { instantiateSvg } from "./svgPreview";
-import { usePreferences } from "./i18n";
 import { CodePreview } from "./CodePreview";
 import {
   Children,
@@ -25,24 +24,34 @@ import {
 } from "./previewCache";
 import { cachedMarkdownParser, virtualMarkdownChunks } from "./markdownPreview";
 let mermaidModule: Promise<typeof import("mermaid")> | undefined;
-function loadMermaid() {
-  return (mermaidModule ||= import("mermaid").then((module) => {
-    module.default.initialize({
-      startOnLoad: false,
-      securityLevel: "strict",
-      suppressErrorRendering: true,
-      theme: "neutral",
-      htmlLabels: false,
-      flowchart: { htmlLabels: false },
-      fontFamily: "sans-serif",
-    });
+let mermaidTheme: string | undefined;
+function loadMermaid(dark: boolean) {
+  const theme = dark ? "dark" : "neutral";
+  return (mermaidModule ||= import("mermaid")).then((module) => {
+    if (mermaidTheme !== theme) {
+      mermaidTheme = theme;
+      module.default.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+        suppressErrorRendering: true,
+        theme,
+        htmlLabels: false,
+        flowchart: { htmlLabels: false },
+        fontFamily: "sans-serif",
+      });
+    }
     return module;
-  }));
+  });
 }
 type DiagramResult = { svg: string; width?: number; height?: number };
 const diagrams = new PreviewCache<string, DiagramResult>(16 * 1024 * 1024, 128);
-function renderDiagram(source: string, language: string, signal: AbortSignal) {
-  const key = JSON.stringify([language, source]);
+function renderDiagram(
+  source: string,
+  language: string,
+  dark: boolean,
+  signal: AbortSignal,
+) {
+  const key = JSON.stringify([language, dark, source]);
   const cached = diagrams.get(key);
   if (cached) return Promise.resolve(cached);
   return diagramQueue.run(async () => {
@@ -67,10 +76,10 @@ function renderDiagram(source: string, language: string, signal: AbortSignal) {
         const diagram = flowchart.parse(source);
         try {
           diagram.drawSVG(staging, {
-            "line-color": "#64748b",
-            "element-color": "#64748b",
-            "font-color": "#334155",
-            fill: "#ffffff",
+            "line-color": dark ? "#94a3b8" : "#64748b",
+            "element-color": dark ? "#64748b" : "#64748b",
+            "font-color": dark ? "#f8fafc" : "#334155",
+            fill: dark ? "#131c2e" : "#ffffff",
             "font-size": 14,
             "line-width": 2,
           });
@@ -85,7 +94,7 @@ function renderDiagram(source: string, language: string, signal: AbortSignal) {
           diagram.clean();
         }
       } else {
-        const mermaid = (await loadMermaid()).default;
+        const mermaid = (await loadMermaid(dark)).default;
         checkAbort(signal);
         const code =
           language !== "mermaid" && !/^\s*(?:flowchart|graph)\s/m.test(source)
@@ -126,6 +135,7 @@ const DiagramContent = memo(function DiagramContent({
   onSize?: (width: number, height: number) => void;
 }) {
   usePreferences();
+  const dark = useDarkTheme();
   const instance = useRef(`preview-${crypto.randomUUID()}`);
   const [result, setResult] = useState<DiagramResult & { state: string }>({
     svg: "",
@@ -141,7 +151,7 @@ const DiagramContent = memo(function DiagramContent({
   useEffect(() => {
     const controller = new AbortController();
     setResult({ svg: "", state: "loading" });
-    void renderDiagram(source, language, controller.signal)
+    void renderDiagram(source, language, dark, controller.signal)
       .then((value) => {
         if (!controller.signal.aborted) setResult({ ...value, state: "ready" });
       })
@@ -149,7 +159,7 @@ const DiagramContent = memo(function DiagramContent({
         if (!controller.signal.aborted) setResult({ svg: "", state: "error" });
       });
     return () => controller.abort();
-  }, [source, language]);
+  }, [source, language, dark]);
   return (
     <div
       className="markdown-diagram"
@@ -185,7 +195,7 @@ export function Diagram(props: {
     size.current?.(w, h),
   ).current;
   return (
-    <PreviewBoundary>
+    <PreviewBoundary allowTiny={props.standalone}>
       <DiagramContent
         source={props.source}
         language={props.language}

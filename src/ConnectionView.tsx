@@ -169,6 +169,7 @@ export function ConnectionView({
                 hit.current?.focus({ preventScroll: true });
               }
               if (e.key === "Escape") {
+                e.preventDefault();
                 finished.current = true;
                 setEditing(false);
                 hit.current?.focus({ preventScroll: true });

@@ -79,8 +79,13 @@ export function PinBar({
               }}
               onKeyDown={(e) => {
                 e.stopPropagation();
-                if (e.key === "Enter") e.currentTarget.blur();
+                if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.currentTarget.blur();
+                }
                 if (e.key === "Escape") {
+                  e.preventDefault();
                   setEditing(undefined);
                 }
               }}

@@ -234,6 +234,11 @@ function SheetGrid({
         )
           return;
         const el = e.currentTarget;
+        if (
+          el.scrollWidth <= el.clientWidth + 1 &&
+          el.scrollHeight <= el.clientHeight + 1
+        )
+          return;
         e.stopPropagation();
         if (e.target === el) return;
         drag.current = {
@@ -244,7 +249,9 @@ function SheetGrid({
           top: el.scrollTop,
           scale: el.getBoundingClientRect().width / el.offsetWidth || 1,
         };
-        el.setPointerCapture(e.pointerId);
+        try {
+          el.setPointerCapture(e.pointerId);
+        } catch {}
       }}
       onPointerMove={(e) => {
         const d = drag.current;
@@ -253,6 +260,12 @@ function SheetGrid({
           d.left - (e.clientX - d.x) / d.scale,
           d.top - (e.clientY - d.y) / d.scale,
         );
+      }}
+      onPointerUp={(e) => {
+        if (drag.current?.id === e.pointerId) drag.current = undefined;
+      }}
+      onPointerCancel={(e) => {
+        if (drag.current?.id === e.pointerId) drag.current = undefined;
       }}
       onLostPointerCapture={() => {
         drag.current = undefined;

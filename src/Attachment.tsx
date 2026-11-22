@@ -30,8 +30,13 @@ const AttachmentContent = memo(function AttachmentContent({
       blob: Blob;
       mime?: string;
     }>(),
-    [decoded, setDecoded] = useState<{ source: Blob; text: string }>();
+    [decoded, setDecoded] = useState<{
+      source: Blob;
+      text: string;
+      failed?: boolean;
+    }>();
   const fileText = decoded?.source === card.blob ? decoded?.text || "" : "";
+  const decodeFailed = decoded?.source === card.blob && !!decoded?.failed;
   const url =
     asset && asset.blob === card.blob && asset.mime === card.mime
       ? asset.url
@@ -51,7 +56,7 @@ const AttachmentContent = memo(function AttachmentContent({
       })
       .catch(() => {
         if (active && !controller.signal.aborted)
-          setDecoded({ source: card.blob!, text: "" });
+          setDecoded({ source: card.blob!, text: "", failed: true });
       });
     return () => {
       active = false;
@@ -100,7 +105,12 @@ const AttachmentContent = memo(function AttachmentContent({
       />
     );
   if (card.kind === "file" && isTextFile(card))
-    return (
+    return decodeFailed ? (
+      <div className="file-preview" role="alert">
+        <FileText size={large ? 48 : 32} />
+        <span>{tr("无法读取文本内容")}</span>
+      </div>
+    ) : (
       <TextFilePreview
         source={fileText}
         name={card.title}

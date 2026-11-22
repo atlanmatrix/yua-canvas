@@ -830,10 +830,10 @@ export const CanvasCard = memo(function CanvasCard({
                 "下载 {0}",
                 c.title ||
                   (c.kind === "todo"
-                    ? "任务"
+                    ? tr("任务")
                     : c.kind === "mermaid"
                       ? "Mermaid"
-                      : "文本"),
+                      : tr("文本")),
               )}
               data-tooltip={tr("下载")}
               onPointerDown={(e) => {
@@ -842,7 +842,7 @@ export const CanvasCard = memo(function CanvasCard({
               onDoubleClick={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
-                downloadCard(c);
+                void Promise.resolve(downloadCard(c)).catch(() => {});
               }}
             >
               <Download size={17} />

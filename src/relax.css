@@ -230,3 +230,69 @@
   color: white;
   font-size: clamp(9px, 6.5cqw, 26px);
 }
+:root[data-theme="dark"] .relax-game {
+  --game-accent: #5eead4;
+  --game-tint: #183634;
+}
+:root[data-theme="dark"] .relax-snake {
+  --game-accent: #86efac;
+  --game-tint: #1d3524;
+}
+:root[data-theme="dark"] .relax-2048 {
+  --game-accent: #fdba74;
+  --game-tint: #3b271a;
+}
+:root[data-theme="dark"] .minefield .mine-cell {
+  box-shadow: inset 0 -2px 0 rgb(0 0 0 / 35%);
+}
+:root[data-theme="dark"] .minefield .mine-cell[data-mine],
+:root[data-theme="dark"] .minefield .mine-cell[data-flag] {
+  color: #fca5a5;
+}
+:root[data-theme="dark"] .minefield .mine-cell[data-mine] {
+  background: #4c1d24;
+}
+:root[data-theme="dark"] .snake-board {
+  background-color: #16241a;
+  background-image:
+    linear-gradient(to right, rgb(134 239 172 / 10%) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(134 239 172 / 10%) 1px, transparent 1px);
+  border-color: #36563f;
+}
+:root[data-theme="dark"] .snake-head {
+  fill: #86efac;
+}
+:root[data-theme="dark"] .snake-segment {
+  fill: #4ade80;
+}
+:root[data-theme="dark"] .snake-food {
+  fill: #fb7185;
+  stroke: #fda4af;
+}
+:root[data-theme="dark"] .tile-board {
+  background: #273244;
+}
+:root[data-theme="dark"] .tile-board span {
+  background: #1a2436;
+  color: #f8fafc;
+}
+:root[data-theme="dark"] .tile-board [data-power="1"] {
+  background: #2e3b52;
+  color: #f8fafc;
+}
+:root[data-theme="dark"] .tile-board [data-power="2"] {
+  background: #3d4b63;
+  color: #f8fafc;
+}
+:root[data-theme="dark"] .tile-board [data-power="3"] {
+  background: #8a5628;
+  color: #fff7ed;
+}
+:root[data-theme="dark"] .tile-board [data-power="4"] {
+  background: #a95224;
+  color: #fff7ed;
+}
+:root[data-theme="dark"] .tile-board [data-power="5"] {
+  background: #c2410c;
+  color: #fff7ed;
+}

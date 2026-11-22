@@ -102,7 +102,7 @@ export function ColorSwatches<T extends string>({
           key={color.value}
           className="color-swatch"
           role="menuitemradio"
-          aria-label={`${optionLabel}：${tr(color.name)}`}
+          aria-label={tr("{0}：{1}", optionLabel, tr(color.name))}
           aria-checked={value === color.value}
           title={tr(color.name)}
           style={{ background: color.background || color.value }}
@@ -372,10 +372,7 @@ export function ContextSubmenu({
         }}
         onKeyDown={(e) => {
           const settings = !!trigger.current?.closest(".settings-popover");
-          if (
-            e.key === "ArrowRight" ||
-            (settings ? e.key === "ArrowLeft" : e.key === "ArrowDown")
-          ) {
+          if (e.key === "ArrowRight" || (settings && e.key === "ArrowLeft")) {
             e.preventDefault();
             e.stopPropagation();
             openMenu(true);

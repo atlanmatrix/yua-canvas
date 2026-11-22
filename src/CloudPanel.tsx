@@ -1,11 +1,37 @@
 import { ModalBackdrop } from "./ModalBackdrop";
-import { t as tr } from "./i18n";
+import { locale, t as tr } from "./i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { LogOut, RefreshCw, X } from "./icons";
 import { SelectField } from "./SelectField";
 import { cloudClient, CloudError, packCloud } from "./cloud";
 import { type Board, exportBoard, saveBoard, saveRecovery } from "./storage";
+
+function linkedTimeoutSignal(parent: AbortSignal, ms: number) {
+  if (
+    typeof AbortSignal.any === "function" &&
+    typeof AbortSignal.timeout === "function"
+  )
+    return {
+      signal: AbortSignal.any([parent, AbortSignal.timeout(ms)]),
+      cleanup: () => {},
+    };
+  const ctrl = new AbortController();
+  const onParent = () => ctrl.abort(parent.reason);
+  if (parent.aborted) ctrl.abort(parent.reason);
+  else parent.addEventListener("abort", onParent, { once: true });
+  const timer = setTimeout(
+    () => ctrl.abort(new DOMException("Timeout", "TimeoutError")),
+    ms,
+  );
+  return {
+    signal: ctrl.signal,
+    cleanup: () => {
+      clearTimeout(timer);
+      parent.removeEventListener("abort", onParent);
+    },
+  };
+}
 
 let syncQueue: Promise<void> = Promise.resolve();
 type Baseline = { owner: string; revision: number; fingerprint: string };
@@ -25,6 +51,7 @@ export function CloudPanel({
   onSelected,
   visible,
   onClose,
+  onAttention,
 }: {
   board: Board;
   ready: boolean;
@@ -34,9 +61,11 @@ export function CloudPanel({
   onSelected: (value: boolean) => void;
   visible: boolean;
   onClose: () => void;
+  onAttention?: (alert: boolean) => void;
 }) {
   const controller = useRef(new AbortController());
   const logoutButton = useRef<HTMLButtonElement>(null);
+  const loginCleanup = useRef<(() => void) | undefined>(undefined);
   const selection = useRef(selected);
   selection.current = selected;
   const { api, uploadCloud, unpackCloud, authKey } = useMemo(
@@ -67,9 +96,27 @@ export function CloudPanel({
     [status, setStatus] = useState(""),
     [conflict, setConflict] = useState(false),
     [busy, setBusy] = useState(false),
+    [loggingIn, setLoggingIn] = useState(false),
+    [syncError, setSyncError] = useState(false),
     [link, setLink] = useState(""),
     [days, setDays] = useState("7"),
     [shares, setShares] = useState<any[]>([]);
+  useEffect(() => {
+    onAttention?.(selected && (conflict || syncError));
+  }, [selected, conflict, syncError, onAttention]);
+  useEffect(() => () => loginCleanup.current?.(), []);
+  useEffect(() => {
+    if (!open || confirmLogout) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.defaultPrevented) {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [open, confirmLogout, onClose]);
   const current = useRef(board),
     apply = useRef(restore),
     state = useRef<{ base: Baseline | null; busy: boolean; conflict: boolean }>(
@@ -83,6 +130,7 @@ export function CloudPanel({
   }
   function error(e: unknown) {
     if (e instanceof DOMException && e.name === "AbortError") return;
+    setSyncError(true);
     setStatus(
       e instanceof DOMException && e.name === "TimeoutError"
         ? "云端请求超时，请稍后重试"
@@ -198,25 +246,47 @@ export function CloudPanel({
   }
   async function transfer(direction: "pull" | "upload") {
     if (!user) return;
+    if (direction === "upload") {
+      if (state.current.busy) return;
+      state.current.busy = true;
+      setBusy(true);
+      let remote: any;
+      try {
+        remote = await api("/canvas");
+      } catch (e) {
+        error(e);
+        state.current.busy = false;
+        setBusy(false);
+        return;
+      }
+      state.current.busy = false;
+      setBusy(false);
+      if (
+        remote.snapshot &&
+        !confirm(
+          tr("将以当前本地内容创建云端新版本，其他设备需要重新同步。继续？"),
+        )
+      )
+        return;
+      await lock(async () => {
+        if (await push(user.owner_id, remote.revision, true)) {
+          clearConflict();
+          setSyncError(false);
+        }
+      });
+      return;
+    }
     await lock(async () => {
       const before = current.current;
       const remote = await api("/canvas");
-      if (direction === "pull") {
-        if (!remote.snapshot) {
-          setStatus("云端暂无画布，本地内容未改变");
-          return;
-        }
-        if (current.current !== before) throw Error("读取期间发生编辑，请重试");
-        if (await accept(remote, user.owner_id, true)) clearConflict();
-      } else {
-        if (
-          remote.snapshot &&
-          !confirm(
-            tr("将以当前本地内容创建云端新版本，其他设备需要重新同步。继续？"),
-          )
-        )
-          return;
-        if (await push(user.owner_id, remote.revision, true)) clearConflict();
+      if (!remote.snapshot) {
+        setStatus("云端暂无画布，本地内容未改变");
+        return;
+      }
+      if (current.current !== before) throw Error("读取期间发生编辑，请重试");
+      if (await accept(remote, user.owner_id, true)) {
+        clearConflict();
+        setSyncError(false);
       }
     });
   }
@@ -239,15 +309,20 @@ export function CloudPanel({
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           if (!online) throw Error("网络不可用，请联网后刷新连接状态");
-          const d = await api("/session", {
-            signal: AbortSignal.any([
-              controller.current.signal,
-              AbortSignal.timeout(5000),
-            ]),
-          });
+          const { signal, cleanup } = linkedTimeoutSignal(
+            controller.current.signal,
+            5000,
+          );
+          let d: any;
+          try {
+            d = await api("/session", { signal });
+          } finally {
+            cleanup();
+          }
           if (!active) return;
           setAvailable(true);
           setConnection("connected");
+          setSyncError(false);
           setUser(d.user);
           return;
         } catch (e) {
@@ -303,6 +378,7 @@ export function CloudPanel({
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   function login() {
+    if (loggingIn) return;
     if (!server.origin) {
       location.href = "/api/auth/login";
       return;
@@ -316,6 +392,14 @@ export function CloudPanel({
       setStatus("请允许登录弹窗");
       return;
     }
+    loginCleanup.current?.();
+    setLoggingIn(true);
+    const cleanup = () => {
+      clearInterval(timer);
+      window.removeEventListener("message", receive);
+      if (loginCleanup.current === cleanup) loginCleanup.current = undefined;
+      setLoggingIn(false);
+    };
     const receive = (event: MessageEvent) => {
       if (
         event.origin !== server.origin ||
@@ -325,23 +409,22 @@ export function CloudPanel({
       )
         return;
       localStorage.setItem(authKey, event.data.token);
-      window.removeEventListener("message", receive);
+      cleanup();
       void api("/session")
         .then((d) => {
           setUser(d.user);
           setAvailable(true);
           setConnection("connected");
+          setSyncError(false);
           setStatus("");
         })
         .catch(error);
     };
     window.addEventListener("message", receive);
     const timer = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(timer);
-        window.removeEventListener("message", receive);
-      }
+      if (popup.closed) cleanup();
     }, 1000);
+    loginCleanup.current = cleanup;
   }
   function cancelLogout() {
     setConfirmLogout(false);
@@ -377,6 +460,13 @@ export function CloudPanel({
               role="dialog"
               aria-modal="true"
               aria-label={tr("云同步与分享")}
+              onKeyDown={(e) => {
+                if (e.key === "Escape" && !confirmLogout) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onClose();
+                }
+              }}
             >
               <div className="modal-heading">
                 <h2 className="cloud-server-heading" aria-live="polite">
@@ -408,7 +498,7 @@ export function CloudPanel({
                 <div className="cloud-auth-actions">
                   <button
                     className="cloud-login"
-                    disabled={!available || checking || !online}
+                    disabled={!available || checking || !online || loggingIn}
                     onClick={login}
                     aria-label="Github"
                   >
@@ -493,7 +583,10 @@ export function CloudPanel({
                         <button
                           disabled={busy}
                           onClick={() =>
-                            void download(current.current, "本地画布备份.json")
+                            void download(
+                              current.current,
+                              tr("本地画布备份.json"),
+                            ).catch(error)
                           }
                         >
                           {tr("下载本地副本")}
@@ -606,7 +699,7 @@ export function CloudPanel({
                     {shares.map((s) => (
                       <div key={s.id}>
                         <span>
-                          {new Date(s.created_at).toLocaleString()} ·{" "}
+                          {new Date(s.created_at).toLocaleString(locale())} ·{" "}
                           {s.revoked_at
                             ? tr("已撤销")
                             : s.expires_at && s.expires_at < Date.now()
@@ -650,22 +743,6 @@ export function CloudPanel({
                   e.preventDefault();
                   e.stopPropagation();
                   cancelLogout();
-                }
-                if (e.key === "Tab") {
-                  const buttons = Array.from(
-                    e.currentTarget.querySelectorAll<HTMLButtonElement>(
-                      "button",
-                    ),
-                  );
-                  const next =
-                    (buttons.indexOf(
-                      document.activeElement as HTMLButtonElement,
-                    ) +
-                      (e.shiftKey ? -1 : 1) +
-                      buttons.length) %
-                    buttons.length;
-                  e.preventDefault();
-                  buttons[next]?.focus();
                 }
               }}
             >

@@ -382,8 +382,21 @@ export function GroupList({
       <div
         className="group-list-detail"
         data-context-card-id={active?.id}
+        tabIndex={active && !active.masked ? 0 : undefined}
         onContextMenu={(e) => active && onContextMenu?.(e, active)}
         onDoubleClick={(e) => active && !active.masked && onOpen?.(active, e)}
+        onKeyDown={(e) => {
+          if (
+            active &&
+            !active.masked &&
+            e.target === e.currentTarget &&
+            (e.key === "Enter" || e.key === " ")
+          ) {
+            e.preventDefault();
+            e.stopPropagation();
+            onOpen?.(active);
+          }
+        }}
       >
         {active ? (
           <>

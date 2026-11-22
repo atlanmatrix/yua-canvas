@@ -45,9 +45,11 @@ export function PaintLayer({
 }) {
   const [draft, setDraft] = useState<Stroke>();
   const current = useRef<Stroke | undefined>(undefined),
+    pointerId = useRef<number | undefined>(undefined),
     surface = useRef<SVGSVGElement>(null);
   const cancel = () => {
     current.current = undefined;
+    pointerId.current = undefined;
     setDraft(undefined);
   };
   useEffect(() => {
@@ -55,12 +57,15 @@ export function PaintLayer({
   }, [active]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") cancel();
+      if (e.key === "Escape" && current.current) {
+        e.preventDefault();
+        cancel();
+      }
     };
-    window.addEventListener("keydown", key);
+    window.addEventListener("keydown", key, true);
     window.addEventListener("blur", cancel);
     return () => {
-      window.removeEventListener("keydown", key);
+      window.removeEventListener("keydown", key, true);
       window.removeEventListener("blur", cancel);
     };
   }, []);
@@ -84,7 +89,14 @@ export function PaintLayer({
       className={`paint-layer ${active ? "paint-active" : ""}`}
       aria-label={tr("画笔图层")}
       onPointerDown={(e) => {
-        if (!active || e.button !== 0 || e.ctrlKey || e.metaKey || !canDraw())
+        if (
+          !active ||
+          e.button !== 0 ||
+          e.ctrlKey ||
+          e.metaKey ||
+          pointerId.current !== undefined ||
+          !canDraw()
+        )
           return;
         onBegin?.();
         (document.activeElement as HTMLElement | null)?.blur();
@@ -92,12 +104,15 @@ export function PaintLayer({
         e.stopPropagation();
         const s = { id: crypto.randomUUID(), color, width, points: points(e) };
         current.current = s;
+        pointerId.current = e.pointerId;
         setDraft(s);
-        e.currentTarget.setPointerCapture(e.pointerId);
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {}
       }}
       onPointerMove={(e) => {
         const s = current.current;
-        if (!s) return;
+        if (!s || pointerId.current !== e.pointerId) return;
         e.stopPropagation();
         const incoming = points(e).filter((p) => {
           const last = s.points.at(-1)!;
@@ -113,12 +128,13 @@ export function PaintLayer({
         }
       }}
       onPointerUp={(e) => {
-        if (!current.current) return;
+        if (!current.current || pointerId.current !== e.pointerId) return;
         e.stopPropagation();
         onCommit(current.current);
         cancel();
       }}
       onPointerCancel={(e) => {
+        if (pointerId.current !== e.pointerId) return;
         e.stopPropagation();
         cancel();
       }}

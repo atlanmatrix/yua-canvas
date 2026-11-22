@@ -1,3 +1,5 @@
+import { isVisible } from "./menuKeyboard";
+
 // A single top-layer hint also works for controls inside clipped toolbars.
 export function installTooltips() {
   const hint = document.createElement("div");
@@ -25,12 +27,14 @@ export function installTooltips() {
     hide();
     anchor = target;
     timer = window.setTimeout(() => {
-      if (!target.checkVisibility() || target.closest("[inert]")) return hide();
+      if (!isVisible(target) || target.closest("[inert]")) return hide();
       hint.textContent = target.dataset.tooltip || "";
       (target.closest("dialog:modal, :popover-open") || document.body).append(
         hint,
       );
-      hint.showPopover();
+      try {
+        hint.showPopover?.();
+      } catch {}
       const box = target.getBoundingClientRect();
       const { width, height } = hint.getBoundingClientRect();
       const left = Math.min(

@@ -49,20 +49,31 @@ export function MindMapEditor({
     <ModalBackdrop
       className="modal-backdrop diagram-backdrop"
       onKeyDown={(e) => {
-        if (e.nativeEvent.isComposing) return;
+        if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+        const key = e.key.toLowerCase();
         if (e.key === "Escape") {
+          e.preventDefault();
           e.stopPropagation();
           if (menu) dismissMenu();
           else onClose();
         } else if (
           (e.metaKey || e.ctrlKey) &&
-          e.key.toLowerCase() === "z" &&
+          key === "enter" &&
           !(e.target as Element).closest("input,textarea,[contenteditable]")
         ) {
           e.preventDefault();
           e.stopPropagation();
-          const from = e.shiftKey ? future : past;
-          const to = e.shiftKey ? past : future;
+          onSave(JSON.stringify(draft.current));
+        } else if (
+          (e.metaKey || e.ctrlKey) &&
+          (key === "z" || key === "y") &&
+          !(e.target as Element).closest("input,textarea,[contenteditable]")
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+          const redo = e.shiftKey || key === "y";
+          const from = redo ? future : past;
+          const to = redo ? past : future;
           const next = from.current.pop();
           if (next) {
             to.current.push(map);

@@ -46,6 +46,7 @@ export function useCanvasTouch(options: {
   onCancel: () => void;
   onActivity: (moved: boolean) => void;
   onMenu: (context: Context) => void;
+  onSelectCard?: (id: string) => void;
 }) {
   const latest = useRef(options);
   latest.current = options;
@@ -151,8 +152,11 @@ export function useCanvasTouch(options: {
         },
       };
       // Transferring capture also cancels any pending paint stroke.
-      for (const id of contacts.current.keys())
-        e.currentTarget.setPointerCapture(id);
+      for (const id of contacts.current.keys()) {
+        try {
+          e.currentTarget.setPointerCapture(id);
+        } catch {}
+      }
       consume(e);
       return true;
     }
@@ -171,7 +175,6 @@ export function useCanvasTouch(options: {
       };
       // No preventDefault here: taps and text selection retain their normal behavior.
       e.stopPropagation();
-      return true;
     }
     if (
       latest.current.tapsEnabled &&
@@ -192,6 +195,7 @@ export function useCanvasTouch(options: {
         latest.current.onCancel();
         latest.current.onActivity(true);
         pressed.current = true;
+        scroll.current = undefined;
         ignoreClick.current = performance.now() + 900;
         lastTap.current = undefined;
         const card = target.closest<HTMLElement>(
@@ -209,7 +213,7 @@ export function useCanvasTouch(options: {
         });
       }, 550);
     }
-    return false;
+    return !!element;
   };
   const move = (e: ReactPointerEvent<HTMLDivElement>) => {
     const contact = contacts.current.get(e.pointerId);
@@ -255,7 +259,9 @@ export function useCanvasTouch(options: {
         s.element.scrollTop = s.y - (contact.y - contact.start.y) / s.scale;
         latest.current.onActivity(true);
         ignoreClick.current = performance.now() + 700;
-        e.currentTarget.setPointerCapture(e.pointerId);
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {}
         consume(e);
       } else e.stopPropagation();
       return true;
@@ -268,9 +274,24 @@ export function useCanvasTouch(options: {
     lastTouch.current = performance.now();
     clearTimer();
     contacts.current.delete(e.pointerId);
-    // A stationary tap on a worksheet still participates in double-tap editing.
-    const documentTap = scroll.current?.element.matches(".xlsx-preview, .office-scroll") && !contact.moved;
-    if (documentTap) scroll.current = undefined;
+    // A stationary tap inside a scrollable card still selects the card and participates in double-tap editing.
+    const stationaryScrollTap =
+      !!scroll.current &&
+      !contact.moved &&
+      e.type !== "pointercancel" &&
+      !locked.current &&
+      !pressed.current;
+    if (stationaryScrollTap) {
+      scroll.current = undefined;
+      if (
+        latest.current.tapsEnabled &&
+        !contact.target.closest(`${controls},.agent-card,.canvas-editor`)
+      ) {
+        const cardId = contact.target.closest<HTMLElement>("[data-card-id]")
+          ?.dataset.cardId;
+        if (cardId) latest.current.onSelectCard?.(cardId);
+      }
+    }
     const handled = locked.current || pressed.current || !!scroll.current;
     if (locked.current && contacts.current.size >= 2) {
       const [a, b] = [...contacts.current.values()],

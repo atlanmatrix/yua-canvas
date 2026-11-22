@@ -20,9 +20,22 @@ export function MasterPasswordSettingsDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useLayoutEffect(() => {
+    const opener = document.activeElement;
+    const returnTarget =
+      opener instanceof HTMLElement && opener.closest(".settings-popover")
+        ? document.querySelector<HTMLElement>(".settings-trigger")
+        : opener;
     const node = dialog.current!;
     node.showModal();
-    return () => node.close();
+    return () => {
+      node.close();
+      if (
+        returnTarget instanceof HTMLElement &&
+        returnTarget.isConnected &&
+        !returnTarget.closest("[inert]")
+      )
+        returnTarget.focus({ preventScroll: true });
+    };
   }, []);
   return (
     <dialog
@@ -31,7 +44,13 @@ export function MasterPasswordSettingsDialog({
       role="dialog"
       aria-label={tr("主密码管理")}
       aria-modal="true"
-      onKeyDown={(event) => event.stopPropagation()}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === "Escape") {
+          event.preventDefault();
+          if (!busy) onClose();
+        }
+      }}
       onCancel={(event) => {
         event.preventDefault();
         if (!busy) onClose();
@@ -123,9 +142,22 @@ export function MasterPasswordDialog({
         : "验证主密码";
   const dialog = useRef<HTMLDialogElement>(null);
   useLayoutEffect(() => {
+    const opener = document.activeElement;
+    const returnTarget =
+      opener instanceof HTMLElement && opener.closest(".settings-popover")
+        ? document.querySelector<HTMLElement>(".settings-trigger")
+        : opener;
     const node = dialog.current!;
     node.showModal();
-    return () => node.close();
+    return () => {
+      node.close();
+      if (
+        returnTarget instanceof HTMLElement &&
+        returnTarget.isConnected &&
+        !returnTarget.closest("[inert]")
+      )
+        returnTarget.focus({ preventScroll: true });
+    };
   }, []);
   return (
     <dialog
@@ -136,6 +168,11 @@ export function MasterPasswordDialog({
       aria-label={tr(label)}
       onKeyDown={(event) => {
         event.stopPropagation();
+        if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          if (!busy) onClose();
+        }
         if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
           event.preventDefault();
           dialog.current?.querySelector("form")?.requestSubmit();

@@ -1,5 +1,6 @@
 import { strokeBounds } from "./presentation";
 import { presentationHidden, groupFrame } from "./CardPresentation";
+import { t as tr } from "./i18n";
 import type { Board, Card, Rect } from "./storage";
 import { cardRect } from "./geometry";
 
@@ -75,12 +76,12 @@ export function canvas3DLayers(root: Board): Canvas3DLayer[] {
         visit(
           card.canvas,
           [...path, card.id],
-          [...names, card.title || "子画布"],
+          [...names, card.title || tr("子画布")],
           key,
           card,
         );
   };
-  visit(root, [], ["根画布"]);
+  visit(root, [], [tr("根画布")]);
   const rows = new Map<number, Canvas3DLayer[]>();
   for (const layer of layers) {
     const row = rows.get(layer.depth) || [];

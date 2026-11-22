@@ -91,9 +91,18 @@ export function ImagePreview({
       onChange(images[(index + offset + images.length) % images.length].id);
   };
   useLayoutEffect(() => {
+    const opener = document.activeElement;
     const node = dialog.current!;
     node.showModal();
-    return () => node.close();
+    return () => {
+      node.close();
+      if (
+        opener instanceof HTMLElement &&
+        opener.isConnected &&
+        !opener.closest("[inert]")
+      )
+        opener.focus({ preventScroll: true });
+    };
   }, []);
   useEffect(() => {
     thumbnails.current
@@ -113,6 +122,11 @@ export function ImagePreview({
       }}
       onKeyDown={(event) => {
         event.stopPropagation();
+        if (event.key === "Escape") {
+          event.preventDefault();
+          onClose();
+          return;
+        }
         if (event.key === "Tab") {
           const buttons =
             event.currentTarget.querySelectorAll<HTMLButtonElement>(

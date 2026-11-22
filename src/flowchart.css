@@ -66,6 +66,8 @@
   gap: 8px;
   padding: 5px 12px;
   border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 .flow-tool-group {
   display: flex;

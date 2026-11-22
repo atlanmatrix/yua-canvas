@@ -26,6 +26,9 @@ article.note-address {
   text-overflow: clip;
   scrollbar-width: none;
 }
+.note-address.text-scroll .note-link::-webkit-scrollbar {
+  display: none;
+}
 .note-address .note-link:focus-visible {
   border-width: 0;
   color: var(--accent);

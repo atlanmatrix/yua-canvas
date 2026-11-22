@@ -32,6 +32,8 @@ import { cloudClient, serverOrigin } from "./cloud";
 import {
   type Board,
   type Card,
+  MIN_CANVAS_ZOOM,
+  MAX_CANVAS_ZOOM,
   exportBoard,
   saveRecovery,
   saveBoard,
@@ -59,8 +61,8 @@ function Asset({ card }: { card: Card }) {
     card.lock || card.inheritedLock
       ? (e: React.MouseEvent) => {
           e.preventDefault();
-          void exportBoard({ version: 1, cards: [card], groups: [] }).then(
-            (raw) => {
+          void exportBoard({ version: 1, cards: [card], groups: [] })
+            .then((raw) => {
               const u = URL.createObjectURL(
                 new Blob([raw], { type: "application/json" }),
               );
@@ -69,8 +71,8 @@ function Asset({ card }: { card: Card }) {
               a.download = "encrypted-component.canvas.json";
               a.click();
               setTimeout(() => URL.revokeObjectURL(u), 1000);
-            },
-          );
+            })
+            .catch(() => {});
         }
       : undefined;
   return card.kind === "image" ? (
@@ -89,9 +91,12 @@ export function ShareViewer({ token }: { token: string }) {
   const [root, setRoot] = useState<Board>(),
     [stack, setStack] = useState<Board[]>([]),
     [error, setError] = useState(""),
+    [busy, setBusy] = useState(false),
     [view, setView] = useState({ x: 60, y: 90, z: 1 });
   const surface = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ x: number; y: number } | undefined>(undefined);
+  const drag = useRef<
+    { id: number; x: number; y: number } | undefined
+  >(undefined);
   const board = stack.at(-1) || root;
   const [unlocking, setUnlocking] = useState<Card>();
   const unlockingRef = useRef(unlocking);
@@ -99,6 +104,7 @@ export function ShareViewer({ token }: { token: string }) {
   useCanvasWheelGuard(surface, { enabled: !!board });
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     let origin = "";
     try {
       const value = new URLSearchParams(location.hash.split("?")[1]).get(
@@ -109,7 +115,7 @@ export function ShareViewer({ token }: { token: string }) {
       setError("服务器地址无效");
       return;
     }
-    const { api, unpackCloud } = cloudClient(origin);
+    const { api, unpackCloud } = cloudClient(origin, () => controller.signal);
     api("/shares/resolve", {
       method: "POST",
       body: JSON.stringify({ token: token.split("?")[0] }),
@@ -119,13 +125,18 @@ export function ShareViewer({ token }: { token: string }) {
         if (active) setRoot(b);
       })
       .catch((e) => {
-        if (active) setError(e.message);
+        if (
+          active &&
+          !(e instanceof DOMException && e.name === "AbortError")
+        )
+          setError(e instanceof Error ? e.message : "加载失败");
       });
     return () => {
       active = false;
+      controller.abort();
     };
   }, [token]);
-  useEffect(() => {
+  const fitBoard = () => {
     if (!board || !surface.current) return;
     const rects = [
       ...board.cards.map(cardRect),
@@ -139,7 +150,7 @@ export function ShareViewer({ token }: { token: string }) {
     const { clientWidth, clientHeight } = surface.current;
     const inset = Math.min(32, clientWidth / 10, clientHeight / 10);
     const z = Math.max(
-      0.05,
+      MIN_CANVAS_ZOOM,
       Math.min(
         1,
         (clientWidth - 2 * inset) / Math.max(w, 1),
@@ -147,14 +158,77 @@ export function ShareViewer({ token }: { token: string }) {
       ),
     );
     setView({ x: inset - x * z, y: inset - y * z, z });
-  }, [board]);
+  };
+  useEffect(fitBoard, [board]);
+  const zoomAt = (nextZ: number, clientX?: number, clientY?: number) => {
+    const clamped = Math.max(
+      MIN_CANVAS_ZOOM,
+      Math.min(MAX_CANVAS_ZOOM, nextZ),
+    );
+    setView((v) => {
+      const box = surface.current?.getBoundingClientRect();
+      const px =
+        clientX !== undefined && box
+          ? clientX - box.left
+          : (box?.width || 0) / 2;
+      const py =
+        clientY !== undefined && box
+          ? clientY - box.top
+          : (box?.height || 0) / 2;
+      const ratio = clamped / v.z;
+      return {
+        x: px - (px - v.x) * ratio,
+        y: py - (py - v.y) * ratio,
+        z: clamped,
+      };
+    });
+  };
+  const stepZoom = (delta: number) =>
+    zoomAt(Math.round((view.z + delta) * 10) / 10);
+  useEffect(() => {
+    const clearDrag = () => {
+      drag.current = undefined;
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.defaultPrevented ||
+        e.isComposing ||
+        e.keyCode === 229 ||
+        e.altKey ||
+        document.querySelector('[role="dialog"]')
+      )
+        return;
+      const target = e.target instanceof HTMLElement ? e.target : null;
+      if (target?.isContentEditable || target?.closest("input,textarea,select"))
+        return;
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        stepZoom(0.2);
+      } else if (e.key === "-") {
+        e.preventDefault();
+        stepZoom(-0.2);
+      } else if (e.key === "0") {
+        e.preventDefault();
+        fitBoard();
+      } else if (e.key === "1") {
+        e.preventDefault();
+        zoomAt(1);
+      }
+    };
+    window.addEventListener("blur", clearDrag);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("blur", clearDrag);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [board, view.z]);
   const touch = useCanvasTouch({
     scope: "share:" + (board?.id || stack.length),
     surface,
     view,
     tapsEnabled: false,
-    minZoom: 0.05,
-    maxZoom: 3,
+    minZoom: MIN_CANVAS_ZOOM,
+    maxZoom: MAX_CANVAS_ZOOM,
     onViewChange: setView,
     onCancel: () => {
       drag.current = undefined;
@@ -176,36 +250,50 @@ export function ShareViewer({ token }: { token: string }) {
         {root && (
           <>
             <button
-              onClick={() =>
-                void exportBoard(root).then((raw) => {
-                  const u = URL.createObjectURL(
-                    new Blob([raw], { type: "application/json" }),
-                  );
-                  const a = document.createElement("a");
-                  a.href = u;
-                  a.download = "分享画布.json";
-                  a.click();
-                  setTimeout(() => URL.revokeObjectURL(u), 1000);
-                })
-              }
+              disabled={busy}
+              onClick={() => {
+                if (busy) return;
+                setBusy(true);
+                void exportBoard(root)
+                  .then((raw) => {
+                    const u = URL.createObjectURL(
+                      new Blob([raw], { type: "application/json" }),
+                    );
+                    const a = document.createElement("a");
+                    a.href = u;
+                    a.download = tr("分享画布.json");
+                    a.click();
+                    setTimeout(() => URL.revokeObjectURL(u), 1000);
+                  })
+                  .catch((e) =>
+                    setError(e instanceof Error ? e.message : "导出失败，请重试"),
+                  )
+                  .finally(() => setBusy(false));
+              }}
             >
               {tr("下载快照")}
             </button>
             <button
+              disabled={busy}
               onClick={() => {
                 if (
+                  busy ||
                   !confirm(
                     tr("将备份当前本地工作区，并用此分享创建本地副本。继续？"),
                   )
                 )
                   return;
+                setBusy(true);
                 void (async () => {
                   const old = await readBoard();
                   if (old) await saveRecovery(old);
                   await saveBoard(root);
                   localStorage.removeItem("yua-cloud-baseline");
                   location.href = location.pathname;
-                })().catch((e) => setError(e.message));
+                })().catch((e) => {
+                  setError(e instanceof Error ? e.message : "导入失败");
+                  setBusy(false);
+                });
               }}
             >
               {tr("复制到我的画布")}
@@ -244,35 +332,35 @@ export function ShareViewer({ token }: { token: string }) {
           onPointerMoveCapture={touch.move}
           onPointerUpCapture={touch.up}
           onPointerCancelCapture={touch.up}
-          onLostPointerCapture={touch.lostCapture}
+          onLostPointerCapture={(e) => {
+            touch.lostCapture(e);
+            if (drag.current?.id === e.pointerId) drag.current = undefined;
+          }}
           onClickCapture={touch.click}
           onPointerDown={(e) => {
-            if ((e.target as HTMLElement).closest("button,a")) return;
-            drag.current = { x: e.clientX, y: e.clientY };
-            e.currentTarget.setPointerCapture(e.pointerId);
+            if (e.button !== 0 || (e.target as HTMLElement).closest("button,a"))
+              return;
+            drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
+            try {
+              e.currentTarget.setPointerCapture(e.pointerId);
+            } catch {}
           }}
           onPointerMove={(e) => {
-            if (!drag.current) return;
+            if (drag.current?.id !== e.pointerId) return;
             const dx = e.clientX - drag.current.x,
               dy = e.clientY - drag.current.y;
-            drag.current = { x: e.clientX, y: e.clientY };
+            drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
             setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
           }}
-          onPointerUp={() => {
-            drag.current = undefined;
+          onPointerUp={(e) => {
+            if (drag.current?.id === e.pointerId) drag.current = undefined;
           }}
-          onPointerCancel={() => {
-            drag.current = undefined;
+          onPointerCancel={(e) => {
+            if (drag.current?.id === e.pointerId) drag.current = undefined;
           }}
           onWheel={(e) => {
             if (e.ctrlKey || e.metaKey)
-              setView((v) => ({
-                ...v,
-                z: Math.min(
-                  3,
-                  Math.max(0.05, v.z * Math.exp(-e.deltaY * 0.002)),
-                ),
-              }));
+              zoomAt(view.z * Math.exp(-e.deltaY * 0.002), e.clientX, e.clientY);
             else
               setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
           }}
@@ -456,18 +544,22 @@ export function ShareViewer({ token }: { token: string }) {
           <div className="share-zoom">
             <button
               aria-label={tr("缩小")}
-              onClick={() =>
-                setView((v) => ({ ...v, z: Math.max(0.05, v.z / 1.2) }))
-              }
+              disabled={view.z <= MIN_CANVAS_ZOOM + 1e-4}
+              onClick={() => stepZoom(-0.2)}
             >
               −
             </button>
-            <span>{Math.round(view.z * 100)}%</span>
+            <button
+              className="zoom-percentage"
+              aria-label={tr("原始比例")}
+              onClick={() => zoomAt(1)}
+            >
+              {Math.round(view.z * 100)}%
+            </button>
             <button
               aria-label={tr("放大")}
-              onClick={() =>
-                setView((v) => ({ ...v, z: Math.min(3, v.z * 1.2) }))
-              }
+              disabled={view.z >= MAX_CANVAS_ZOOM - 1e-4}
+              onClick={() => stepZoom(0.2)}
             >
               ＋
             </button>

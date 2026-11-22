@@ -19,6 +19,7 @@
   height: var(--brush-size);
   border-radius: 999px;
   background: var(--glass-surface);
+  -webkit-backdrop-filter: var(--glass-filter);
   backdrop-filter: var(--glass-filter);
   box-shadow: inset 0 0 0 1px var(--float-edge), var(--control-shadow);
   transition: width var(--motion-morph) var(--ease-morph);
@@ -49,6 +50,7 @@ body .bottom-tools .paint-controls {
   gap: 5px;
   border-radius: 0;
   background: transparent;
+  -webkit-backdrop-filter: none;
   backdrop-filter: none;
   box-shadow: none;
   opacity: 0;
@@ -213,11 +215,15 @@ body .bottom-tools[data-drawing="true"] .paint-controls {
 .bottom-tools .brush-controls input[type="color"] {
   width: 26px;
   height: 26px;
+  padding: 0;
   border-radius: 50%;
   overflow: hidden;
 }
 .bottom-tools .brush-controls input[type="color"]::-webkit-color-swatch-wrapper { padding: 3px; }
 .bottom-tools .brush-controls input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 50%; }
+@-moz-document url-prefix() {
+  .bottom-tools .brush-controls input[type="color"] { padding: 3px; }
+}
 .bottom-tools .brush-controls input[type="color"]::-moz-color-swatch { border: 0; border-radius: 50%; }
 @media (pointer: coarse) {
   .settings-trigger,

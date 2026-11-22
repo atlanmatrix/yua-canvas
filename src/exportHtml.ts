@@ -141,6 +141,8 @@ export function exportHtml(board: Board) {
       );
     for (const [name, value] of Object.entries(addressStyle))
       doc.documentElement.style.setProperty(name, value);
+    doc.documentElement.style.colorScheme =
+      document.documentElement.dataset.theme === "dark" ? "dark" : "light";
     const canvas = doc.createElement("main");
     canvas.dataset.export = nonce;
     canvas.style.width = scene.style.width;
@@ -148,8 +150,32 @@ export function exportHtml(board: Board) {
     const world = scene.firstElementChild as HTMLElement;
     const layout = doc.createElement("div");
     layout.style.cssText = world.style.cssText;
-    // This SVG contains only the export renderer's paths, markers and text labels.
-    layout.append(world.querySelector(":scope > svg")!.cloneNode(true));
+    // Preserve group boundaries behind cards.
+    for (const group of world.querySelectorAll<HTMLElement>(
+      ":scope > .group-boundary",
+    )) {
+      const box = doc.createElement("section");
+      box.className = "export-group";
+      box.style.left = group.style.left;
+      box.style.top = group.style.top;
+      box.style.width = group.style.width;
+      box.style.height = group.style.height;
+      const gStyle = getComputedStyle(group);
+      box.style.background = gStyle.backgroundColor;
+      const title = group.querySelector(".group-title")?.textContent?.trim();
+      if (title) {
+        const heading = doc.createElement("span");
+        heading.className = "export-group-title";
+        heading.textContent = title;
+        box.append(heading);
+      }
+      layout.append(box);
+    }
+    // Connections stay behind cards; paint strokes stay above cards.
+    const connectionsSvg = world.querySelector(
+      ':scope > svg[data-export-layer="connections"]',
+    );
+    if (connectionsSvg) layout.append(connectionsSvg.cloneNode(true));
     const frames = world.querySelectorAll<HTMLElement>(":scope > .card");
     for (const [i, card] of cards.entries()) {
       const frame = frames[i],
@@ -190,6 +216,10 @@ export function exportHtml(board: Board) {
       }
       layout.append(article);
     }
+    const strokesSvg = world.querySelector(
+      ':scope > svg[data-export-layer="strokes"]',
+    );
+    if (strokesSvg) layout.append(strokesSvg.cloneNode(true));
     canvas.append(layout);
     const script = doc.createElement("script");
     script.setAttribute("nonce", nonce);

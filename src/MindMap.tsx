@@ -201,7 +201,9 @@ export function MindMap({
             "--mind-accent": accent,
           } as CSSProperties
         }
-        tabIndex={onSelect ? (isRoot && !active ? 0 : -1) : undefined}
+        tabIndex={
+          onSelect ? (node.id === active || (isRoot && !active) ? 0 : -1) : undefined
+        }
         onFocus={
           onSelect
             ? (e) => {
@@ -446,7 +448,7 @@ export function MindMap({
                     value={
                       currentStyle[field] === "transparent"
                         ? dark
-                          ? "#171b22"
+                          ? "#131c2e"
                           : "#ffffff"
                         : currentStyle[field]
                     }

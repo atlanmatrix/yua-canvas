@@ -30,6 +30,12 @@ export function useCanvasWheelGuard(
       const target = event.target instanceof Element ? event.target : null;
       const sheet = target?.closest<HTMLElement>(".xlsx-preview");
       if (sheet) {
+        const scrollX = sheet.scrollWidth > sheet.clientWidth + 1;
+        const scrollY = sheet.scrollHeight > sheet.clientHeight + 1;
+        if (!scrollX && !scrollY) {
+          block();
+          return;
+        }
         event.stopPropagation();
         if (event.shiftKey && !event.deltaX) {
           block();
@@ -40,7 +46,17 @@ export function useCanvasWheelGuard(
                 ? sheet.clientWidth
                 : 1;
           sheet.scrollLeft += event.deltaY * unit;
+          return;
         }
+        const canAxis = horizontal ? scrollX : scrollY;
+        const pos = horizontal ? sheet.scrollLeft : sheet.scrollTop;
+        const limit = horizontal
+          ? sheet.scrollWidth - sheet.clientWidth
+          : sheet.scrollHeight - sheet.clientHeight;
+        const canConsume =
+          canAxis &&
+          ((delta < 0 && pos > 0.5) || (delta > 0 && pos < limit - 0.5));
+        if (!canConsume) block();
         return;
       }
       for (

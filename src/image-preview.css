@@ -19,6 +19,7 @@
 }
 .image-preview::backdrop {
   background: #0b0f17cc;
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
 }
 body .image-preview button {
@@ -133,8 +134,13 @@ body .image-preview-thumbnails button[aria-current="true"] {
     padding-inline: 12px;
   }
 }
-@media (prefers-reduced-transparency: reduce) {
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
   .image-preview {
     background: #0b0f17;
+  }
+  .image-preview::backdrop {
+    background: #0b0f17;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }

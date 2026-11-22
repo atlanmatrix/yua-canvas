@@ -24,7 +24,11 @@ export function TextFilePreview({
         className={thumbnail ? "markdown-file-preview" : undefined}
         data-file-preview-state={loading ? "loading" : "ready"}
         onWheel={(e) => {
-          if (e.currentTarget.scrollHeight > e.currentTarget.clientHeight)
+          if (
+            !e.ctrlKey &&
+            !e.metaKey &&
+            e.currentTarget.scrollHeight > e.currentTarget.clientHeight
+          )
             e.stopPropagation();
         }}
       >

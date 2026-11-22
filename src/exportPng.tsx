@@ -90,7 +90,15 @@ export async function waitForExportContent(scene: HTMLElement) {
   );
 }
 
-export function ExportMarks({ board, cards }: { board: Board; cards: Card[] }) {
+export function ExportMarks({
+  board,
+  cards,
+  includeStrokes = true,
+}: {
+  board: Board;
+  cards: Card[];
+  includeStrokes?: boolean;
+}) {
   const arrow = `export-arrow-${crypto.randomUUID()}`;
   const edges = (board.connections || []).filter((edge) =>
     [edge.from.card, edge.to.card].every((id) =>
@@ -99,6 +107,7 @@ export function ExportMarks({ board, cards }: { board: Board; cards: Card[] }) {
   );
   return (
     <svg
+      data-export-layer="connections"
       style={{
         position: "absolute",
         width: 1,
@@ -109,7 +118,9 @@ export function ExportMarks({ board, cards }: { board: Board; cards: Card[] }) {
       <defs>
         <ConnectionArrow id={arrow} size={8} color="var(--connection-color)" />
       </defs>
-      <StrokeView strokes={board.strokesHidden ? [] : board.strokes} />
+      {includeStrokes && (
+        <StrokeView strokes={board.strokesHidden ? [] : board.strokes} />
+      )}
       {edges.map((c) => {
         const a = endpointPoint(c.from, cards),
           b = endpointPoint(c.to, cards),
@@ -137,6 +148,24 @@ export function ExportMarks({ board, cards }: { board: Board; cards: Card[] }) {
           </g>
         );
       })}
+    </svg>
+  );
+}
+export function ExportStrokes({ board }: { board: Board }) {
+  if (board.strokesHidden || !board.strokes?.length) return null;
+  return (
+    <svg
+      data-export-layer="strokes"
+      style={{
+        position: "absolute",
+        width: 1,
+        height: 1,
+        overflow: "visible",
+        pointerEvents: "none",
+        zIndex: 1000,
+      }}
+    >
+      <StrokeView strokes={board.strokes} />
     </svg>
   );
 }
@@ -250,7 +279,7 @@ export async function withExportScene(
                   {!g.masked && <Remark text={g.remark} />}
                 </div>
               ))}
-              <ExportMarks board={board} cards={cards} />
+              <ExportMarks board={board} cards={cards} includeStrokes={false} />
               {cards.map((c) => {
                 const r = cardRect(c),
                   address = noteCardHref(c);
@@ -289,6 +318,7 @@ export async function withExportScene(
                   </div>
                 );
               })}
+              <ExportStrokes board={board} />
             </div>
           </div>
         </ExportPreviewContext.Provider>,

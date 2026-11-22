@@ -82,9 +82,14 @@ body
   border-radius: var(--radius-pill);
   box-shadow: var(--control-shadow);
 }
-body :is(.modal, .cloud-panel, .pwa-error, .component-remark) {
+body :is(.modal, .cloud-panel, .pwa-error) {
   border: 0 !important;
   border-radius: 32px;
+  box-shadow: var(--panel-shadow);
+}
+body .component-remark {
+  border: 0 !important;
+  border-radius: var(--radius-menu);
   box-shadow: var(--panel-shadow);
 }
 body .modal {
@@ -351,9 +356,14 @@ body :is(.cloud-login, .share-viewer > header a) {
   border-radius: var(--radius-pill);
   box-shadow: none;
 }
-body :is(.toast, .share-viewer > header) {
+body .toast {
   border: 0;
   border-radius: var(--radius-pill);
+  box-shadow: var(--panel-shadow);
+}
+body .share-viewer > header {
+  border: 0;
+  border-radius: 0;
   box-shadow: var(--panel-shadow);
 }
 /* The overview keeps its full rectangular projection and hit area. */

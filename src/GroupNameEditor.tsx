@@ -37,6 +37,7 @@ export function GroupNameEditor({
           e.preventDefault();
           save();
         } else if (e.key === "Escape") {
+          e.preventDefault();
           finished.current = true;
           onCancel();
         }

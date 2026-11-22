@@ -129,6 +129,7 @@ function CalculatorTool({
           setError("");
         }}
         onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing || e.keyCode === 229) return;
           if (e.key === "Enter") {
             e.preventDefault();
             run();
@@ -443,9 +444,13 @@ const Content = memo(function ToolContent({
 }) {
   usePreferences();
   const [value, setValue] = useState(() => toolState(card.text)),
-    latest = useRef(value);
+    latest = useRef(value),
+    lastCardText = useRef(card.text);
   useEffect(() => {
+    if (card.text === lastCardText.current) return;
+    lastCardText.current = card.text;
     const next = toolState(card.text);
+    if (JSON.stringify(next) === JSON.stringify(latest.current)) return;
     latest.current = next;
     setValue(next);
   }, [card.text]);
@@ -483,7 +488,11 @@ const Content = memo(function ToolContent({
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
         onWheel={(e) => {
-          if (e.currentTarget.scrollHeight > e.currentTarget.clientHeight)
+          if (
+            !e.ctrlKey &&
+            !e.metaKey &&
+            e.currentTarget.scrollHeight > e.currentTarget.clientHeight
+          )
             e.stopPropagation();
         }}
       >

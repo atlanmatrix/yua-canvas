@@ -48,7 +48,8 @@ export function MermaidEditor({
               if (
                 (e.ctrlKey || e.metaKey) &&
                 e.key === "Enter" &&
-                !e.nativeEvent.isComposing
+                !e.nativeEvent.isComposing &&
+                e.keyCode !== 229
               ) {
                 e.preventDefault();
                 e.stopPropagation();

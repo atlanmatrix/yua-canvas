@@ -395,6 +395,7 @@ export function AgentCard({
                     e.key === "Enter" &&
                     !e.shiftKey &&
                     !e.nativeEvent.isComposing &&
+                    e.keyCode !== 229 &&
                     !composing.current
                   ) {
                     e.preventDefault();

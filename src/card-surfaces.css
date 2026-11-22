@@ -178,6 +178,30 @@ body .card-toolbar > button:enabled:active {
   }
 }
 
+/* Keyboard focus stays visible above each themed surface. Clipped controls
+   keep their inset outline; the outer ring is free to extend into dock padding. */
+:root[data-theme]
+  body
+  :is(
+    button,
+    a,
+    input,
+    select,
+    textarea,
+    [tabindex],
+    [contenteditable="true"]
+  ):focus-visible,
+:root[data-theme] body .preference-slider:has(input:focus-visible),
+:root[data-theme] body .text-format-toolbar label:has(input:focus-visible) {
+  outline: 2px solid var(--focus-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--focus-gap);
+}
+:root[data-theme] body :is(.connection-hit, .mind-link-hit):focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 /* Inset rings stay inside clipped docks and coexist with active fills. */
 :root[data-theme]
   body
@@ -202,6 +226,12 @@ body .card-toolbar > button:enabled:active {
   ):focus-visible {
   outline: var(--focus-width) solid var(--accent);
   outline-offset: var(--focus-inset);
+  box-shadow: none;
+}
+:root[data-theme] body button:is(.primary, .agent-primary):focus-visible {
+  outline: 2px solid var(--primary-ink);
+  outline-offset: -4px;
+  box-shadow: none;
 }
 :root[data-theme] body .connection-target-dialog {
   width: min(360px, calc(100vw - 32px));
@@ -225,15 +255,6 @@ body .card-toolbar > button:enabled:active {
   :root[data-theme="dark"] {
     --accent: Highlight;
   }
-}
-
-/* Keyboard focus stays visible above each themed surface. Clipped controls
-   keep their inset outline; the outer ring is free to extend into dock padding. */
-:root[data-theme] body :is(button, a[href], input, select, textarea, [tabindex], [contenteditable="true"]):focus-visible,
-:root[data-theme] body .settings-popover .preference-slider:has(input:focus-visible) {
-  outline: 2px solid var(--focus-color);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 2px var(--focus-gap);
 }
 :root[data-theme] body .card.selected:not(:is(.card-miniature, [data-diagram-frame])) {
   outline: 2px solid var(--accent);

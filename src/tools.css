@@ -385,26 +385,57 @@
 }
 :root[data-theme="dark"] .hljs-string,
 :root[data-theme="dark"] .hljs-regexp,
-:root[data-theme="dark"] .hljs-addition {
+:root[data-theme="dark"] .hljs-addition,
+:root[data-theme="dark"] .hljs-attribute {
   color: #a6ce8c;
 }
 :root[data-theme="dark"] .hljs-number,
-:root[data-theme="dark"] .hljs-symbol {
+:root[data-theme="dark"] .hljs-symbol,
+:root[data-theme="dark"] .hljs-bullet {
   color: #e6b177;
 }
 :root[data-theme="dark"] .hljs-title,
 :root[data-theme="dark"] .hljs-section,
+:root[data-theme="dark"] .hljs-selector-id,
 :root[data-theme="dark"] .hljs-selector-class {
   color: #82b7ef;
 }
+:root[data-theme="dark"] .hljs-comment,
+:root[data-theme="dark"] .hljs-quote {
+  color: #94a3b8;
+}
 :root[data-theme="dark"] .hljs-built_in,
 :root[data-theme="dark"] .hljs-meta,
+:root[data-theme="dark"] .hljs-deletion,
 :root[data-theme="dark"] .hljs-name {
   color: #eb9a9a;
 }
 :root[data-theme="dark"] .hljs-attr,
-:root[data-theme="dark"] .hljs-variable {
+:root[data-theme="dark"] .hljs-variable,
+:root[data-theme="dark"] .hljs-template-variable {
   color: #dfc479;
+}
+/* Custom light card backgrounds in dark mode restore light-surface syntax colors. */
+:root[data-theme="dark"] [data-custom-color="true"] :is(.hljs-keyword, .hljs-literal, .hljs-type, .hljs-selector-tag) {
+  color: #a626a4;
+}
+:root[data-theme="dark"] [data-custom-color="true"] :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute) {
+  color: #407d26;
+}
+:root[data-theme="dark"] [data-custom-color="true"] :is(.hljs-number, .hljs-symbol, .hljs-bullet) {
+  color: #b75b08;
+}
+:root[data-theme="dark"] [data-custom-color="true"] :is(.hljs-title, .hljs-section, .hljs-selector-id, .hljs-selector-class) {
+  color: #2263a5;
+}
+:root[data-theme="dark"] [data-custom-color="true"] :is(.hljs-comment, .hljs-quote) {
+  color: #64748b;
+}
+:root[data-theme="dark"] [data-custom-color="true"] :is(.hljs-built_in, .hljs-meta, .hljs-deletion, .hljs-name) {
+  color: #bc3747;
+}
+:root[data-theme="dark"] [data-custom-color="true"] :is(.hljs-attr, .hljs-variable, .hljs-template-variable) {
+  color: #815c10;
 }
 @media (max-width: 600px) {
   .floating-top {

@@ -72,6 +72,7 @@ import {
   Maximize,
   FolderUp,
   Check,
+  CircleAlert,
   Copy,
   Scissors,
   Pin,
@@ -379,6 +380,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     suppressToolbarClick = useRef(false),
     gesture = useRef<{
       kind: "pan" | "move" | "select" | "resize" | "create" | "link";
+      pointerId?: number;
       from?: Endpoint;
       reconnect?: Reconnect;
       createKind?: Card["kind"];
@@ -405,6 +407,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   const latestBoard = useRef(board);
   latestBoard.current = board;
   const clipboardBusy = useRef(false);
+  const importSeq = useRef(0);
   const pointer = useRef<{ x: number; y: number } | undefined>(undefined);
   const [dropTarget, setDropTarget] = useState<string>();
   const canvasUnderPointer = (x: number, y: number, moving: string[]) => {
@@ -432,7 +435,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setCreatePreview(null);
     setLinkDraft(null);
     if (g?.kind === "create") suppressToolbarClick.current = true;
-    if (g?.kind === "resize") {
+    if (g?.kind === "resize" || g?.kind === "move") {
       cancel();
       return;
     }
@@ -520,6 +523,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     setSaveStatus,
     navigation,
   );
+  useEffect(() => {
+    if (saveStatus === "保存失败")
+      notify("保存失败，请检查存储空间或导出备份");
+  }, [saveStatus]);
   useCanvasWheelGuard(surface, {
     forceCanvas: () =>
       gesture.current?.kind === "select" ||
@@ -1223,7 +1230,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             Math.max(
               200,
               Math.ceil(
-                context?.measureText(`使用 VS Code 打开 ${title}`).width || 300,
+                context?.measureText(tr("使用 VS Code 打开 {0}", title))
+                  .width || 300,
               ) + 66,
             ),
           )
@@ -1482,6 +1490,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             : undefined,
       x: e.clientX,
       y: e.clientY,
+      pointerId: e.pointerId,
       view,
       cards: board.cards,
       ids: pan ? [] : id ? ids : e.shiftKey ? selection : [],
@@ -1491,7 +1500,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     };
     setDragCursor(pan || !!id);
     if (!pan && id) begin();
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
   };
   const resizeCard = (e: React.PointerEvent, c: Card, edge: string) => {
     if (e.button !== 0) return;
@@ -1500,6 +1511,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     begin();
     gesture.current = {
       kind: "resize",
+      pointerId: e.pointerId,
       cardId: c.id,
       bounds: cardRect(c),
       edge,
@@ -1512,7 +1524,9 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       startY: 0,
       moved: false,
     };
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
   };
   const nearbyPort = (
     x: number,
@@ -1663,7 +1677,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   }, [view]);
   const pointerMove = (e: React.PointerEvent) => {
     const g = gesture.current;
-    if (!g) return;
+    if (!g || (g.pointerId !== undefined && g.pointerId !== e.pointerId))
+      return;
     const dx = e.clientX - g.x,
       dy = e.clientY - g.y;
     if (
@@ -1786,6 +1801,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
   const pointerUp = (e: React.PointerEvent) => {
     setDragCursor(false);
     const g = gesture.current;
+    if (g?.pointerId !== undefined && g.pointerId !== e.pointerId) return;
     lastPointerMoved.current = !!g?.moved;
     gesture.current = null;
     setDropTarget(undefined);
@@ -1932,7 +1948,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         new Blob([await exportBoard(card.canvas)], {
           type: "application/json",
         }),
-        `${card.title || "子画布"}.canvas.json`,
+        `${card.title || tr("子画布")}.canvas.json`,
       );
       return;
     }
@@ -2037,7 +2053,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             ? "已复制分组"
             : copy?.message
               ? files.length
-                ? `${copy.message}；保存文件请下载原文件`
+                ? tr("{0}；保存文件请下载原文件", tr(copy.message))
                 : copy.message
               : "已复制",
         );
@@ -2060,7 +2076,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           files.length
             ? "无法复制文件正文（编码或格式不支持），请下载原文件"
             : error instanceof Error
-              ? `${cutting ? "剪切失败，原内容已保留" : "复制失败"}：${error.message}`
+              ? tr(
+                  cutting ? "剪切失败，原内容已保留：{0}" : "复制失败：{0}",
+                  tr(error.message),
+                )
               : "复制失败，请重试",
         );
         if (files.length) setCopyFiles(files);
@@ -2070,6 +2089,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     }
   };
   const exportAll = async () => {
+    if (archiveBusy) return;
+    setArchiveBusy(true);
     try {
       const snapshot = latestWorkspace.current;
       download(
@@ -2088,6 +2109,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       notify("工作区已导出，包含全部画布和附件");
     } catch {
       notify("导出失败，请重试");
+    } finally {
+      setArchiveBusy(false);
     }
   };
   const exportChoice = async (
@@ -2138,17 +2161,20 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     }
   };
   const importFile = async (file?: File) => {
-    if (!file) return;
+    if (!file || importBusy) return;
     if (isZip(file)) {
       await addFiles([file]);
       return;
     }
+    const seq = ++importSeq.current;
     try {
       const destination = board.id || "";
       const imported = await readCanvasImport(await file.text());
-      if (activeCanvasKey.current === destination) setConfirmImport(imported);
+      if (importSeq.current === seq && activeCanvasKey.current === destination)
+        setConfirmImport(imported);
     } catch (e) {
-      notify(e instanceof Error ? e.message : "导入失败");
+      if (importSeq.current === seq)
+        notify(e instanceof Error ? e.message : "导入失败");
     }
   };
   // Keyboard commands must see the ready canvas before the saved state paints.
@@ -2220,7 +2246,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         }
         return;
       }
-      if (document.querySelector('[role="dialog"]') || !ready || e.altKey)
+      if (
+        document.querySelector('[role="dialog"]') ||
+        menu ||
+        !ready ||
+        e.altKey
+      )
         return;
       if (mod) {
         if ((key === "arrowup" || key === "arrowdown") && !e.shiftKey) {
@@ -2280,6 +2311,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         }
         return;
       }
+      if (
+        target?.closest(
+          ".tool-body, .agent-card, .relax-body, .pdf-page-controls, .xlsx-preview, .office-scroll",
+        )
+      )
+        return;
       if (e.code === "Space" && !target?.closest("button")) {
         e.preventDefault();
         space.current = true;
@@ -2620,6 +2657,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     onActivity: (moved) => {
       lastPointerMoved.current = moved;
     },
+    onSelectCard: (id) => {
+      setMenu(null);
+      setSelectedGroup(undefined);
+      setSelectedConnection(undefined);
+      setSelection([id]);
+    },
     onMenu: (context) => {
       setSelectedConnection(undefined);
       if (context.kind === "card") {
@@ -2692,7 +2735,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 aria-describedby={
                   renamingCurrentCanvas ? undefined : "current-canvas-name"
                 }
-                title={tr("返回父画布")}
+                data-tooltip={tr("返回父画布")}
                 onClick={() => navigateCanvas(path.slice(0, -1))}
               >
                 <ArrowLeft size={18} />
@@ -2710,7 +2753,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                 <button
                   className="canvas-rename"
                   aria-label={tr("重命名画布")}
-                  title={tr("重命名画布")}
+                  data-tooltip={tr("重命名画布")}
                   onClick={() => setRenamingCurrentCanvas(true)}
                 >
                   <Pencil size={16} />
@@ -2809,6 +2852,11 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           }}
           onContextMenuCapture={(e) => {
             if (touch.context(e)) return;
+            if (e.ctrlKey && e.button === 0) {
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
             if (
               e.button === 2 &&
               !(e.target as Element).closest(".canvas-editor,.note-link-icon,.relax-body")
@@ -3865,6 +3913,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               }
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
+                  e.preventDefault();
                   e.stopPropagation();
                   setRemarkDraft(undefined);
                 }
@@ -4254,10 +4303,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                     }
                   } catch (error) {
                     notify(
-                      "还原失败，原工作区已保留" +
-                        (error instanceof Error && error.message
-                          ? `：${error.message}`
-                          : ""),
+                      error instanceof Error && error.message
+                        ? tr(
+                            "还原失败，原工作区已保留：{0}",
+                            tr(error.message),
+                          )
+                        : "还原失败，原工作区已保留",
                     );
                   } finally {
                     setImportBusy(false);
@@ -4341,8 +4392,24 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
         </div>
       )}
       {toast && (
-        <div className="toast" role="status">
-          <Check size={16} />
+        <div
+          className={
+            "toast" +
+            (/失败|无法|无效|不可用|缺少|错误|failed|invalid|cannot|unavailable|missing|error/i.test(
+              toast,
+            )
+              ? " toast-error"
+              : "")
+          }
+          role="status"
+        >
+          {/失败|无法|无效|不可用|缺少|错误|failed|invalid|cannot|unavailable|missing|error/i.test(
+            toast,
+          ) ? (
+            <CircleAlert size={16} />
+          ) : (
+            <Check size={16} />
+          )}
           {tr(toast)}
           {copyFiles.length > 0 && (
             <button

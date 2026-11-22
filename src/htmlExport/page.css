@@ -3,6 +3,7 @@
 }
 html {
   overflow: hidden;
+  overscroll-behavior: none;
 }
 body {
   position: fixed;
@@ -11,9 +12,28 @@ body {
   margin: 0;
   background: var(--canvas-bg);
   color: var(--ink);
+  touch-action: none;
   font:
     13px/1.5 system-ui,
     sans-serif;
+}
+.export-group {
+  position: absolute;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-card);
+  pointer-events: none;
+}
+.export-group-title {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  max-width: calc(100% - 24px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
 }
 main {
   position: absolute;

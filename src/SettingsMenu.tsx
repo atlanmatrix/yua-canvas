@@ -1,5 +1,5 @@
 import { navigateMenu } from "./menuKeyboard";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Settings, Upload, X, LockKeyhole } from "./icons";
 import { CloudServers } from "./CloudServers";
 import { PreferencesControls } from "./PreferencesControls";
@@ -31,21 +31,53 @@ export function SettingsMenu({
   onPassword: () => void;
 }) {
   const id = useId(),
-    panel = useRef<HTMLDivElement>(null);
+    panel = useRef<HTMLDivElement>(null),
+    trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const close = () => panel.current?.hidePopover();
+  const [cloudAlert, setCloudAlert] = useState(false);
+  const [online, setOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+  const close = (restoreFocus = false) => {
+    panel.current?.hidePopover?.();
+    if (restoreFocus) trigger.current?.focus({ preventScroll: true });
+  };
+  const attention =
+    saveStatus === "保存失败"
+      ? "error"
+      : cloudAlert || !online
+        ? "warn"
+        : undefined;
+  const attentionText =
+    saveStatus === "保存失败"
+      ? tr("保存失败")
+      : cloudAlert
+        ? tr("云同步需要关注")
+        : !online
+          ? tr("当前处于离线状态")
+          : tr(saveStatus);
   return (
     <div className="settings-menu save-indicator" data-state={saveStatus}>
       <button
+        ref={trigger}
         className="floating-button settings-trigger"
+        data-attention={attention}
         aria-label={tr("设置")}
-        data-tooltip={`${tr("设置")} · ${tr(saveStatus)}`}
+        data-tooltip={`${tr("设置")} · ${attentionText}`}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={id}
         popoverTarget={id}
       >
         <Settings size={18} />
+        {attention && <span className="settings-badge" aria-hidden="true" />}
       </button>
       <div
         ref={panel}
@@ -84,7 +116,7 @@ export function SettingsMenu({
       >
         <div className="settings-heading">
           <h2>{tr("设置")}</h2>
-          <button aria-label={tr("关闭设置")} onClick={close}>
+          <button aria-label={tr("关闭设置")} onClick={() => close(true)}>
             <X size={18} />
           </button>
         </div>
@@ -104,7 +136,8 @@ export function SettingsMenu({
           board={board}
           ready={ready}
           restore={restore}
-          onOpen={close}
+          onOpen={() => close()}
+          onAttentionChange={setCloudAlert}
         />
         <MenuButton
           className="settings-action"

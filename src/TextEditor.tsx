@@ -193,9 +193,24 @@ export function TextEditor({
   }, []);
   const format = (patch: TextStyle) => {
     const editor = view.current!;
-    const { state } = editor,
-      { from, to, empty } = state.selection;
+    const { state } = editor;
+    let { from, to, empty } = state.selection;
+    const sel = editor.hasFocus()
+      ? editor.dom.ownerDocument.getSelection()
+      : null;
+    if (
+      sel?.rangeCount &&
+      editor.dom.contains(sel.anchorNode) &&
+      editor.dom.contains(sel.focusNode)
+    ) {
+      const range = sel.getRangeAt(0);
+      from = editor.posAtDOM(range.startContainer, range.startOffset);
+      to = editor.posAtDOM(range.endContainer, range.endOffset);
+      empty = from === to;
+    }
     const transaction = state.tr;
+    if (from !== state.selection.from || to !== state.selection.to)
+      transaction.setSelection(TextSelection.create(state.doc, from, to));
     if (empty) {
       transaction.addStoredMark(
         markType.create({ style: { ...active, ...patch } }),

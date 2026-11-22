@@ -40,6 +40,7 @@
   color: var(--cloud-ink);
   border: 1px solid transparent !important;
   box-shadow: none;
+  -webkit-backdrop-filter: none;
   backdrop-filter: none;
   font-size: 13px;
   line-height: 18px;
@@ -75,6 +76,9 @@
   .cloud-login:enabled:hover {
   background: #333333;
   color: #ffffff;
+}
+:root[data-theme="dark"] body .cloud-panel .cloud-login {
+  border-color: var(--border) !important;
 }
 :root[data-theme] body .cloud-panel button:disabled {
   opacity: 1;
@@ -196,7 +200,7 @@
   color: var(--cloud-muted);
 }
 .cloud-confirm-backdrop {
-  z-index: 1001;
+  z-index: 45;
 }
 .cloud-confirm-backdrop .cloud-panel h2 {
   font-size: 18px;

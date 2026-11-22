@@ -45,7 +45,9 @@ function PreferenceSlider<T extends string>({
         onChange={(event) =>
           onChange(options[Number(event.target.value)].value)
         }
-        onKeyDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key !== "Escape") event.stopPropagation();
+        }}
       />
     </div>
   );

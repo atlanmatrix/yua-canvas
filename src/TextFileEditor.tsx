@@ -148,10 +148,12 @@ export function TextFileEditor({
                 setRenaming(false);
               }}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                if (e.key === "Enter") {
                   e.preventDefault();
                   e.currentTarget.blur();
                 } else if (e.key === "Escape") {
+                  e.preventDefault();
                   e.stopPropagation();
                   setName(previousName.current);
                   setRenaming(false);
@@ -213,7 +215,8 @@ export function TextFileEditor({
               if (
                 (e.ctrlKey || e.metaKey) &&
                 e.key === "Enter" &&
-                !e.nativeEvent.isComposing
+                !e.nativeEvent.isComposing &&
+                e.keyCode !== 229
               ) {
                 e.preventDefault();
                 e.stopPropagation();

@@ -155,10 +155,11 @@
 }
 @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
   :root {
-    --glass-surface: var(--surface);
+    --glass-surface: var(--float-surface);
     --glass-field: var(--surface-muted);
     --glass-thumb: var(--surface);
     --glass-filter: none;
+    --glass-field-filter: none;
   }
   :root[data-theme] body :is(input, textarea, select):not(.canvas-editor) {
     -webkit-backdrop-filter: none;
@@ -166,6 +167,12 @@
   }
   :root[data-theme] body nav.canvas-navigation {
     background: var(--float-surface);
+  }
+  :root[data-theme] body .settings-popover .preference-slider {
+    background: var(--preference-track-surface);
+  }
+  :root[data-theme] body .settings-popover .preference-slider-thumb {
+    background: var(--preference-thumb-surface);
   }
 }
 :root[data-theme]
@@ -343,6 +350,7 @@
 :root[data-theme] body .modal input:focus-visible { border-color: var(--focus-color) !important; }
 dialog.modal::backdrop {
   background: rgb(15 23 42 / 42%);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
 .control-tooltip {
@@ -372,5 +380,9 @@ dialog.modal::backdrop {
   :root[data-theme] body :is(.floating-button, .bottom-tools button, .zoom-controls button, .canvas3d-actions > button) { transition: none; }
 }
 @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
-  .modal-backdrop, dialog.modal::backdrop { backdrop-filter: none; }
+  .modal-backdrop,
+  dialog.modal::backdrop {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }

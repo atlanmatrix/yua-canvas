@@ -12,7 +12,7 @@ function levels(board: Board, path: string[] = [], name = tr("根画布")): Leve
   return [
     { board, path, name, depth: path.length },
     ...board.cards.flatMap((c) =>
-      c.canvas ? levels(c.canvas, [...path, c.id], c.title || "子画布") : [],
+      c.canvas ? levels(c.canvas, [...path, c.id], c.title || tr("子画布")) : [],
     ),
   ];
 }
@@ -58,6 +58,7 @@ export function CanvasOverview({
     };
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        e.preventDefault();
         setMenu(undefined);
         overview.current?.querySelector<HTMLButtonElement>(".minimap")?.focus();
       }

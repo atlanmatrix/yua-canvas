@@ -459,11 +459,23 @@ export function FlowchartEditor({
   };
   const onKeyDown = (event: KeyboardEvent) => {
     event.stopPropagation();
-    if (event.nativeEvent.isComposing || event.defaultPrevented) return;
+    if (
+      event.nativeEvent.isComposing ||
+      event.keyCode === 229 ||
+      event.defaultPrevented
+    )
+      return;
     const key = event.key.toLowerCase();
     if (key === "escape") {
+      event.preventDefault();
       if (gesture.current) {
-        svg.current?.releasePointerCapture(gesture.current.pointer);
+        try {
+          svg.current?.releasePointerCapture(gesture.current.pointer);
+        } catch {}
+        gesture.current = null;
+        setMoving(undefined);
+        setDraftLink(undefined);
+        setPanning(false);
       } else if (source || mode !== "select" || selected) {
         setSelected(undefined);
         chooseMode("select");
@@ -471,12 +483,17 @@ export function FlowchartEditor({
       } else onClose();
       return;
     }
+    const modified = event.metaKey || event.ctrlKey;
+    if (modified && key === "enter") {
+      event.preventDefault();
+      onSave(JSON.stringify(data));
+      return;
+    }
     if (
       event.target instanceof Element &&
       event.target.closest("input, textarea, select")
     )
       return;
-    const modified = event.metaKey || event.ctrlKey;
     if (modified && (key === "z" || key === "y")) {
       event.preventDefault();
       if (!gesture.current) stepHistory(event.shiftKey || key === "y");

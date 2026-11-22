@@ -109,6 +109,7 @@ export function Miniature({
             setActive(true);
           }
           if (e.key === "Escape") {
+            e.preventDefault();
             e.stopPropagation();
             setActive(false);
           }
@@ -179,6 +180,7 @@ export function Miniature({
                 onBlur={save}
                 onKeyDown={(e) => {
                   e.stopPropagation();
+                  if (e.nativeEvent.isComposing || e.keyCode === 229) return;
                   if (e.key === "Enter") {
                     e.preventDefault();
                     save();

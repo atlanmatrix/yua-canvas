@@ -59,6 +59,7 @@ export function ComponentLockDialog({
   }, [auto, onSubmit]);
   useEffect(() => {
     const close = (event: KeyboardEvent) => {
+      if (event.isComposing || event.keyCode === 229) return;
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();

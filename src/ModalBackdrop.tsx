@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, type ComponentPropsWithoutRef } from "react";
+import { isVisible } from "./menuKeyboard";
 
 const tabbable =
   'button, a[href], input, textarea, select, [tabindex], [contenteditable="true"]';
@@ -18,7 +19,7 @@ export function ModalBackdrop({
           el.tabIndex >= 0 &&
           !el.matches(":disabled") &&
           !el.closest("[inert]") &&
-          el.checkVisibility(),
+          isVisible(el),
       );
     const enter = () =>
       (controls()[0] || overlay).focus({ preventScroll: true });
@@ -32,11 +33,21 @@ export function ModalBackdrop({
     const tab = (e: KeyboardEvent) => {
       if (e.key !== "Tab" || !top()) return;
       const items = controls();
+      if (!items.length) {
+        e.preventDefault();
+        e.stopPropagation();
+        overlay.focus({ preventScroll: true });
+        return;
+      }
+      const current = document.activeElement;
+      const inItems =
+        current instanceof HTMLElement && items.includes(current);
       if (
-        !items.length ||
-        document.activeElement === (e.shiftKey ? items[0] : items.at(-1))
+        !inItems ||
+        current === (e.shiftKey ? items[0] : items.at(-1))
       ) {
         e.preventDefault();
+        e.stopPropagation();
         (e.shiftKey ? items.at(-1) : items[0])?.focus({ preventScroll: true });
       }
     };

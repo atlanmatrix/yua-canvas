@@ -3,7 +3,7 @@ import { MindMap } from "./MindMap";
 import { StyledNoteText } from "./NoteText";
 import { AgentCard } from "./AgentCard";
 import { LockedContent } from "./ComponentLock";
-import { t as tr } from "./i18n";
+import { t as tr, useDarkTheme, usePreferences } from "./i18n";
 import { StrokeView } from "./PaintLayer";
 import {
   diagramFrameStyle,
@@ -213,7 +213,9 @@ export function Canvas3D({
   onClose: () => void;
   onOpen: (path: string[], card?: string) => void;
 }) {
-  const layers = useMemo(() => canvas3DLayers(root), [root]);
+  const { language } = usePreferences();
+  const dark = useDarkTheme();
+  const layers = useMemo(() => canvas3DLayers(root), [root, language]);
   const layerByKey = useMemo(
     () => new Map(layers.map((layer) => [layer.key, layer])),
     [layers],
@@ -358,7 +360,7 @@ export function Canvas3D({
                   <ConnectionArrow
                     id={`preview-arrow-${layerIndex}`}
                     size={8}
-                    color="#94a3b8"
+                    color={dark ? "var(--connection-color)" : "#94a3b8"}
                   />
                 </defs>
                 {layer.board.connections
@@ -404,15 +406,15 @@ export function Canvas3D({
                   const r = cardRect(card),
                     Icon = icons[card.kind];
                   const name = card.masked
-                    ? "已遮罩"
+                    ? tr("已遮罩")
                     : card.displayMode === "small"
-                      ? `${card.kind} 组件`
+                      ? tr("{0} 组件", card.kind)
                       : card.title ||
                         (card.kind === "text"
                           ? card.text.slice(0, 60)
                           : card.kind === "todo"
-                            ? "任务"
-                            : "组件");
+                            ? tr("任务")
+                            : tr("组件"));
                   return (
                     <div
                       key={card.id}
@@ -421,7 +423,7 @@ export function Canvas3D({
                       data-custom-color={customColor(card.color)}
                       role="button"
                       tabIndex={0}
-                      aria-label={`${layer.trail}：${name}`}
+                      aria-label={tr("{0}：{1}", layer.trail, name)}
                       title={tr("双击进入画布并打开组件")}
                       style={{
                         left: r.x,
@@ -436,7 +438,7 @@ export function Canvas3D({
                         activate(layer, card.id);
                       }}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") {
+                        if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
                           e.stopPropagation();
                           onOpen(layer.path, card.id);
@@ -548,7 +550,9 @@ export function Canvas3D({
           if (![0, 1, 2].includes(e.button)) return;
           if (e.button !== 0) e.preventDefault();
           pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-          (e.target as Element).setPointerCapture(e.pointerId);
+          try {
+            (e.target as Element).setPointerCapture(e.pointerId);
+          } catch {}
           const points = [...pointers.current.values()];
           if (points.length === 2)
             distance.current = Math.hypot(
@@ -598,7 +602,10 @@ export function Canvas3D({
           pointers.current.delete(e.pointerId);
           distance.current = 0;
         }}
-        onLostPointerCapture={(e) => pointers.current.delete(e.pointerId)}
+        onLostPointerCapture={(e) => {
+          pointers.current.delete(e.pointerId);
+          distance.current = 0;
+        }}
       >
         <div className="canvas3d-origin">
           <div

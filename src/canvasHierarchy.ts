@@ -1,4 +1,5 @@
 import { attachParents, groupBounds, type Board, type Card } from "./storage";
+import { t as tr } from "./i18n";
 import { cardRect } from "./geometry";
 import { inheritProtection } from "./encryption";
 import type { Connection, Endpoint } from "./connections";
@@ -206,7 +207,7 @@ export function locateBoard(root: Board, path: string[]) {
     const card = steps?.at(-1);
     if (!card?.canvas) break;
     valid.push(...steps!.map((c) => c.id));
-    names.push(...steps!.map((c) => c.title || "子画布"));
+    names.push(...steps!.map((c) => c.title || tr("子画布")));
     board = card.canvas;
     matched++;
   }

@@ -42,9 +42,18 @@ export function ConnectionTargetDialog({
     }))
     .filter(({ ports }) => ports.length);
   useLayoutEffect(() => {
+    const opener = document.activeElement;
     const node = dialog.current!;
     node.showModal();
-    return () => node.close();
+    return () => {
+      node.close();
+      if (
+        opener instanceof HTMLElement &&
+        opener.isConnected &&
+        !opener.closest("[inert]")
+      )
+        opener.focus({ preventScroll: true });
+    };
   }, []);
   return (
     <dialog
@@ -53,7 +62,13 @@ export function ConnectionTargetDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="connection-target-title"
-      onKeyDown={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === "Escape") {
+          e.preventDefault();
+          onClose();
+        }
+      }}
       onCancel={(e) => {
         e.preventDefault();
         onClose();

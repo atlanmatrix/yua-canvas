@@ -1,6 +1,12 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-const mac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+const mac =
+  /Mac|iPhone|iPad|iPod/.test(
+    (navigator as Navigator & { userAgentData?: { platform?: string } })
+      .userAgentData?.platform ||
+      navigator.platform ||
+      navigator.userAgent,
+  );
 export type Shortcut =
   | "copy"
   | "cut"
@@ -8,8 +14,6 @@ export type Shortcut =
   | "addChild"
   | "addSibling"
   | "duplicate"
-  | "group"
-  | "ungroup"
   | "import"
   | "export"
   | "parent"
@@ -27,8 +31,6 @@ const keys: Record<Shortcut, string[]> = {
   duplicate: ["mod", "D"],
   addChild: ["Tab"],
   addSibling: ["mod", "Enter"],
-  group: ["mod", "G"],
-  ungroup: ["mod", "shift", "G"],
   import: ["mod", "O"],
   export: ["mod", "shift", "E"],
   parent: ["mod", "↑"],

@@ -1,4 +1,5 @@
-import { memo, useMemo, type ReactNode, type SVGProps } from "react";
+import { memo, useContext, useMemo, type ReactNode, type SVGProps } from "react";
+import { FullContentExportContext } from "./ExportPreviewContext";
 import { t as tr, useDarkTheme } from "./i18n";
 import {
   parseFlowchart,
@@ -232,7 +233,7 @@ export function FlowEdgeView({
           fontSize="12"
           fontWeight="600"
           fill={ink}
-          stroke={dark ? "#222934" : "#fff"}
+          stroke={dark ? "var(--surface, #131c2e)" : "#fff"}
           strokeWidth="5"
           strokeLinejoin="round"
           paintOrder="stroke"
@@ -286,7 +287,8 @@ export const FlowchartPreview = memo(function FlowchartPreview({
 }: {
   text: string;
 }) {
-  const dark = useDarkTheme();
+  const fullContentExport = useContext(FullContentExportContext);
+  const dark = useDarkTheme() && !fullContentExport;
   const data = useMemo(() => {
     try {
       return parseFlowchart(text);

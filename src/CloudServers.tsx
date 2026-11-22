@@ -40,8 +40,10 @@ export function CloudServers(props: {
   ready: boolean;
   restore: (b: Board) => void;
   onOpen: () => void;
+  onAttentionChange?: (alert: boolean) => void;
 }) {
   const [servers, setServers] = useState(read);
+  const [alerts, setAlerts] = useState<Record<string, boolean>>({});
   const [editing, setEditing] = useState<string | null>(
     location.hash === "#cloud" ? "local" : null,
   );
@@ -53,6 +55,14 @@ export function CloudServers(props: {
     localStorage.setItem(KEY, JSON.stringify(next));
     setServers(next);
   }
+  const reportAttention = (id: string, alert: boolean) => {
+    setAlerts((current) => {
+      if (!!current[id] === alert) return current;
+      const next = { ...current, [id]: alert };
+      props.onAttentionChange?.(Object.values(next).some(Boolean));
+      return next;
+    });
+  };
   return (
     <>
       <ContextSubmenu
@@ -79,7 +89,7 @@ export function CloudServers(props: {
               <button
                 role="switch"
                 className="cloud-switch"
-                aria-label={`${tr("自动同步")}：${label}`}
+                aria-label={tr("自动同步：{0}", label)}
                 aria-checked={s.selected}
                 onClick={() =>
                   save(
@@ -123,6 +133,7 @@ export function CloudServers(props: {
           }
           visible={editing === s.id}
           onClose={() => setEditing(null)}
+          onAttention={(alert) => reportAttention(s.id, alert)}
         />
       ))}
       {adding &&
@@ -133,6 +144,13 @@ export function CloudServers(props: {
               role="dialog"
               aria-modal="true"
               aria-label={tr("新增服务器")}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setAdding(false);
+                }
+              }}
               onSubmit={(e) => {
                 e.preventDefault();
                 try {

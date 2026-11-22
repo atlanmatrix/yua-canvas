@@ -909,8 +909,8 @@ export const english: Record<string, string> = {
     "Right-click the minimap and choose Layered view, or use its layer icon, to explore the workspace hierarchy in 3D. Drag to rotate, scroll to zoom, and Shift or right-drag to pan. Touch supports rotation, pinch zoom and two-finger pan. Parent canvases appear above their children. Rotation is limited to ±90°. Use the top-right controls to reset or exit. Double-click a component to open it in its canvas; Esc returns to the canvas.",
   "在任意组件上右键选择 Pin。顶部纵向列表只显示当前画布的 Pin，点击定位，双击修改名称。右键列表项可通过圆形色板选择蓝色、浅橙、红色或默认颜色；右键原组件可取消 Pin。名称和颜色随本地保存、同步与导出保留。":
     "Right-click any component to add a Pin. The vertical list at the top shows Pins in the current canvas. Click to navigate; double-click to rename. Right-click a Pin for its color palette, or remove it from the original component menu. Pin names and colors are saved locally, synced and included in exports.",
-  "工具栏的 Miniature 可嵌入 3D 场景：输入场景 URL 或 iframe 代码，也可使用示例城市。背景透明、无标题栏，平时只显示模型；悬浮或选中后显示虚线框和框下方的名称、链接。 双击模型激活交互，点击模型区域外 结束交互并保存视角和静态预览。 双击名称或链接可直接在画布编辑，Enter 或失焦保存、Esc 取消；Cmd/Ctrl + 点击链接在新标签页打开。":
-    "Miniature embeds a 3D scene from a URL or iframe, with an example city available. It has a transparent background and no title bar. Hover or select to reveal its frame, name and link. Double-click the model to interact; click outside to save its view and static preview. Double-click the name or link to edit, Enter or blur to save, Esc to cancel. Cmd/Ctrl-click a link to open it in a new tab.",
+  "工具栏的 Miniature 可嵌入 3D 场景：输入场景 URL 或 iframe 代码，也可使用示例城市。背景透明、无标题栏，平时只显示模型；悬浮或选中后显示虚线框和框下方的名称、链接。 双击模型激活交互，点击模型区域外 结束交互并保存视角和静态预览。 双击名称或链接可直接在画布编辑，Enter 或失焦保存、Esc 取消；⌘/Ctrl + 点击链接在新标签页打开。":
+    "Miniature embeds a 3D scene from a URL or iframe, with an example city available. It has a transparent background and no title bar. Hover or select to reveal its frame, name and link. Double-click the model to interact; click outside to save its view and static preview. Double-click the name or link to edit, Enter or blur to save, Esc to cancel. ⌘/Ctrl-click a link to open it in a new tab.",
   "画布右键「新建应用关联」可添加 VS Code 或 iTerm2。VS Code 配置完整本地路径后，在组件悬浮工具栏点击打开按钮即可在 VS Code 新窗口打开；右键「配置关联」可修改路径。iTerm2 支持多行命令，每行前显示 > 标记，组件悬浮工具栏可复制或执行命令，双击容器修改命令。首次执行时按弹窗下载、解压并安装 macOS 本地打开器；安装后系统可能询问是否允许打开应用和控制 iTerm2。配对设置仅保存在当前浏览器，不随画布导出或分享。":
     "Right-click the canvas and choose New app link for VS Code or iTerm2. Configure a full local path for VS Code; use the component toolbar to open a new VS Code window, or use Configure link to change it. iTerm2 supports multiline commands with > prompts and Copy/Run buttons on hover. Double-click to edit. First-time use requires installing the macOS launcher from its setup dialog. macOS may ask for permission to open apps and control iTerm2. Pairing stays in this browser and is excluded from exports and shares.",
   "组件默认使用中尺寸预览；右键「显示模式」可切换小、中、大尺寸。小尺寸显示类型图标和组件名称。拖动边框后，可用「自定义」恢复上次调整的尺寸，子画布除外。右键「遮罩」隐藏内容，「备注」将文字显示在组件右侧。画笔入口位于底部工具栏左侧，点击进入绘画模式，顶部可设置颜色和粗细、撤销、清空、隐藏或退出。笔迹自动平滑并显示在内容上方。双击编辑文本，选中文字后可调整字体、字号、粗细、倾斜、下划线、删除线、文字颜色和文字底色。右键菜单的背景色应用于整张卡片。":
@@ -952,4 +952,27 @@ export const english: Record<string, string> = {
   分享不存在或已失效: "Share not found or unavailable",
   "云服务暂时不可用，请稍后重试":
     "Cloud service is unavailable. Please try again later.",
+  返回: "Back",
+  确认: "Confirm",
+  "自动同步：{0}": "Auto sync: {0}",
+  "{0}：{1}": "{0}: {1}",
+  "复制失败：{0}": "Copy failed: {0}",
+  "剪切失败，原内容已保留：{0}": "Cut failed; original content kept: {0}",
+  "还原失败，原工作区已保留：{0}": "Restore failed; original workspace kept: {0}",
+  "保存失败，请检查存储空间或导出备份":
+    "Save failed. Check storage quota or export a backup.",
+  云同步需要关注: "Cloud sync needs attention",
+  当前处于离线状态: "Offline",
+  无法读取文本内容: "Unable to read text content",
+  "空格 / 右键拖动 / ⌘/Ctrl + 拖动": "Space / Right-drag / ⌘/Ctrl + drag",
+  "滚轮 / ⌘/Ctrl + 滚轮": "Scroll / ⌘/Ctrl + scroll",
+  "Tab / ⌘/Ctrl + Enter": "Tab / ⌘/Ctrl + Enter",
+  "加密需要 HTTPS 或 localhost 环境": "Encryption requires HTTPS or localhost",
+  加密组件数据无效: "Invalid encrypted component data",
+  加密主密码配置无效: "Invalid master password configuration",
+  "Agent 配置无效": "Invalid Agent configuration",
+  缺少加密内容: "Missing encrypted content",
+  "请输入 HTTPS 接口地址（本地服务可使用 HTTP）":
+    "Enter an HTTPS endpoint URL (HTTP allowed for local services)",
+  "请求失败（HTTP {0}）": "Request failed (HTTP {0})",
 };

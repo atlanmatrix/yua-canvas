@@ -5,17 +5,26 @@ export type Theme = "light" | "dark" | "system";
 type Preferences = { language: Language; theme: Theme };
 const key = "yua-preferences";
 function read(): Preferences {
+  const params = new URLSearchParams(location.search);
+  const queryLang = params.get("lang");
+  const queryTheme = params.get("theme");
   try {
     const value = JSON.parse(localStorage.getItem(key) || "null");
-    return {
-      language: value?.language === "en" ? "en" : "zh",
-      theme: ["dark", "light", "system"].includes(value?.theme)
-        ? value.theme
+    if (value && typeof value === "object")
+      return {
+        language: value.language === "en" ? "en" : "zh",
+        theme: ["dark", "light", "system"].includes(value.theme)
+          ? value.theme
+          : "system",
+      };
+  } catch {}
+  return {
+    language: queryLang === "en" ? "en" : "zh",
+    theme:
+      queryTheme === "dark" || queryTheme === "light" || queryTheme === "system"
+        ? queryTheme
         : "system",
-    };
-  } catch {
-    return { language: "zh", theme: "system" };
-  }
+  };
 }
 let preferences = read();
 const listeners = new Set<() => void>();
@@ -23,14 +32,18 @@ const media = matchMedia("(prefers-color-scheme: dark)");
 function apply() {
   document.documentElement.lang =
     preferences.language === "zh" ? "zh-CN" : "en";
-  document.documentElement.dataset.theme =
+  const resolved =
     preferences.theme === "system"
       ? media.matches
         ? "dark"
         : "light"
       : preferences.theme;
-  document.documentElement.style.colorScheme =
-    document.documentElement.dataset.theme!;
+  document.documentElement.dataset.theme = resolved;
+  document.documentElement.style.colorScheme = resolved;
+  const meta = document.querySelector<HTMLMetaElement>(
+    'meta[name="theme-color"]',
+  );
+  if (meta) meta.content = resolved === "dark" ? "#0b111e" : "#f6f8fb";
 }
 apply();
 media.addEventListener("change", () => {
