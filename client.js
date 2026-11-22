@@ -32,6 +32,14 @@ window.__ModuleLoader__.load({
     }
 
     function CanvasPanel() {
+      const url = new URL("api/yua-canvas/index.html", document.baseURI);
+      const rootTheme =
+        document.documentElement.dataset.theme ||
+        (document.documentElement.classList.contains("dark") ? "dark" : "");
+      if (rootTheme === "dark" || rootTheme === "light")
+        url.searchParams.set("theme", rootTheme);
+      if (/^en\b/i.test(document.documentElement.lang || ""))
+        url.searchParams.set("lang", "en");
       return React.createElement(
         "section",
         {
@@ -47,7 +55,7 @@ window.__ModuleLoader__.load({
         },
         React.createElement("iframe", {
           title: "Canvas of Yua",
-          src: new URL("api/yua-canvas/index.html", document.baseURI).href,
+          src: url.href,
           allow: "clipboard-read; clipboard-write",
           style: { border: 0, width: "100%", flex: 1, minHeight: 0 },
         }),
