@@ -1,3 +1,16 @@
+import type { ConnectionArrowheads } from "./connections";
+
+export function connectionMarkers(
+  arrowheads: ConnectionArrowheads | undefined,
+  id: string,
+) {
+  const marker = `url(#${id})`;
+  return {
+    markerStart: arrowheads === "both" ? marker : undefined,
+    markerEnd: arrowheads === "none" ? undefined : marker,
+  };
+}
+
 export function ConnectionArrow({
   id,
   size,
@@ -16,7 +29,7 @@ export function ConnectionArrow({
       markerWidth={size}
       markerHeight={size}
       markerUnits="userSpaceOnUse"
-      orient="auto"
+      orient="auto-start-reverse"
     >
       <path d="M 0 0 L 10 5 L 0 10 Z" fill={color} />
     </marker>

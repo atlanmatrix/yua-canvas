@@ -664,6 +664,13 @@ export async function importBoard(
         !validEndpoint(c.from, cards) ||
         !validEndpoint(c.to, cards) ||
         c.from.card === c.to.card ||
+        (c.routing !== undefined &&
+          c.routing !== "curve" &&
+          c.routing !== "elbow") ||
+        (c.arrowheads !== undefined &&
+          c.arrowheads !== "none" &&
+          c.arrowheads !== "end" &&
+          c.arrowheads !== "both") ||
         (c.label !== undefined &&
           (typeof c.label !== "string" || c.label.length > 1000))
       )
@@ -672,6 +679,8 @@ export async function importBoard(
       return {
         id: c.id,
         label: c.label,
+        routing: c.routing,
+        arrowheads: c.arrowheads,
         from: { card: c.from.card, side: c.from.side, task: c.from.task },
         to: { card: c.to.card, side: c.to.side, task: c.to.task },
       };

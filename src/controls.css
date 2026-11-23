@@ -119,7 +119,7 @@ body .context-menu button:not(.color-swatch) {
   border-radius: 8px !important;
   box-shadow: none;
 }
-body .context-menu button[role="menuitem"] {
+body .context-menu button:is([role="menuitem"], .connection-style-option) {
   font-size: 14px;
   line-height: 20px;
   min-height: max(34px, var(--action-height));

@@ -6,13 +6,8 @@ import type { CSSProperties } from "react";
 import { Folder, PanelsTopLeft, FileText } from "./icons";
 import { cardRect } from "./geometry";
 import { strokeBounds, surfaceColor, customColor } from "./presentation";
-import {
-  curve,
-  curveMidpoint,
-  curveBounds,
-  endpointPoint,
-} from "./connections";
-import { ConnectionArrow } from "./ConnectionArrow";
+import { connectionGeometry } from "./connections";
+import { ConnectionArrow, connectionMarkers } from "./ConnectionArrow";
 import { StrokeView } from "./PaintLayer";
 import {
   diagramFrameStyle,
@@ -122,22 +117,20 @@ export function ExportMarks({
         <StrokeView strokes={board.strokesHidden ? [] : board.strokes} />
       )}
       {edges.map((c) => {
-        const a = endpointPoint(c.from, cards),
-          b = endpointPoint(c.to, cards),
-          mid = curveMidpoint(a, b, c.from.side, c.to.side);
+        const { d, midpoint } = connectionGeometry(c, cards);
         return (
           <g key={c.id}>
             <path
-              d={curve(a, b, c.from.side, c.to.side)}
+              d={d}
               stroke="var(--connection-color)"
               strokeWidth={2}
               fill="none"
-              markerEnd={`url(#${arrow})`}
+              {...connectionMarkers(c.arrowheads, arrow)}
             />
             {c.label && (
               <text
-                x={mid.x}
-                y={mid.y - 8}
+                x={midpoint.x}
+                y={midpoint.y - 8}
                 textAnchor="middle"
                 fill="currentColor"
                 fontSize={12}
@@ -204,12 +197,7 @@ export async function withExportScene(
     ...strokeBounds(board.strokesHidden ? [] : board.strokes),
   ];
   if (!rects.length) throw new Error(tr("没有可导出的内容"));
-  // A Bezier stays inside its control hull, including reversed endpoints.
-  for (const edge of edges) {
-    const a = endpointPoint(edge.from, cards),
-      b = endpointPoint(edge.to, cards);
-    rects.push(curveBounds(a, b, edge.from.side, edge.to.side));
-  }
+  for (const edge of edges) rects.push(connectionGeometry(edge, cards).bounds);
   const x = Math.min(...rects.map((r) => r.x)) - 32;
   const y = Math.min(...rects.map((r) => r.y)) - 40;
   let width = Math.ceil(Math.max(...rects.map((r) => r.x + r.width)) - x + 32);

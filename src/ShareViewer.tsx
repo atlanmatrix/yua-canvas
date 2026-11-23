@@ -40,8 +40,8 @@ import {
   readBoard,
 } from "./storage";
 import { cardRect } from "./geometry";
-import { curve, endpointPoint, curveMidpoint } from "./connections";
-import { ConnectionArrow } from "./ConnectionArrow";
+import { connectionGeometry } from "./connections";
+import { ConnectionArrow, connectionMarkers } from "./ConnectionArrow";
 import { Diagram } from "./Markdown";
 import { isXlsxFile, officeKind } from "./files";
 import { PdfPreview } from "./PdfPreview";
@@ -411,20 +411,21 @@ export function ShareViewer({ token }: { token: string }) {
                   }),
                 )
                 .map((c) => {
-                  const from = endpointPoint(c.from, board.cards, {}),
-                    to = endpointPoint(c.to, board.cards, {}),
-                    mid = curveMidpoint(from, to, c.from.side, c.to.side);
+                  const { d, midpoint } = connectionGeometry(c, board.cards);
                   return (
                     <g key={c.id}>
                       <path
-                        d={curve(from, to, c.from.side, c.to.side)}
+                        d={d}
                         stroke="var(--connection-color)"
                         strokeWidth="2"
                         fill="none"
-                        markerEnd="url(#canvas-connection-arrow)"
+                        {...connectionMarkers(
+                          c.arrowheads,
+                          "canvas-connection-arrow",
+                        )}
                       />
                       {c.label && (
-                        <text x={mid.x} y={mid.y} textAnchor="middle">
+                        <text x={midpoint.x} y={midpoint.y} textAnchor="middle">
                           {c.label}
                         </text>
                       )}

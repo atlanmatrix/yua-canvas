@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { curve, type Side } from "./connections";
+import { connectionPath, type ConnectionStyle, type Side } from "./connections";
+import { connectionMarkers } from "./ConnectionArrow";
 
 type Point = { x: number; y: number };
 export function MagneticConnectionDraft(props: {
@@ -10,6 +11,7 @@ export function MagneticConnectionDraft(props: {
   zoom: number;
   strength?: number;
   reverse?: boolean;
+  style?: ConnectionStyle;
 }) {
   const path = useRef<SVGPathElement>(null);
   const tip = useRef<SVGGElement>(null);
@@ -41,13 +43,15 @@ export function MagneticConnectionDraft(props: {
       path.current?.setAttribute(
         "d",
         p.reverse
-          ? curve(
+          ? connectionPath(
+              p.style?.routing,
               position,
               p.from,
               p.toSide ?? opposite[p.fromSide],
               p.fromSide,
             )
-          : curve(
+          : connectionPath(
+              p.style?.routing,
               p.from,
               position,
               p.fromSide,
@@ -68,7 +72,10 @@ export function MagneticConnectionDraft(props: {
       <path
         ref={path}
         className="connection-path draft"
-        markerEnd="url(#canvas-connection-arrow)"
+        {...connectionMarkers(
+          props.style?.arrowheads,
+          "canvas-connection-arrow",
+        )}
       />
       <g ref={tip} className="magnetic-tip">
         <circle className="magnetic-field" r={18 + (props.strength ?? 0) * 9} />

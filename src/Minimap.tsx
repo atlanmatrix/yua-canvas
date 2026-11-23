@@ -5,8 +5,8 @@ import { memo, useEffect, useRef, useState } from "react";
 import { customColor } from "./presentation";
 import { type Board, type Card, type Rect, groupDepth } from "./storage";
 import { cardRect } from "./geometry";
-import { ConnectionArrow } from "./ConnectionArrow";
-import { endpointPoint, curve } from "./connections";
+import { ConnectionArrow, connectionMarkers } from "./ConnectionArrow";
+import { connectionGeometry } from "./connections";
 
 import {
   MINIMAP_WIDTH as WIDTH,
@@ -225,13 +225,8 @@ export function Minimap({
                 key={c.id}
                 data-minimap-connection={c.id}
                 className="minimap-connection"
-                markerEnd="url(#minimap-connection-arrow)"
-                d={curve(
-                  endpointPoint(c.from, board.cards, offsets),
-                  endpointPoint(c.to, board.cards, offsets),
-                  c.from.side,
-                  c.to.side,
-                )}
+                {...connectionMarkers(c.arrowheads, "minimap-connection-arrow")}
+                d={connectionGeometry(c, board.cards, offsets).d}
                 vectorEffect="non-scaling-stroke"
               />
             ))}

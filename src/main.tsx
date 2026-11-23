@@ -156,6 +156,7 @@ import {
   MenuSection,
 } from "./CanvasContextMenu";
 import { ConnectionView } from "./ConnectionView";
+import { ConnectionStyleMenu } from "./ConnectionStyleMenu";
 import { OfficePreview } from "./OfficePreview";
 import { XlsxPreview } from "./XlsxPreview";
 import { cardsFromFiles, fileMime, isXlsxFile, officeKind, type OfficeKind } from "./files";
@@ -310,7 +311,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       x: number;
       y: number;
       id: string;
-      kind: "card" | "group" | "canvas";
+      kind: "card" | "group" | "canvas" | "connection";
       noteLinkIcon?: boolean;
     } | null>(null);
   const [applicationDraft, setApplicationDraft] = useState<ApplicationDraft>();
@@ -389,7 +390,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       toggleCard?: string;
       context?: {
         id: string;
-        kind: "card" | "group" | "canvas";
+        kind: "card" | "group" | "canvas" | "connection";
       };
       bounds?: Rect;
       edge?: string;
@@ -1461,6 +1462,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     const target = e.target as Element,
       cardTarget = target.closest("[data-card-id],[data-context-card-id]"),
       groupTarget = target.closest("[data-group-id]"),
+      connectionTarget = target.closest("[data-connection-id]"),
       link =
         e.button === 0 && (e.ctrlKey || e.metaKey)
           ? target.closest<HTMLAnchorElement>("a.note-link")?.href
@@ -1487,9 +1489,14 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           }
         : groupTarget
           ? { id: groupTarget.getAttribute("data-group-id")!, kind: "group" }
-          : e.button === 2
-            ? { id: "", kind: "canvas" }
-            : undefined,
+          : connectionTarget
+            ? {
+                id: connectionTarget.getAttribute("data-connection-id")!,
+                kind: "connection",
+              }
+            : e.button === 2
+              ? { id: "", kind: "canvas" }
+              : undefined,
       x: e.clientX,
       y: e.clientY,
       pointerId: e.pointerId,
@@ -1878,7 +1885,8 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       e.type !== "pointercancel" &&
       g.context
     ) {
-      setSelectedConnection(undefined);
+      if (g.context.kind === "connection") selectConnection(g.context.id);
+      else setSelectedConnection(undefined);
       if (g.context.kind === "group") {
         setSelectedGroup(g.context.id);
         setSelection([]);
@@ -2195,9 +2203,14 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       if (key === "escape") {
         if (menu) {
           setMenu(null);
-          const target = menu.kind === "card"
-            ? surface.current?.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(menu.id)}"]`)
-            : surface.current;
+          const target =
+            menu.kind === "card"
+              ? surface.current?.querySelector<HTMLElement>(
+                  `[data-card-id="${CSS.escape(menu.id)}"]`,
+                )
+              : menu.kind === "connection"
+                ? connectionHit(menu.id)
+                : surface.current;
           target?.focus({ preventScroll: true });
           return;
         }
@@ -2491,6 +2504,21 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
     menu?.kind === "group"
       ? board.groups.find((group) => group.id === menu.id)
       : undefined;
+  const menuConnection =
+    menu?.kind === "connection"
+      ? board.connections?.find((connection) => connection.id === menu.id)
+      : undefined;
+  const showContextMenu =
+    menu?.kind === "canvas" || menuCard || menuGroup || menuConnection;
+  const connectionHit = (id: string) =>
+    surface.current?.querySelector<SVGPathElement>(
+      `[data-connection-id="${CSS.escape(id)}"] > .connection-hit`,
+    );
+  const selectConnection = (id: string) => {
+    setSelectedConnection(id);
+    setSelection([]);
+    setSelectedGroup(undefined);
+  };
   const menuAddress =
     menuCard?.kind === "text" && !menuCard.masked && !menuCard.locked
       ? linkTarget(menuCard.text)
@@ -2667,14 +2695,15 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       setSelection([id]);
     },
     onMenu: (context) => {
-      setSelectedConnection(undefined);
+      if (context.kind === "connection") selectConnection(context.id);
+      else setSelectedConnection(undefined);
       if (context.kind === "card") {
         setSelectedGroup(undefined);
         if (!selection.includes(context.id)) setSelection([context.id]);
       } else if (context.kind === "group") {
         setSelectedGroup(context.id);
         setSelection([]);
-      } else {
+      } else if (context.kind === "canvas") {
         setSelectedGroup(undefined);
         setSelection([]);
       }
@@ -2947,12 +2976,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               <defs>
                 <ConnectionArrow
                   id="canvas-connection-arrow"
-                  size={10 / view.z}
+                  size={10}
                   color="var(--connection-color)"
                 />
                 <ConnectionArrow
                   id="canvas-connection-arrow-selected"
-                  size={10 / view.z}
+                  size={10}
                   color="var(--accent)"
                 />
               </defs>
@@ -2989,10 +3018,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       }
                       editorLayer={connectionEditors}
                       labelLayer={connectionLabels}
-                      onSelect={() => {
-                        setSelectedConnection(c.id);
-                        setSelection([]);
-                        setSelectedGroup(undefined);
+                      onSelect={() => selectConnection(c.id)}
+                      onOpenMenu={({ x, y }) => {
+                        selectConnection(c.id);
+                        setMenu({ kind: "connection", id: c.id, x, y });
                       }}
                       onLabelChange={(label) =>
                         setBoard((b) => ({
@@ -3015,6 +3044,10 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   toSide={linkDraft.to?.side}
                   zoom={view.z}
                   reverse={linkDraft.reconnect?.end === "from"}
+                  style={
+                    linkDraft.reconnect &&
+                    board.connections?.find((c) => c.id === linkDraft.reconnect?.id)
+                  }
                   strength={linkDraft.to?.strength}
                 />
               )}
@@ -3386,7 +3419,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
           }}
         />
       )}
-      {menu && (menu.kind === "canvas" || menuCard || menuGroup) && (
+      {menu && showContextMenu && (
         <CanvasContextMenu x={menu.x} y={menu.y}>
           {menu.noteLinkIcon && menuCard ? (
             <button
@@ -3409,6 +3442,27 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
               <Unlink size={14} />
               {tr("取消链接")}
             </button>
+          ) : menuConnection ? (
+            <ConnectionStyleMenu
+              routing={menuConnection.routing}
+              arrowheads={menuConnection.arrowheads}
+              onChange={(style) => {
+                if (style)
+                  setBoard(
+                    (b) => ({
+                      ...b,
+                      connections: b.connections?.map((connection) =>
+                        connection.id === menuConnection.id
+                          ? { ...connection, ...style }
+                          : connection,
+                      ),
+                    }),
+                    { preserveLayout: true },
+                  );
+                setMenu(null);
+                connectionHit(menuConnection.id)?.focus({ preventScroll: true });
+              }}
+            />
           ) : menu.kind === "canvas" ? (
             <>
               <MenuSection label={tr("新建内容")}>

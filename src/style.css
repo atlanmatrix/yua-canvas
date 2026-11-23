@@ -2640,6 +2640,10 @@ body .context-submenu.shared-submenu {
   border-radius: 50%;
   background: var(--surface);
 }
+.connection-reconnect[data-side="n"]::after { translate: 0 8px; }
+.connection-reconnect[data-side="e"]::after { translate: -8px 0; }
+.connection-reconnect[data-side="s"]::after { translate: 0 -8px; }
+.connection-reconnect[data-side="w"]::after { translate: 8px 0; }
 
 
 /* The transformed world keeps its own card and connector stacking order. */

@@ -35,8 +35,8 @@ import {
 } from "./icons";
 import type { Board, Card } from "./storage";
 import { cardRect } from "./geometry";
-import { curve, curveMidpoint, endpointPoint } from "./connections";
-import { ConnectionArrow } from "./ConnectionArrow";
+import { connectionGeometry } from "./connections";
+import { ConnectionArrow, connectionMarkers } from "./ConnectionArrow";
 import { isTextFile, fileText } from "./clipboard";
 import { Diagram } from "./Markdown";
 import { ApplicationCard } from "./ApplicationCard";
@@ -373,24 +373,23 @@ export function Canvas3D({
                     }),
                   )
                   .map((c) => {
-                    const from = endpointPoint(c.from, layer.board.cards),
-                      to = endpointPoint(c.to, layer.board.cards);
-                    const middle = curveMidpoint(
-                      from,
-                      to,
-                      c.from.side,
-                      c.to.side,
+                    const { d, midpoint } = connectionGeometry(
+                      c,
+                      layer.board.cards,
                     );
                     return (
                       <g key={c.id}>
                         <path
-                          d={curve(from, to, c.from.side, c.to.side)}
-                          markerEnd={`url(#preview-arrow-${layerIndex})`}
+                          d={d}
+                          {...connectionMarkers(
+                            c.arrowheads,
+                            `preview-arrow-${layerIndex}`,
+                          )}
                         />
                         {c.label && (
                           <text
-                            x={middle.x}
-                            y={middle.y - 8}
+                            x={midpoint.x}
+                            y={midpoint.y - 8}
                             textAnchor="middle"
                           >
                             {c.label}

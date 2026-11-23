@@ -11,7 +11,7 @@ const card = (id: string, x: number, y: number) => ({
   height: 80,
   color: "#ffffff",
 });
-async function setup(page: Page) {
+async function setup(page: Page, targetY = 100) {
   await page.goto("/");
   await page.getByTestId("import").setInputFiles({
     name: "links.json",
@@ -22,7 +22,7 @@ async function setup(page: Page) {
         groups: [],
         cards: [
           card("来源", 100, 100),
-          card("目标", 600, 100),
+          card("目标", 600, targetY),
           {
             id: "todo",
             kind: "todo",
@@ -70,6 +70,127 @@ async function backup(page: Page) {
   for await (const c of s!) chunks.push(c);
   return Buffer.concat(chunks);
 }
+
+test("connection styles support elbows and all arrowhead modes, with arrows scaling on the canvas", async ({
+  page,
+}) => {
+  await setup(page, 240);
+  const source = page.locator('.card[data-card-id="来源"]');
+  const target = page.locator('.card[data-card-id="目标"]');
+  await connect(page, source.locator(".port-e"), target.locator(".port-w"));
+  const path = page.locator(".connection-path:not(.draft)");
+  const hit = page.locator(".connection-hit");
+  const menuItem = (name: string) =>
+    page.getByRole("menuitemradio", { name, exact: true });
+  const midpoint = () =>
+    hit.evaluate((el: SVGPathElement) => {
+      const { x, y } = el
+        .getPointAtLength(el.getTotalLength() / 2)
+        .matrixTransform(el.getScreenCTM()!);
+      return { x, y };
+    });
+  const { x, y } = await midpoint();
+  await page.mouse.click(x, y, { button: "right" });
+  await expect(menuItem("曲线")).toHaveAttribute("aria-checked", "true");
+  await expect(menuItem("单向箭头")).toHaveAttribute("aria-checked", "true");
+  await menuItem("折线").click();
+  await expect(path).toHaveAttribute("d", /^M .* L .* L .* L /);
+  await expect(hit).toHaveAttribute("d", (await path.getAttribute("d"))!);
+  await expect(hit).toBeFocused();
+  await hit.press("Shift+F10");
+  await menuItem("无箭头").click();
+  await expect(path).not.toHaveAttribute("marker-start");
+  await expect(path).not.toHaveAttribute("marker-end");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(path).toHaveAttribute("marker-end", /canvas-connection-arrow/);
+  await hit.press("Shift+F10");
+  await menuItem("双向箭头").click();
+  await expect(path).toHaveAttribute("marker-start", /canvas-connection-arrow/);
+  await expect(path).toHaveAttribute("marker-end", /canvas-connection-arrow/);
+
+  // Measure the marker actually painted by Chromium, excluding the connection stroke.
+  await page.addStyleTag({
+    content: ".connection-layer marker path { fill: #ff00ff; }",
+  });
+  const arrowWidth = async () => {
+    const end = await path.evaluate((el: SVGPathElement) => {
+      const { x, y } = el
+        .getPointAtLength(el.getTotalLength())
+        .matrixTransform(el.getScreenCTM()!);
+      return { x, y };
+    });
+    const shot = await page.screenshot({
+      clip: {
+        x: Math.round(end.x) - 14,
+        y: Math.round(end.y) - 8,
+        width: 14,
+        height: 16,
+      },
+    });
+    return page.evaluate(async (png) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${png}`;
+      await img.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0);
+      const { data } = ctx.getImageData(0, 0, img.width, img.height);
+      const columns = new Set<number>();
+      for (let i = 0; i < data.length; i += 4)
+        if (data[i] > 210 && data[i + 1] < 90 && data[i + 2] > 210)
+          columns.add((i / 4) % img.width);
+      return columns.size;
+    }, shot.toString("base64"));
+  };
+  const scale = () =>
+    hit.evaluate((el: SVGPathElement) => el.getScreenCTM()!.a);
+  const initialScale = await scale();
+  const initialWidth = await arrowWidth();
+  expect(initialWidth).toBeGreaterThanOrEqual(8);
+  await page.mouse.move(x, y);
+  await page.keyboard.down("Control");
+  await page.mouse.wheel(0, Math.log(2) / 0.006);
+  await page.keyboard.up("Control");
+  await expect.poll(scale).toBeLessThan(initialScale * 0.6);
+  const zoomRatio = (await scale()) / initialScale;
+  const zoomedWidth = await arrowWidth();
+  expect(zoomedWidth).toBeGreaterThan(0);
+  expect(Math.abs(zoomedWidth - initialWidth * zoomRatio)).toBeLessThanOrEqual(
+    1.5,
+  );
+
+  const bytes = await backup(page);
+  expect(JSON.parse(bytes.toString()).connections[0]).toMatchObject({
+    routing: "elbow",
+    arrowheads: "both",
+  });
+  await page.getByTestId("import").setInputFiles({
+    name: "styled-links.json",
+    mimeType: "application/json",
+    buffer: bytes,
+  });
+  await page.getByRole("button", { name: "确认替换" }).click();
+  await expect(path).toHaveAttribute("d", /^M .* L /);
+  await expect(path).toHaveAttribute("marker-start", /canvas-connection-arrow/);
+  await expect(path).toHaveAttribute("marker-end", /canvas-connection-arrow/);
+
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true });
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [await midpoint()],
+  });
+  await expect(menuItem("折线")).toHaveAttribute("aria-checked", "true");
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await menuItem("曲线").click();
+  await expect(path).toHaveAttribute("d", /^M .* C /);
+});
+
 test("border plus ports create persistent curves which follow moves and can be deleted or undone", async ({
   page,
 }) => {
@@ -275,7 +396,7 @@ test("Todo target highlights the nearest individual task border port at reduced 
   expect(board.connections[0].to.card).toBe("todo");
 });
 
-test("connections, drafts and minimap curves have target arrows that keep a usable size when zooming", async ({
+test("connections and drafts use canvas-sized arrows, and the minimap has its own marker", async ({
   page,
 }) => {
   await setup(page);
@@ -300,7 +421,8 @@ test("connections, drafts and minimap curves have target arrows that keep a usab
     "url(#canvas-connection-arrow)",
   );
   const marker = page.locator("#canvas-connection-arrow");
-  await expect(marker).toHaveAttribute("orient", "auto");
+  await expect(marker).toHaveAttribute("orient", "auto-start-reverse");
+  await expect(marker).toHaveAttribute("markerUnits", "userSpaceOnUse");
   await expect(marker).toHaveAttribute("refX", "10");
   const end = await path.evaluate((el) => {
     const p = el as SVGPathElement,
@@ -314,13 +436,7 @@ test("connections, drafts and minimap curves have target arrows that keep a usab
   );
   for (const key of ["-", "+", "+"]) {
     await page.keyboard.press(key);
-    const zoom = await page
-      .locator(".world")
-      .evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
-    expect(+(await marker.getAttribute("markerWidth"))! * zoom).toBeCloseTo(
-      10,
-      3,
-    );
+    await expect(marker).toHaveAttribute("markerWidth", "10");
   }
   await expect(
     page.locator('.save-indicator[data-state="已保存至本地"]'),

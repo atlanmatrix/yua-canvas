@@ -2,12 +2,8 @@ import { t as tr } from "./i18n";
 import { useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { type Card } from "./storage";
-import {
-  type Connection,
-  endpointPoint,
-  curve,
-  curveMidpoint,
-} from "./connections";
+import { connectionGeometry, type Connection } from "./connections";
+import { connectionMarkers } from "./ConnectionArrow";
 
 export function ConnectionView({
   connection,
@@ -17,6 +13,7 @@ export function ConnectionView({
   editorLayer,
   labelLayer,
   onSelect,
+  onOpenMenu,
   onReconnect,
   onKeyboardReconnect,
   onLabelChange,
@@ -28,6 +25,7 @@ export function ConnectionView({
   editorLayer: RefObject<HTMLDivElement | null>;
   labelLayer: RefObject<SVGSVGElement | null>;
   onSelect: () => void;
+  onOpenMenu: (point: { x: number; y: number }) => void;
   onReconnect?: (e: React.PointerEvent, end: "from" | "to") => void;
   onKeyboardReconnect: (end: "from" | "to") => void;
   onLabelChange: (label: string) => void;
@@ -38,14 +36,10 @@ export function ConnectionView({
   const finished = useRef(false);
   const hit = useRef<SVGPathElement>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const from = endpointPoint(connection.from, cards, offsets),
-    to = endpointPoint(connection.to, cards, offsets);
-  const d = curve(from, to, connection.from.side, connection.to.side);
-  const midpoint = curveMidpoint(
-    from,
-    to,
-    connection.from.side,
-    connection.to.side,
+  const { from, to, d, midpoint } = connectionGeometry(
+    connection,
+    cards,
+    offsets,
   );
   const edit = () => {
     onSelect();
@@ -71,7 +65,12 @@ export function ConnectionView({
           (selected ? "selected" : hovered ? "hovered" : "")
         }
         d={d}
-        markerEnd={`url(#canvas-connection-arrow${selected || hovered ? "-selected" : ""})`}
+        {...connectionMarkers(
+          connection.arrowheads,
+          selected || hovered
+            ? "canvas-connection-arrow-selected"
+            : "canvas-connection-arrow",
+        )}
       />
       <path
         ref={hit}
@@ -80,9 +79,18 @@ export function ConnectionView({
         role="button"
         aria-label={tr("选择连线")}
         aria-pressed={selected}
+        aria-haspopup="menu"
         tabIndex={0}
         onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " " || e.key === "F2") {
+          if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
+            e.preventDefault();
+            e.stopPropagation();
+            const matrix = e.currentTarget.getScreenCTM();
+            if (!e.repeat && matrix)
+              onOpenMenu(
+                new DOMPoint(midpoint.x, midpoint.y).matrixTransform(matrix),
+              );
+          } else if (e.key === "Enter" || e.key === " " || e.key === "F2") {
             e.preventDefault();
             e.stopPropagation();
             if (e.repeat) return;
@@ -131,6 +139,7 @@ export function ConnectionView({
                 type="button"
                 key={end}
                 className="connection-reconnect"
+                data-side={connection[end].side}
                 aria-label={tr(
                   end === "from" ? "拖动连线起点" : "拖动连线终点",
                 )}
@@ -191,6 +200,7 @@ export function ConnectionView({
           >
             <div
               className="connection-label"
+              data-connection-id={connection.id}
               onPointerEnter={() => setHovered(true)}
               onPointerLeave={() => setHovered(false)}
               onPointerDown={(e) => e.stopPropagation()}

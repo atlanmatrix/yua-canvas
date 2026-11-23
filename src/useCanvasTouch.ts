@@ -10,7 +10,7 @@ import type { View } from "./storage";
 type Point = { x: number; y: number };
 type Contact = Point & { start: Point; target: Element; moved: boolean };
 type Context = {
-  kind: "card" | "group" | "canvas";
+  kind: "card" | "group" | "canvas" | "connection";
   id: string;
   x: number;
   y: number;
@@ -201,14 +201,22 @@ export function useCanvasTouch(options: {
         const card = target.closest<HTMLElement>(
             "[data-card-id],[data-context-card-id]",
           ),
-          group = target.closest<HTMLElement>("[data-group-id]");
+          group = target.closest<HTMLElement>("[data-group-id]"),
+          connection = target.closest("[data-connection-id]");
         latest.current.onMenu({
           ...p,
-          kind: card ? "card" : group ? "group" : "canvas",
+          kind: card
+            ? "card"
+            : group
+              ? "group"
+              : connection
+                ? "connection"
+                : "canvas",
           id:
             card?.dataset.cardId ||
             card?.dataset.contextCardId ||
             group?.dataset.groupId ||
+            connection?.getAttribute("data-connection-id") ||
             "",
         });
       }, 550);
