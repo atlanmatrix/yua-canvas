@@ -19,6 +19,7 @@ export type Shortcut =
   | "parent"
   | "child"
   | "delete"
+  | "editLabel"
   | "open"
   | "mask"
   | "text"
@@ -36,6 +37,7 @@ const keys: Record<Shortcut, string[]> = {
   parent: ["mod", "↑"],
   child: ["mod", "↓"],
   delete: [mac ? "⌫" : "Del"],
+  editLabel: ["F2"],
   open: ["Enter"],
   mask: ["H"],
   text: ["N"],

@@ -198,6 +198,7 @@ import {
   type MagneticTarget,
   type Side,
   endpointPoint,
+  sameEndpoint,
 } from "./connections";
 import { useAutosave } from "./autosave";
 import { useAnimatedView } from "./useAnimatedView";
@@ -303,6 +304,7 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
       point: { x: number; y: number };
     } | null>(null),
     [selectedConnection, setSelectedConnection] = useState<string>(),
+    [editingConnection, setEditingConnection] = useState<string>(),
     [taskOffsets, setTaskOffsets] = useState<
       Record<string, { y: number; visible: boolean }>
     >({});
@@ -3000,6 +3002,12 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                       cards={board.cards}
                       offsets={taskOffsets}
                       selected={selectedConnectionIds.has(c.id)}
+                      editing={editingConnection === c.id}
+                      onEditingChange={(next) =>
+                        setEditingConnection((current) =>
+                          next ? c.id : current === c.id ? undefined : current,
+                        )
+                      }
                       onReconnect={
                         selectedConnection === c.id && !linkDraft
                           ? (e, end) =>
@@ -3446,6 +3454,15 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
             <ConnectionStyleMenu
               routing={menuConnection.routing}
               arrowheads={menuConnection.arrowheads}
+              hasLabel={!!menuConnection.label}
+              canReverse={
+                !(board.connections || []).some(
+                  (other) =>
+                    other.id !== menuConnection.id &&
+                    sameEndpoint(other.from, menuConnection.to) &&
+                    sameEndpoint(other.to, menuConnection.from),
+                )
+              }
               onChange={(style) => {
                 if (style)
                   setBoard(
@@ -3461,6 +3478,43 @@ function App({ preview3D = false }: { preview3D?: boolean }) {
                   );
                 setMenu(null);
                 connectionHit(menuConnection.id)?.focus({ preventScroll: true });
+              }}
+              onEditLabel={() => {
+                setMenu(null);
+                selectConnection(menuConnection.id);
+                setEditingConnection(menuConnection.id);
+              }}
+              onReverse={() => {
+                setBoard(
+                  (b) => ({
+                    ...b,
+                    connections: b.connections?.map((connection) =>
+                      connection.id === menuConnection.id
+                        ? {
+                            ...connection,
+                            from: connection.to,
+                            to: connection.from,
+                          }
+                        : connection,
+                    ),
+                  }),
+                  { preserveLayout: true },
+                );
+                setMenu(null);
+                connectionHit(menuConnection.id)?.focus({ preventScroll: true });
+              }}
+              onDelete={() => {
+                setBoard((b) => ({
+                  ...b,
+                  connections: b.connections?.filter(
+                    (connection) => connection.id !== menuConnection.id,
+                  ),
+                }));
+                setSelectedConnection(undefined);
+                setEditingConnection((current) =>
+                  current === menuConnection.id ? undefined : current,
+                );
+                setMenu(null);
               }}
             />
           ) : menu.kind === "canvas" ? (

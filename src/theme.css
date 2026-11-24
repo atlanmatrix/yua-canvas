@@ -295,6 +295,18 @@
   color: var(--muted);
   border-color: var(--border);
 }
+:root[data-theme="dark"] .connection-halo.hovered {
+  opacity: 0.2;
+}
+:root[data-theme="dark"] .connection-halo.selected {
+  opacity: 0.3;
+}
+:root[data-theme="dark"] .connection-label.hovered {
+  border-color: var(--accent-border);
+}
+:root[data-theme="dark"] .connection-label.selected {
+  border-color: var(--accent);
+}
 :root[data-theme="dark"] .cloud-conflict {
   background: #453b28;
   color: #f5e5bf;

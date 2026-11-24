@@ -307,6 +307,9 @@
   pointer-events: stroke;
   cursor: text;
 }
+.mind-link-hit:focus {
+  outline: none;
+}
 .mind-link-hit:focus-visible {
   stroke: var(--accent);
   stroke-opacity: 0.25;

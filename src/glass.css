@@ -316,7 +316,7 @@
   border: 1px solid var(--float-edge) !important;
 }
 :root[data-theme] body :is(.floating-button, .canvas3d-actions > button, .minimap-layer-view):where(:enabled:hover),
-:root[data-theme] body .context-menu button:not(.color-swatch, .danger):is(:enabled:hover, [aria-expanded="true"]),
+:root[data-theme] body .context-menu button:not(.color-swatch, .danger, .connection-style-option):is(:enabled:hover, [aria-expanded="true"]),
 :root[data-theme] body .settings-action:is(:enabled:hover, [aria-expanded="true"]) {
   background: var(--accent-tint);
   color: var(--accent-strong);
@@ -332,6 +332,110 @@
 :root[data-theme] body .context-menu .color-swatch[aria-checked="true"]::after { content: none; }
 :root[data-theme] body .context-menu .color-swatch[aria-checked="true"] {
   box-shadow: 0 0 0 1px var(--float-surface), 0 0 0 3px var(--accent);
+}
+:root[data-theme] body .connection-label.hovered {
+  border-color: var(--accent-border) !important;
+}
+:root[data-theme] body .connection-label.selected {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2.5px var(--accent-tint), var(--control-shadow);
+}
+:root[data-theme] body .context-menu:has(.connection-style-menu) {
+  width: 236px;
+}
+.connection-style-menu > .context-menu-section:has(.connection-style-grid) {
+  padding: 2px 2px 6px;
+}
+.connection-style-menu > .context-menu-section + .context-menu-section {
+  margin-top: 4px;
+  padding-top: 6px;
+}
+.connection-menu-heading {
+  padding: 2px 6px 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+.connection-style-grid {
+  display: grid;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--preference-track-surface);
+}
+.connection-style-routing {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.connection-style-arrows {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+:root[data-theme] body .context-menu .connection-style-option {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid transparent !important;
+  border-radius: 7px !important;
+  background: transparent;
+  color: var(--preference-label);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  box-shadow: none;
+  transition:
+    background-color var(--motion-state) var(--ease-state),
+    color var(--motion-state) var(--ease-state),
+    box-shadow var(--motion-state) var(--ease-state),
+    transform var(--motion-micro) var(--ease-state);
+}
+:root[data-theme] body .context-menu .connection-style-routing .connection-style-option {
+  flex-direction: row;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 8px;
+}
+:root[data-theme] body .context-menu .connection-style-arrows .connection-style-option {
+  flex-direction: column;
+  gap: 3px;
+  min-height: 44px;
+  padding: 6px 4px;
+  font-size: 11px;
+  line-height: 14px;
+}
+:root[data-theme] body .context-menu .connection-style-option:enabled:hover {
+  background: color-mix(in srgb, var(--preference-thumb-surface) 68%, transparent);
+  color: var(--ink);
+  filter: none;
+}
+:root[data-theme] body .context-menu .connection-style-option[aria-checked="true"] {
+  background: var(--preference-thumb-surface);
+  color: var(--preference-active-label);
+  font-weight: 600;
+  border-color: transparent !important;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 12%), 0 0 0 1px var(--float-edge);
+}
+:root[data-theme="dark"] body .context-menu .connection-style-option[aria-checked="true"] {
+  box-shadow: 0 1px 3px rgb(0 0 0 / 32%), 0 0 0 1px rgb(96 165 250 / 28%);
+}
+:root[data-theme] body .context-menu .connection-style-option[aria-checked="true"] .connection-style-glyph {
+  color: var(--accent);
+}
+:root[data-theme="dark"] body .context-menu .connection-style-option[aria-checked="true"] .connection-style-glyph {
+  color: var(--focus-color);
+}
+:root[data-theme] body .context-menu .connection-style-option:enabled:active {
+  transform: scale(0.97);
+}
+@media (pointer: coarse) {
+  :root[data-theme] body .context-menu .connection-style-routing .connection-style-option {
+    min-height: 40px;
+  }
+  :root[data-theme] body .context-menu .connection-style-arrows .connection-style-option {
+    min-height: 48px;
+  }
 }
 :root[data-theme] body :is(.floating-button, .bottom-tools button, .zoom-controls button, .canvas3d-actions > button):enabled:active {
   scale: .94;
@@ -377,7 +481,7 @@ dialog.modal::backdrop {
   .canvas3d-page { animation: menu-appear var(--motion-spatial) var(--ease-morph); }
 }
 @media (prefers-reduced-motion: reduce) {
-  :root[data-theme] body :is(.floating-button, .bottom-tools button, .zoom-controls button, .canvas3d-actions > button) { transition: none; }
+  :root[data-theme] body :is(.floating-button, .bottom-tools button, .zoom-controls button, .canvas3d-actions > button, .context-menu .connection-style-option) { transition: none; }
 }
 @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
   .modal-backdrop,

@@ -515,6 +515,12 @@ export const english: Record<string, string> = {
   无箭头: "No arrowheads",
   单向箭头: "One-way arrow",
   双向箭头: "Two-way arrows",
+  无: "None",
+  单向: "One-way",
+  双向: "Two-way",
+  连线操作: "Connection actions",
+  添加文字: "Add label",
+  反转方向: "Reverse direction",
   "聚焦连线时打开样式菜单，设置折线和箭头。也可右键或长按连线。":
     "Open the style menu for the focused connection to set its shape and arrowheads. You can also right-click or press and hold a connection.",
   使用说明: "Help",

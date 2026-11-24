@@ -1232,15 +1232,38 @@ body .file-detail-modal .file-content-editor {
   pointer-events: none;
   z-index: 1;
 }
+.connection-halo {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 10;
+  stroke-linecap: butt;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease, stroke-width 150ms ease;
+}
+.connection-halo.hovered {
+  opacity: 0.14;
+  stroke-width: 9;
+}
+.connection-halo.selected {
+  opacity: 0.22;
+  stroke-width: 10;
+}
 .connection-path {
   fill: none;
   stroke: var(--connection-color);
   stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
+  transition: stroke 150ms ease, stroke-width 150ms ease;
 }
 .connection-path.hovered {
   stroke: var(--accent);
+  stroke-width: 2.5;
 }
 .connection-path.selected {
   stroke: var(--accent);
@@ -1253,11 +1276,19 @@ body .file-detail-modal .file-content-editor {
 .connection-layer g:has(> .connection-hit:focus-visible) > .connection-path {
   stroke: var(--accent);
   stroke-width: 3.5px;
-  stroke-dasharray: 6 2;
 }
-.connection-hit:focus-visible { outline: none; }
+.connection-layer g:has(> .connection-hit:focus-visible) > .connection-halo {
+  opacity: 0.3;
+  stroke-width: 12;
+}
+.connection-hit,
+.connection-hit:focus,
+.connection-hit:focus-visible {
+  outline: none;
+}
 @media (forced-colors: active) {
   .connection-layer g:has(> .connection-hit:focus-visible) > .connection-path { stroke: Highlight; }
+  .connection-layer g:has(> .connection-hit:focus-visible) > .connection-halo { stroke: Highlight; opacity: 0.35; }
 }
 .connection-hit {
   fill: none;
@@ -1487,9 +1518,10 @@ body .file-detail-modal .file-content-editor {
   width: fit-content;
   max-width: 260px;
   margin: 3px auto;
+  border: 1px solid transparent;
   border-radius: 5px;
   background: white;
-  padding: 4px 8px;
+  padding: 3px 8px;
   color: var(--ink);
   font-size: 13px;
   line-height: 22px;
@@ -1499,6 +1531,14 @@ body .file-detail-modal .file-content-editor {
   cursor: text;
   pointer-events: auto;
   box-shadow: 0 1px 4px #33415512;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.connection-label.hovered {
+  border-color: var(--accent-border);
+}
+.connection-label.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2.5px var(--accent-tint), 0 2px 6px rgb(15 23 42 / 10%);
 }
 .connection-edit-layer {
   position: absolute;
@@ -2554,7 +2594,15 @@ body .context-submenu.shared-submenu {
 .is-captured .magnetic-field { opacity: 1; fill: color-mix(in srgb, var(--accent) 9%, transparent); }
 .magnetic-core { fill: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
-  .connection-port, .connecting .card, .magnetic-field { transition: none; }
+  .connection-port,
+  .connection-halo,
+  .connection-path,
+  .connection-label,
+  .connection-reconnect::after,
+  .connecting .card,
+  .magnetic-field {
+    transition: none;
+  }
 }
 
 /* Touch sockets stay available without hover; their larger hit area keeps the same anchor. */
@@ -2639,6 +2687,20 @@ body .context-submenu.shared-submenu {
   border: 2px solid var(--accent);
   border-radius: 50%;
   background: var(--surface);
+  box-shadow: 0 0 0 2.5px var(--accent-tint), 0 1px 4px rgb(15 23 42 / 18%);
+  transition: transform 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+.connection-reconnect:hover::after {
+  transform: scale(1.22);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 4px var(--accent-tint), 0 2px 6px rgb(37 99 235 / 26%);
+}
+.connection-reconnect:active {
+  cursor: grabbing;
+}
+.connection-reconnect:active::after {
+  transform: scale(1.1);
+  background: var(--accent);
 }
 .connection-reconnect[data-side="n"]::after { translate: 0 8px; }
 .connection-reconnect[data-side="e"]::after { translate: -8px 0; }

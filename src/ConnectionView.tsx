@@ -5,11 +5,60 @@ import { type Card } from "./storage";
 import { connectionGeometry, type Connection } from "./connections";
 import { connectionMarkers } from "./ConnectionArrow";
 
+function ConnectionLabelEditor({
+  initialValue,
+  midpoint,
+  onSave,
+  onCancel,
+}: {
+  initialValue: string;
+  midpoint: { x: number; y: number };
+  onSave: (value: string, restoreFocus: boolean) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initialValue);
+  const finished = useRef(false);
+  const commit = (restoreFocus: boolean) => {
+    if (finished.current) return;
+    finished.current = true;
+    onSave(value.trim(), restoreFocus);
+  };
+  return (
+    <input
+      className="connection-label-editor"
+      style={{ left: midpoint.x - 120, top: midpoint.y - 16 }}
+      aria-label={tr("连线文字")}
+      autoFocus
+      maxLength={1000}
+      value={value}
+      onFocus={(e) => e.target.select()}
+      onChange={(e) => setValue(e.target.value)}
+      onPointerDown={(e) => e.stopPropagation()}
+      onBlur={() => commit(false)}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit(true);
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          finished.current = true;
+          onCancel();
+        }
+      }}
+    />
+  );
+}
+
 export function ConnectionView({
   connection,
   cards,
   offsets,
   selected,
+  editing: controlledEditing,
+  onEditingChange,
   editorLayer,
   labelLayer,
   onSelect,
@@ -22,6 +71,8 @@ export function ConnectionView({
   cards: Card[];
   offsets: Record<string, { y: number; visible: boolean }>;
   selected: boolean;
+  editing?: boolean;
+  onEditingChange?: (editing: boolean) => void;
   editorLayer: RefObject<HTMLDivElement | null>;
   labelLayer: RefObject<SVGSVGElement | null>;
   onSelect: () => void;
@@ -31,9 +82,12 @@ export function ConnectionView({
   onLabelChange: (label: string) => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const [editing, setEditing] = useState(false),
-    [value, setValue] = useState("");
-  const finished = useRef(false);
+  const [localEditing, setLocalEditing] = useState(false);
+  const editing = controlledEditing ?? localEditing;
+  const setEditing = (next: boolean) => {
+    if (onEditingChange) onEditingChange(next);
+    else setLocalEditing(next);
+  };
   const hit = useRef<SVGPathElement>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const { from, to, d, midpoint } = connectionGeometry(
@@ -43,16 +97,9 @@ export function ConnectionView({
   );
   const edit = () => {
     onSelect();
-    finished.current = false;
-    setValue(connection.label || "");
     setEditing(true);
   };
-  const save = () => {
-    if (finished.current) return;
-    finished.current = true;
-    setEditing(false);
-    if (value.trim() !== (connection.label || "")) onLabelChange(value.trim());
-  };
+  const stateClass = selected ? "selected" : hovered ? "hovered" : "";
   return (
     <g
       data-connection-id={connection.id}
@@ -61,9 +108,13 @@ export function ConnectionView({
     >
       <path
         className={
-          "connection-path " +
-          (selected ? "selected" : hovered ? "hovered" : "")
+          "connection-halo" + (stateClass ? " " + stateClass : "")
         }
+        d={d}
+        aria-hidden="true"
+      />
+      <path
+        className={"connection-path " + stateClass}
         d={d}
         {...connectionMarkers(
           connection.arrowheads,
@@ -158,31 +209,18 @@ export function ConnectionView({
       {editing &&
         editorLayer.current &&
         createPortal(
-          <input
-            className="connection-label-editor"
-            style={{ left: midpoint.x - 120, top: midpoint.y - 16 }}
-            aria-label={tr("连线文字")}
-            autoFocus
-            maxLength={1000}
-            value={value}
-            onFocus={(e) => e.target.select()}
-            onChange={(e) => setValue(e.target.value)}
-            onPointerDown={(e) => e.stopPropagation()}
-            onBlur={save}
-            onKeyDown={(e) => {
-              e.stopPropagation();
-              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
-              if (e.key === "Enter") {
-                e.preventDefault();
-                save();
-                hit.current?.focus({ preventScroll: true });
-              }
-              if (e.key === "Escape") {
-                e.preventDefault();
-                finished.current = true;
-                setEditing(false);
-                hit.current?.focus({ preventScroll: true });
-              }
+          <ConnectionLabelEditor
+            key={connection.id}
+            initialValue={connection.label || ""}
+            midpoint={midpoint}
+            onSave={(trimmed, restoreFocus) => {
+              setEditing(false);
+              if (trimmed !== (connection.label || "")) onLabelChange(trimmed);
+              if (restoreFocus) hit.current?.focus({ preventScroll: true });
+            }}
+            onCancel={() => {
+              setEditing(false);
+              hit.current?.focus({ preventScroll: true });
             }}
           />,
           editorLayer.current,
@@ -199,7 +237,9 @@ export function ConnectionView({
             height={36}
           >
             <div
-              className="connection-label"
+              className={
+                "connection-label" + (stateClass ? " " + stateClass : "")
+              }
               data-connection-id={connection.id}
               onPointerEnter={() => setHovered(true)}
               onPointerLeave={() => setHovered(false)}

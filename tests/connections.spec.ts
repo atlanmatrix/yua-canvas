@@ -750,3 +750,90 @@ test("keyboard ports create, cancel and reconnect without changing the line hit 
   await page.keyboard.press("ControlOrMeta+z");
   await expect(line).toHaveAttribute("d", initial!);
 });
+
+test("selecting a connection uses a path halo without a rectangular outline, and its context menu supports label editing, reversing, and deleting", async ({
+  page,
+}) => {
+  await setup(page, 240);
+  const source = page.locator('.card[data-card-id="来源"]');
+  const target = page.locator('.card[data-card-id="目标"]');
+  await connect(page, source.locator(".port-e"), target.locator(".port-w"));
+  const hit = page.locator(".connection-hit");
+  const halo = page.locator(".connection-halo");
+  const path = page.locator(".connection-path:not(.draft)");
+  const midpoint = () =>
+    hit.evaluate((el: SVGPathElement) => {
+      const { x, y } = el
+        .getPointAtLength(el.getTotalLength() / 2)
+        .matrixTransform(el.getScreenCTM()!);
+      return { x, y };
+    });
+
+  // Mouse-clicking the line selects it with a path-following halo and no bounding-box outline.
+  const pt = await midpoint();
+  await page.mouse.click(pt.x, pt.y);
+  await expect(path).toHaveClass(/selected/);
+  await expect(halo).toHaveClass(/selected/);
+  await expect(hit).toHaveCSS("outline-style", "none");
+
+  // Right-click menu exposes segmented controls with horizontal arrow navigation and actions.
+  await page.mouse.click(pt.x, pt.y, { button: "right" });
+  const curveOption = page.getByRole("menuitemradio", {
+    name: "曲线",
+    exact: true,
+  });
+  const elbowOption = page.getByRole("menuitemradio", {
+    name: "折线",
+    exact: true,
+  });
+  await expect(curveOption).toHaveAttribute("aria-checked", "true");
+  await expect(curveOption).toHaveCSS("border-top-color", "rgba(0, 0, 0, 0)");
+  await curveOption.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(elbowOption).toBeFocused();
+
+  // Add a label from the context menu.
+  await page.getByRole("menuitem", { name: "添加文字" }).click();
+  const labelInput = page.getByRole("textbox", { name: "连线文字" });
+  await expect(labelInput).toBeFocused();
+  await labelInput.fill("同步数据");
+  await labelInput.press("Enter");
+  const label = page.locator(".connection-label");
+  await expect(label).toHaveText("同步数据");
+  await expect(label).toHaveClass(/selected/);
+
+  // Reopen menu by right-clicking the label: label action switches to "编辑文字" and reversing swaps endpoints.
+  await label.click({ button: "right" });
+  await expect(page.getByRole("menuitem", { name: "编辑文字" })).toBeVisible();
+  await page.getByRole("menuitem", { name: "反转方向", exact: true }).click();
+  await expect(hit).toBeFocused();
+  await expect(
+    page.locator('.save-indicator[data-state="已保存至本地"]'),
+  ).toBeVisible();
+  const reversed = await page.evaluate(
+    async () =>
+      (await (await import("/src/storage.ts")).readBoard())!.connections![0],
+  );
+  expect(reversed.from).toEqual({ card: "目标", side: "w" });
+  expect(reversed.to).toEqual({ card: "来源", side: "e" });
+  expect(reversed.label).toBe("同步数据");
+
+  // Undo restores original direction.
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        async () =>
+          (await (await import("/src/storage.ts")).readBoard())?.connections?.[0]
+            ?.from.card,
+      ),
+    )
+    .toBe("来源");
+
+  // Delete connection from context menu and undo.
+  await hit.press("Shift+F10");
+  await page.getByRole("menuitem", { name: "删除" }).click();
+  await expect(path).toHaveCount(0);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(path).toHaveCount(1);
+});
